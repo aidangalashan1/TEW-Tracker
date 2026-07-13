@@ -1,0 +1,266 @@
+﻿/* Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.search-input {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 7px 12px;
+  border-radius: var(--border-radius);
+  font-size: 13px;
+  font-family: var(--font-family);
+  min-width: 200px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.filter-select {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 7px 12px;
+  border-radius: var(--border-radius);
+  font-size: 13px;
+  font-family: var(--font-family);
+  outline: none;
+  cursor: pointer;
+}
+
+.filter-select:focus {
+  border-color: var(--accent);
+}
+.btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-family);
+  transition: all var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.btn.active {
+  background: var(--bg-tertiary);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn.primary:hover {
+  background: var(--accent-hover);
+}
+
+.welcome-start-btn {
+  padding: 10px 40px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Loading spinner */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.loading::after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-left: 10px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Toggle switch (used in CardEditor — different from .toggle-track in design-tokens.css) */
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--bg-secondary);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background var(--transition);
+  border: 1px solid var(--border-color);
+}
+
+.toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--text-primary);
+  border-radius: 50%;
+  transition: transform var(--transition);
+}
+
+.toggle.active .toggle-knob {
+  transform: translateX(18px);
+}
+
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  max-width: min(520px, 90vw);
+  width: max-content;
+  white-space: normal;
+  line-height: 1.5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 1000;
+  border: 1px solid var(--border-color);
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+}
+
+/* In popout headers, tooltips go below to avoid clipping */
+.popout-header [data-tooltip]::after {
+  bottom: auto;
+  top: calc(100% + 6px);
+}
+/* Generic input */
+.input {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: var(--border-radius);
+  font-size: 13px;
+  font-family: var(--font-family);
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+/* NavChip — underline only on hover */
+.nav-chip {
+  text-decoration: none;
+}
+
+.nav-chip:hover {
+  text-decoration: underline !important;
+}
+
+/* Manage View button â€” matches Add Module button style */
+.manage-view-btn {
+  border: 2px solid var(--text-primary);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  padding: 3px 10px;
+  font-size: 12px;
+  font-family: var(--font-family);
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.manage-view-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.manage-view-btn img {
+  width: 14px;
+  height: 14px;
+  filter: brightness(0) invert(1);
+}
+.status-tooltip::after {
+  bottom: auto !important;
+  left: calc(100% + 6px) !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+/* Worker images */
+.worker-thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}

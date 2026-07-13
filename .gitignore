@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-python/
+build-python/
+release/
+main.spec
+*.pyc
+__pycache__/
+*.exe
+*.mdb
+*.ldb
+*.xlsx
+*.docx
+*.psd

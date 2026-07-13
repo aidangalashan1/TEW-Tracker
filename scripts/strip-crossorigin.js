@@ -1,0 +1,5 @@
+const fs = require('fs')
+const path = require('path')
+const root = path.join(__dirname, '..')
+const html = fs.readFileSync(path.join(root, 'dist', 'index.html'), 'utf8')
+fs.writeFileSync(path.join(root, 'dist', 'index.html'), html.replace(/ crossorigin/g, ''))
