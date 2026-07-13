@@ -412,7 +412,6 @@ export const api = {
     browse: () => request<{path: string | null; cancelled: boolean}>('/database/browse', {
       method: 'POST',
     }),
-    auto: () => request<{ok: boolean; path: string | null; filename?: string; error?: string}>('/database/auto'),
     disconnect: () => request<{ok: boolean}>('/database/disconnect', {method: 'POST'}),
   },
 

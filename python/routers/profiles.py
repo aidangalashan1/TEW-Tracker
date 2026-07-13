@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from database import current_path, reconnect, auto_detect
+from database import current_path, reconnect
 
 router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 

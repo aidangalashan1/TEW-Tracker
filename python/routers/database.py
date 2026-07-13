@@ -48,25 +48,6 @@ def connect(req: ConnectRequest):
         raise HTTPException(500, f"Failed to connect: {e}")
 
 
-@router.get("/auto")
-def auto_connect():
-    from database import auto_detect
-    path = auto_detect()
-    if path:
-        try:
-            conn = get_connection(force_path=path)
-            init_store(path)
-            import database as db_mod
-            if db_mod._connection:
-                try: db_mod._connection.close()
-                except: pass
-                db_mod._connection = None
-            return {"ok": True, "path": path, "filename": os.path.basename(path)}
-        except Exception as e:
-            return {"ok": False, "path": path, "error": str(e)}
-    return {"ok": False, "path": None, "error": "No save file found in common locations"}
-
-
 @router.post("/browse")
 def browse():
     try:
