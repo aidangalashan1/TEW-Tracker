@@ -95,11 +95,13 @@ export function StatTile({ label, value, subtitle, tone = 'neutral' }: { label: 
 
 export interface StatCardDetail { label: string; value: string; tone?: Tone }
 
-/** The FM-style stat panel: icon + purple label, big number, subtitle, an
- *  optional gradient proportion bar, and optional divider + detail rows.
- *  Reserved for medium/large tiers — card/small stay on the denser StatTile. */
+/** The FM-style stat panel: icon + purple label (with an optional inline
+ *  trend sparkline), big number, subtitle, an optional gradient proportion
+ *  bar, and optional divider + detail rows. Every section is optional so the
+ *  same component packs tight at small tier or roomy at large — density
+ *  comes from filling it with real data, not from swapping components. */
 export function StatCard({
-  icon, label, value, valueTone = 'neutral', subtitle, proportion, details,
+  icon, label, value, valueTone = 'neutral', subtitle, proportion, details, sparkline, sparklineTone,
 }: {
   icon?: ReactNode
   label: string
@@ -108,10 +110,15 @@ export function StatCard({
   subtitle?: string
   proportion?: { pct: number; variant: 'income' | 'expense' | 'wage' | 'over'; tip: string }
   details?: StatCardDetail[]
+  sparkline?: number[]
+  sparklineTone?: Tone
 }) {
   return (
     <div className="flex-1 min-w-150 bg-card rounded border-default p-3 flex flex-col gap-2">
-      <CardLabel icon={icon}>{label}</CardLabel>
+      <div className="justify-between items-center">
+        <CardLabel icon={icon}>{label}</CardLabel>
+        {sparkline && sparkline.length > 1 && <MiniSparkline values={sparkline} tone={sparklineTone ?? valueTone} />}
+      </div>
       <div className={`text-2xl text-bold text-mono ${toneClass(valueTone)}`}>{value}</div>
       {subtitle && <div className="text-xs text-muted">{subtitle}</div>}
       {proportion && <ProportionBar pct={proportion.pct} variant={proportion.variant} tip={proportion.tip} />}

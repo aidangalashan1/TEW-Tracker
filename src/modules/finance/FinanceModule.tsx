@@ -421,16 +421,50 @@ export function FinanceModule({ data, tier }: ModuleRenderProps<FinanceModuleDat
     )
   }
 
+  const balanceHistory = data.history.history.map(h => h.balance)
+  const topIncome = data.breakdown.income.slice(0, 2)
+  const topExpense = data.breakdown.expense.slice(0, 2)
+
   if (tier === 'small') {
     return (
-      <div className="flex flex-col h-full p-2 gap-1">
-        <div className="text-xs text-semibold text-muted text-uppercase">Finance</div>
-        <div className="flex-1 grid grid-cols-2 gap-1">
-          <StatTile label="Balance" value={fmtMoney(balance)} />
-          <StatTile label="Net" value={fmtMoney(current.net)} tone={current.net >= 0 ? 'net-pos' : 'net-neg'} />
-          <StatTile label="Wages" value={fmtMoney(wage_bill.total)} tone="expense" />
-          <StatTile label="Standing" value={standing.total ? `#${standing.rank}` : '—'} />
+      <div className="flex flex-col h-full p-2 gap-2 overflow-auto">
+        <div className="grid grid-cols-2 gap-2">
+          <StatCard
+            icon={<IconCoin className="fin-card-icon" />} label="Balance" value={fmtMoney(balance)}
+            sparkline={balanceHistory} subtitle="Available cash"
+          />
+          <StatCard
+            icon={<IconTrend up={current.net >= 0} className="fin-card-icon" />} label="Profit / Loss"
+            value={fmtMoneyAccounting(current.net)} valueTone={current.net >= 0 ? 'net-pos' : 'net-neg'}
+            subtitle={`${current.margin}% margin`}
+          />
+          <StatCard
+            icon={<IconTag className="fin-card-icon" />} label="Wage Bill"
+            value={fmtMoney(wage_bill.total)} valueTone="expense"
+            proportion={{ pct: wage_bill.pct_of_income, variant: wage_bill.pct_of_income > 100 ? 'over' : 'wage', tip: `${wage_bill.pct_of_income}% of income` }}
+          />
+          <StatCard
+            icon={<IconShield className="fin-card-icon" />} label="Standing" value={standing.total ? `#${standing.rank}` : '—'}
+            subtitle={standing.total ? `of ${standing.total}` : ''}
+          />
         </div>
+        {(topIncome.length > 0 || topExpense.length > 0) && (
+          <div className="bg-card rounded border-default p-3 flex flex-col gap-2">
+            <CardLabel icon={<IconTrend up className="fin-card-icon" />}>Top Lines</CardLabel>
+            {topIncome.map(l => (
+              <div key={l.key} className="justify-between text-xs">
+                <span className="text-secondary truncate">{l.label}</span>
+                <span className="text-mono text-green">{fmtMoney(l.value)}</span>
+              </div>
+            ))}
+            {topExpense.map(l => (
+              <div key={l.key} className="justify-between text-xs">
+                <span className="text-secondary truncate">{l.label}</span>
+                <span className="text-mono text-red">{fmtMoney(l.value)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -443,6 +477,7 @@ export function FinanceModule({ data, tier }: ModuleRenderProps<FinanceModuleDat
         <div className="grid grid-cols-4 gap-3">
           <StatCard
             icon={<IconCoin className="fin-card-icon" />} label="Balance" value={fmtMoney(balance)} subtitle="Available cash"
+            sparkline={balanceHistory}
             details={[{ label: 'This period', value: fmtMoneyAccounting(current.net), tone: current.net >= 0 ? 'net-pos' : 'net-neg' }]}
           />
           <StatCard
