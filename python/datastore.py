@@ -347,8 +347,16 @@ def init_store(mdb_path: str) -> DataStore:
 
 
 def reset_store():
-    global _store, _watched_path, _last_mtime
-    _watcher_stop.set()  # stop the poll thread so it doesn't leak across disconnects
+    global _store, _watched_path, _last_mtime, _watcher_thread
+    _watcher_stop.set()  # signal the poll thread to stop
+    if _watcher_thread is not None:
+        # Wait for it to actually exit before returning — otherwise a
+        # reconnect's _ensure_watcher() can see the old (still-alive) thread
+        # and skip starting a new one, silently killing live-reload for the
+        # new connection. wait() inside _watch_loop returns immediately once
+        # the stop event is set, so this join is near-instant in practice.
+        _watcher_thread.join(timeout=POLL_INTERVAL + 1)
+        _watcher_thread = None
     with _lock:
         _store = None
         _watched_path = None
