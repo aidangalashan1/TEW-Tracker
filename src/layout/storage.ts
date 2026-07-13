@@ -1,27 +1,21 @@
 import { PageLayout, LayoutItemData } from './types'
 
 const STORAGE_KEY = 'tew-layouts'
-// Bumped 1 -> 2: the finances page moved from one monolithic `finance` module
-// to five focused finance-* modules — a stale layout referencing the removed
-// `finance` id would silently drop that tile, so force a reset to defaults.
-export const STORAGE_VERSION = 2
+// Bumped 2 -> 3: the module system was consolidated down to worker-list plus
+// one Finance module (was 15 modules, including 5 separate finance-* ones) —
+// a stale layout referencing any of the removed module ids would silently
+// drop that tile, so force a reset to defaults.
+export const STORAGE_VERSION = 3
 let _cachedBackendLayouts: Record<string, PageLayout> | null = null
 
 export function defaultLayout(page: string): PageLayout {
   const defaults: Record<string, LayoutItemData[]> = {
     roster: [
-      { i: 'top-workers-1', moduleId: 'top-workers', x: 0, y: 0, w: 4, h: 4 },
-      { i: 'worker-list-1', moduleId: 'worker-list', x: 4, y: 0, w: 12, h: 12 },
+      { i: 'worker-list-1', moduleId: 'worker-list', x: 0, y: 0, w: 16, h: 12 },
     ],
-    booking: [
-      { i: 'schedule-1', moduleId: 'schedule', x: 0, y: 0, w: 6, h: 10 },
-    ],
+    booking: [],
     finances: [
-      { i: 'finance-summary-1', moduleId: 'finance-summary', x: 0, y: 0, w: 16, h: 4 },
-      { i: 'finance-cashflow-1', moduleId: 'finance-cashflow', x: 0, y: 4, w: 10, h: 10 },
-      { i: 'finance-wages-1', moduleId: 'finance-wages', x: 10, y: 4, w: 6, h: 10 },
-      { i: 'finance-breakdown-1', moduleId: 'finance-breakdown', x: 0, y: 14, w: 10, h: 10 },
-      { i: 'finance-standing-1', moduleId: 'finance-standing', x: 10, y: 14, w: 6, h: 10 },
+      { i: 'finance-1', moduleId: 'finance', x: 0, y: 0, w: 10, h: 6 },
     ],
   }
   return { page, items: defaults[page] ?? [] }

@@ -57,3 +57,29 @@ export function fmtNum(n: number): string {
   if (n <= 0) return '-'
   return n.toLocaleString()
 }
+
+/** Adds a contract's remaining days to the game's current date (was top-workers). */
+export function calcContractExpiry(gameDate: string | null, daysLeft: number): string {
+  if (!gameDate || !daysLeft) return ''
+  const d = new Date(gameDate)
+  if (isNaN(d.getTime())) return ''
+  d.setDate(d.getDate() + daysLeft)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+/** Buckets items into contiguous labeled groups, in the order given — the
+ *  label function decides "Today"/"This Week"/month-name/etc; consecutive
+ *  items sharing a label join the same group (was schedule/show-history). */
+export function groupByLabel<T>(items: T[], labelFn: (item: T) => string): { label: string; items: T[] }[] {
+  const groups: { label: string; items: T[] }[] = []
+  let current: { label: string; items: T[] } | null = null
+  for (const item of items) {
+    const label = labelFn(item)
+    if (!current || current.label !== label) {
+      current = { label, items: [] }
+      groups.push(current)
+    }
+    current.items.push(item)
+  }
+  return groups
+}

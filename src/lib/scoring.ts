@@ -1,6 +1,51 @@
 /** Shared worker scoring utilities — used by the agent report and worker list columns. */
+import type { Worker } from '../api'
 
 function pct(r: any): number { return Number(r?.pct ?? 0) }
+
+/** Simple entertainment/primary averages for the roster popularity+talent
+ *  ranking (was top-workers module) — deliberately simpler than
+ *  calcPerformance/pillarScores below, kept separate rather than merged. */
+export function getEntertainmentAvg(w: Worker): number {
+  const s = w.skills
+  if (!s) return 0
+  return Math.round((s.charisma.pct + s.mic.pct + s.acting.pct + s.star.pct) / 4)
+}
+
+export function getPrimaryAvg(w: Worker): number {
+  const s = w.skills
+  if (!s) return 0
+  return Math.round((s.brawl.pct + s.puroresu.pct + s.hardcore.pct + s.technical.pct + s.air.pct) / 5)
+}
+
+export function getTalentScore(w: Worker): number {
+  return Math.round((getEntertainmentAvg(w) + getPrimaryAvg(w)) / 2)
+}
+
+const PRIMARY_STATS = [
+  ['Brawling', 'brawl'], ['Puroresu', 'puroresu'], ['Hardcore', 'hardcore'],
+  ['Technical', 'technical'], ['Aerial', 'air'],
+] as const
+
+export function getHighestPrimarySkill(w: Worker): { label: string; pct: number } | null {
+  const s = w.skills
+  if (!s) return null
+  let best: { label: string; pct: number } | null = null
+  for (const [label, key] of PRIMARY_STATS) {
+    const val = s[key]?.pct ?? 0
+    if (!best || val > best.pct) best = { label, pct: val }
+  }
+  return best
+}
+
+/** Ranks by popularity first, talent score as tiebreaker (was top-workers). */
+export function sortByPopularityThenTalent(workers: Worker[]): Worker[] {
+  return [...workers].sort((a, b) => {
+    const popDiff = b.pop.pct - a.pop.pct
+    if (popDiff !== 0) return popDiff
+    return getTalentScore(b) - getTalentScore(a)
+  })
+}
 
 export function calcPerformance(skills: any): number {
   if (!skills) return 0
