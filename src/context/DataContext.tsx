@@ -113,7 +113,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setGameInfo(info)
       setPlayerFed(fed)
       setAllFeds(fedsRes.feds)
-      setFocusedFed(prev => prev || fed)
+      // No player-controlled fed (a "watcher" save) is a valid state, not an
+      // error — fall back to the world's first fed so pages that need a
+      // fedUid (roster, etc.) have something real to show instead of going
+      // blank, rather than leaving focusedFed stuck on null or undefined.
+      setFocusedFed(prev => prev || fed || fedsRes.feds[0] || null)
       return { info, fed }
     } catch (e: any) {
       if (id === loadIdRef.current) setError(e.message || 'Failed to load game data')

@@ -385,7 +385,7 @@ export const api = {
   },
 
   fed: {
-    player: () => request<import('./api-types').Federation>('/fed/player'),
+    player: () => request<import('./api-types').Federation | null>('/fed/player'),
     detail: (uid: number) => request<import('./api-types').Federation>(`/fed/${uid}`),
     all: () => request<{feds: import('./api-types').Federation[]}>('/feds'),
     belts: (uid: number) => request<{belts: import('./api-types').Belt[]}>(`/fed/${uid}/belts`),

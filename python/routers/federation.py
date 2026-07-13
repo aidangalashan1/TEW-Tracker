@@ -6,11 +6,13 @@ router = APIRouter(prefix="/api/fed", tags=["federation"])
 
 @router.get("/player")
 def player_fed():
+    # No fed has User_Controlled set — a valid, common state (a "watcher"
+    # save with no player company), not an error. Return null so the
+    # frontend can treat it as Federation | null instead of a malformed
+    # error-shaped object masquerading as a Federation.
     uid = get_player_fed_uid()
     fed = get_fed(uid)
-    if fed is None:
-        return {"error": "No player-controlled federation found"}
-    return fed.model_dump()
+    return fed.model_dump() if fed else None
 
 @router.get("/list")
 def all_feds():
