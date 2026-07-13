@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { api, GameInfo, Federation, imageUrl } from '../api'
 import { UserPage } from '../pages/pageTypes'
 import { loadPages, savePages, defaultPages } from '../pages/pageStorage'
@@ -91,7 +91,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  // Guards against out-of-order responses: connectToDb() calls load()
+  // explicitly right after a reconnect, and the version-poll effect below
+  // can also fire one moments later. If two calls overlap and resolve out
+  // of order, the older one's results must not clobber the newer one's —
+  // otherwise a field (e.g. gameInfo's date) can end up showing stale data
+  // from the previous save while other fields correctly show the new one.
+  const loadIdRef = useRef(0)
+
   const load = useCallback(async () => {
+    const id = ++loadIdRef.current
     try {
       setLoading(true)
       setError(null)
@@ -100,16 +109,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         api.fed.player(),
         api.fed.all().catch(() => ({ feds: [] as Federation[] })),
       ])
+      if (id !== loadIdRef.current) return null
       setGameInfo(info)
       setPlayerFed(fed)
       setAllFeds(fedsRes.feds)
       setFocusedFed(prev => prev || fed)
       return { info, fed }
     } catch (e: any) {
-      setError(e.message || 'Failed to load game data')
+      if (id === loadIdRef.current) setError(e.message || 'Failed to load game data')
       return null
     } finally {
-      setLoading(false)
+      if (id === loadIdRef.current) setLoading(false)
     }
   }, [])
 
