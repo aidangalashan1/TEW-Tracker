@@ -115,7 +115,7 @@ class DataStore:
 
     def _temp_conn(self):
         return pyodbc.connect(
-            f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.mdb_path};PWD={_MDB_PASSWORD};ReadOnly=True;Exclusive=0;",
+            f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={self.mdb_path};PWD={_MDB_PASSWORD};ReadOnly=True;Exclusive=0;Pooling=False;",
             autocommit=True,
         )
 

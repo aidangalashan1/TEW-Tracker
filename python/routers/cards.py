@@ -5,22 +5,17 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
-from database import current_path
+from storage import cards_dir
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
 
 
 def _cards_dir() -> str:
-    mdb = current_path()
-    if not mdb:
-        return os.path.join(os.path.expanduser("~"), ".tew-tracker", "cards")
-    d = os.path.join(os.path.dirname(mdb), "tew-cards")
-    os.makedirs(d, exist_ok=True)
-    return d
+    return cards_dir()
 
 
 def _card_path(card_id: str) -> str:
-    return os.path.join(_cards_dir(), f"{card_id}.json")
+    return os.path.join(cards_dir(), f"{card_id}.json")
 
 
 def _read_card(card_id: str) -> dict:

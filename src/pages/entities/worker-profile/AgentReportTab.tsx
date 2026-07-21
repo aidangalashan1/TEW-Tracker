@@ -83,14 +83,16 @@ function buildProsCons(w: any, companyPop: number, focusedFed: any, playerFed: a
   if (psych >= A.solid) pros.push({t:psych >= A.elite ? 'Master psychologist.' : psych >= A.strong ? 'Excellent ring psychology.' : 'Knows how to work a crowd.', d:`Psychology: ${psych}/100.`, v:psych, icon:I.psych, impact:psych >= A.elite ? 4.0 : psych >= A.strong ? 2.5 : 1.0, isElite:psych >= A.elite})
   const exp = v2(pct(s.experience))
   if (exp >= A.strong) pros.push({t:'An experienced hand who delivers every night.', d:`Experience: ${exp}/100.`, v:exp, icon:I.experience, impact:2.0})
-  if (exp < 30) cons.push({t:'Green around the edges. Needs more ring time to develop.', d:`Experience: ${exp}/100.`, v:exp, icon:I.experience, impact:2.5})
-  const fl = v2(pct(s.flash))
-  if (fl >= A.strong) pros.push({t:'Crowd-pleasing moveset.', d:`Flashiness: ${fl}/100.`, v:fl, icon:I.flash, impact:2.5, isElite:fl >= 95})
+  if (exp < 30 && iW) cons.push({t:'Green around the edges. Needs more ring time to develop.', d:`Experience: ${exp}/100.`, v:exp, icon:I.experience, impact:2.5})
+  if (iW) {
+    const fl = v2(pct(s.flash))
+    if (fl >= A.strong) pros.push({t:'Crowd-pleasing moveset.', d:`Flashiness: ${fl}/100.`, v:fl, icon:I.flash, impact:2.5, isElite:fl >= 95})
+    const mn = v2(pct(s.menace)); const isMonster = mn >= A.strong || (v2(pct(s.power)) >= A.solid && v2(pct(s.brawl)) >= A.solid)
+    if (isMonster && mn >= A.strong) pros.push({t:mn >= 95 ? 'Terrifying presence.' : 'Intimidating presence.', d:`Menace: ${mn}/100.`, v:mn, icon:I.menace, impact:1.5, isElite:mn >= 95})
+  }
   const lk = v2(pct(s.looks))
   if (lk >= 95) pros.push({t:'Model good looks.', d:`Looks: ${lk}/100.`, v:lk, icon:I.looks, impact:2.5, isElite:true})
-  if (lk < A.poor) cons.push({t:'Has an unfortunate appearance.', d:`Looks: ${lk}/100.`, v:lk, icon:I.looks, impact:2.0})
-  const mn = v2(pct(s.menace)); const isMonster = mn >= A.strong || (v2(pct(s.power)) >= A.solid && v2(pct(s.brawl)) >= A.solid)
-  if (isMonster && mn >= A.strong) pros.push({t:mn >= 95 ? 'Terrifying presence.' : 'Intimidating presence.', d:`Menace: ${mn}/100.`, v:mn, icon:I.menace, impact:1.5, isElite:mn >= 95})
+  if (lk < A.poor && iW) cons.push({t:'Has an unfortunate appearance.', d:`Looks: ${lk}/100.`, v:lk, icon:I.looks, impact:2.0})
   if (isWorldClass2(v2(pct(s.charisma)), v2(pct(s.mic)), v2(pct(s.star)), psych)) pros.push({t:'World-class entertainer.', d:'Elite across multiple performance categories. A true global talent.', icon:I.worldClass, impact:5.0, isElite:true})
   
   if (iW) {
@@ -290,10 +292,12 @@ export function AgentReportTab(props: AgentReportTabProps) {
             <div className="items-center gap-6px">
               <span className="text-sm text-semibold text-muted">Current:</span>
               <Stars filled={stars.current} total={5} />
+              <span className="text-xs text-muted" style={{ fontVariantNumeric: 'tabular-nums' }}>({stars.currentScore})</span>
             </div>
             <div className="items-center gap-6px">
               <span className="text-sm text-semibold text-muted">Potential:</span>
               <Stars filled={stars.potential} total={5} />
+              <span className="text-xs text-muted" style={{ fontVariantNumeric: 'tabular-nums' }}>({stars.potentialScore})</span>
             </div>
           </div>
           <div>

@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from database import get_connection, current_path, browse_file, close as db_close
 from datastore import init_store, reset_store
-from images import get_image_root, auto_detect_image_root, set_image_root
+from images import get_image_root, auto_detect_image_root, set_image_root, clear_image_root
 
 router = APIRouter(prefix="/api/database", tags=["database"])
 
@@ -34,11 +34,6 @@ def connect(req: ConnectRequest):
     try:
         conn = get_connection(force_path=req.path)
         init_store(req.path)
-        import database as db_mod
-        if db_mod._connection:
-            try: db_mod._connection.close()
-            except: pass
-            db_mod._connection = None
         if not get_image_root():
             img = auto_detect_image_root(req.path)
             if img:
@@ -63,4 +58,5 @@ def browse():
 def disconnect():
     db_close()
     reset_store()
+    clear_image_root()
     return {"ok": True}

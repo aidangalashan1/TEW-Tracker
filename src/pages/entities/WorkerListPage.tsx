@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getModule } from '../../modules/registry'
 import { api } from '../../api'
 import { useApp } from '../../context/AppContext'
+import { WorkerListColumnTable } from '../../modules/worker-list/WorkerListTable'
+import { TeamsStablesTab } from './worker-list/TeamsStablesTab'
+import { ChampionsTab } from './worker-list/ChampionsTab'
 
-export function ModulePage({ moduleId }: { moduleId: string }) {
-  const { focusedFed, playerFed } = useApp()
+export function WorkerListPage() {
+  const { focusedFed, playerFed, rosterTab: tab } = useApp()
   const fed = focusedFed || playerFed
-  const def = getModule(moduleId)
   const [data, setData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [config, setConfig] = useState<Record<string, any>>({})
+  const [loading, setLoading] = useState(true)
   const workspaceRef = useRef<{ pages: any[]; layouts: Record<string, any> } | null>(null)
 
   useEffect(() => {
@@ -17,14 +18,14 @@ export function ModulePage({ moduleId }: { moduleId: string }) {
       workspaceRef.current = ws
       for (const pageId of Object.keys(ws.layouts)) {
         const page = ws.layouts[pageId]
-        const item = (page.items || []).find((it: any) => it.moduleId === moduleId)
+        const item = (page.items || []).find((it: any) => it.moduleId === 'worker-list')
         if (item?.config) {
           setConfig(item.config)
           return
         }
       }
     }).catch(() => {})
-  }, [moduleId])
+  }, [])
 
   const handleConfigChange = useCallback((cfg: Record<string, any>) => {
     setConfig(prev => {
@@ -33,7 +34,7 @@ export function ModulePage({ moduleId }: { moduleId: string }) {
       if (ws) {
         for (const pageId of Object.keys(ws.layouts)) {
           const page = ws.layouts[pageId]
-          const item = (page.items || []).find((it: any) => it.moduleId === moduleId)
+          const item = (page.items || []).find((it: any) => it.moduleId === 'worker-list')
           if (item) {
             item.config = { ...(item.config || {}), ...cfg }
             break
@@ -43,34 +44,22 @@ export function ModulePage({ moduleId }: { moduleId: string }) {
       }
       return next
     })
-  }, [moduleId])
+  }, [])
 
   useEffect(() => {
-    if (!fed || !def?.fetchData) { setLoading(false); return }
+    if (!fed) { setLoading(false); return }
     setLoading(true)
-    def.fetchData(fed.uid).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
-  }, [moduleId, fed?.uid])
-
-  if (!def) {
-    return (
-      <div style={{ padding: 24 }}>
-        <div style={{ color: 'var(--accent)' }}>Module not found: {moduleId}</div>
-      </div>
-    )
-  }
+    api.roster.list(fed.uid).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
+  }, [fed?.uid])
 
   if (loading) return <div className="loading" style={{ padding: 24 }}>Loading...</div>
+  if (!data?.workers) return <div className="text-muted" style={{ padding: 24 }}>No workers</div>
 
   return (
-    <div className="module-full" style={{ padding: 8 }}>
-      {def.render({
-        data,
-        width: 16,
-        height: 16,
-        tier: 'large',
-        config,
-        onConfigChange: handleConfigChange,
-      })}
+    <div style={{ height: '100%', overflow: 'hidden' }}>
+      {tab === 'workers' && <WorkerListColumnTable workers={data.workers} config={config} onConfigChange={handleConfigChange} />}
+      {tab === 'teams' && fed && <TeamsStablesTab fedUid={fed.uid} workers={data.workers} />}
+      {tab === 'champions' && fed && <ChampionsTab fedUid={fed.uid} workers={data.workers} />}
     </div>
   )
 }

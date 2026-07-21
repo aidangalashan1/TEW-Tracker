@@ -75,3 +75,20 @@ export function seedLayoutsFromBackend(layouts: Record<string, any>): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore))
   } catch {}
 }
+
+const ACTIVE_VIEW_KEY = 'tew-active-view-id'
+
+/** The named view (Views feature) currently "pinned" as this install's
+ *  active view, if any. Absent means: no view is pinned, pages just use
+ *  their ambient auto-saved layout (today's default behavior, unchanged). */
+export function getActiveViewId(): string | null {
+  try { return localStorage.getItem(ACTIVE_VIEW_KEY) } catch { return null }
+}
+
+export function setActiveViewId(id: string): void {
+  try { localStorage.setItem(ACTIVE_VIEW_KEY, id) } catch {}
+}
+
+export function clearActiveViewId(): void {
+  try { localStorage.removeItem(ACTIVE_VIEW_KEY) } catch {}
+}

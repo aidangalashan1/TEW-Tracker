@@ -19,7 +19,7 @@ def get_connection(force_path: str = None):
                 pass
             _connection = None
         _connection = pyodbc.connect(
-            f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};PWD={_MDB_PASSWORD};ReadOnly=True;Exclusive=0;",
+            f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};PWD={_MDB_PASSWORD};ReadOnly=True;Exclusive=0;Pooling=False;",
             autocommit=True,
         )
         _current_path = path

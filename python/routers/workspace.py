@@ -5,19 +5,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from typing import Any
-from database import current_path
+from storage import workspace_path
 
 router = APIRouter(prefix="/api/workspace", tags=["workspace"])
 
 
 def _workspace_path() -> str:
-    mdb = current_path()
-    if not mdb:
-        d = os.path.join(os.path.expanduser("~"), ".tew-tracker")
-    else:
-        d = os.path.join(os.path.dirname(mdb), "tew-workspace")
-    os.makedirs(d, exist_ok=True)
-    return os.path.join(d, "workspace.json")
+    return workspace_path()
 
 
 def _load() -> dict:

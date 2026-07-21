@@ -4,7 +4,7 @@ import type { RatingData } from '../api'
 export function RatingBadge({ rating }: { rating: RatingData }) {
   const { ratingFormat } = useApp()
   const display = ratingFormat === 'pct' ? rating.pct : rating.grade
-  return <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700 }}>{display}</span>
+  return <span>{display}</span>
 }
 
 export function RatingValue({ value }: { value: number }) {
@@ -23,5 +23,5 @@ export function RatingValue({ value }: { value: number }) {
     return 'F'
   })()
   const display = ratingFormat === 'pct' ? pct : grade
-  return <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700 }}>{display}</span>
+  return <span>{display}</span>
 }

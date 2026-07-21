@@ -6,21 +6,14 @@ import json
 from datetime import datetime, timezone
 from fastapi import APIRouter
 from pydantic import BaseModel
-from database import current_path
 from datastore import get_store
+from storage import shortlist_path
 
 router = APIRouter(prefix="/api/shortlist", tags=["shortlist"])
 
 
 def _path() -> str:
-    mdb = current_path()
-    d = (
-        os.path.join(os.path.dirname(mdb), "tew-shortlist")
-        if mdb
-        else os.path.join(os.path.expanduser("~"), ".tew-tracker", "shortlist")
-    )
-    os.makedirs(d, exist_ok=True)
-    return os.path.join(d, "shortlist.json")
+    return shortlist_path()
 
 
 def _read() -> list[dict]:

@@ -5,22 +5,13 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from database import current_path
+from storage import views_dir
 
 router = APIRouter(prefix="/api/views", tags=["views"])
 
 
-def _views_dir() -> str:
-    mdb = current_path()
-    if not mdb:
-        return os.path.join(os.path.expanduser("~"), ".tew-tracker", "views")
-    d = os.path.join(os.path.dirname(mdb), "tew-views")
-    os.makedirs(d, exist_ok=True)
-    return d
-
-
 def _view_path(view_id: str) -> str:
-    return os.path.join(_views_dir(), f"{view_id}.json")
+    return os.path.join(views_dir(), f"{view_id}.json")
 
 
 def _read_view(view_id: str) -> dict:
@@ -58,7 +49,7 @@ class ViewUpdate(BaseModel):
 
 @router.get("")
 def list_views():
-    d = _views_dir()
+    d = views_dir()
     views = []
     for fname in sorted(os.listdir(d)):
         if fname.endswith(".json"):

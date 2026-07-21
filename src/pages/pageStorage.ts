@@ -4,8 +4,11 @@ const STORAGE_KEY = 'tew-pages'
 const STORAGE_VERSION = 1
 let _cached: UserPage[] | null = null
 
+export const WORKER_LIST_PAGE_ID = 'entity-module-worker-list'
+
 export function defaultPages(): UserPage[] {
   return [
+    { id: WORKER_LIST_PAGE_ID, label: 'Roster' },
     { id: 'roster', label: 'Roster' },
     { id: 'booking', label: 'Booking' },
     { id: 'finances', label: 'Finances' },

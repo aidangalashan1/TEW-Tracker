@@ -9,6 +9,7 @@ export interface RecentDb {
   last_accessed: string
   company?: string
   gameDate?: string
+  imagePath?: string
 }
 
 interface DbState {
@@ -80,10 +81,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return images.configured ? imageUrl(relativePath) : ''
   }, [images.configured])
 
-  const addRecent = useCallback((path: string, extra?: { company?: string; gameDate?: string }) => {
+  const addRecent = useCallback((path: string, extra?: { company?: string; gameDate?: string; imagePath?: string }) => {
     setRecentDbs(prev => {
+      const existing = prev.find(d => d.path === path)
       const filename = path.split(/[/\\]/).pop() || path
       const entry: RecentDb = { path, filename, last_accessed: new Date().toISOString(), ...extra }
+      if (!extra?.imagePath && existing?.imagePath) entry.imagePath = existing.imagePath
       const filtered = prev.filter(d => d.path !== path)
       const next = [entry, ...filtered].slice(0, MAX_RECENT)
       saveRecents(next)
@@ -132,11 +135,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       await api.db.connect(path)
       setDb({connected: true, path, loading: false})
-      await api.images.status().then(s => setImages({configured: s.configured, path: s.path})).catch(() => {})
+      const imgStatus = await api.images.status().catch(() => ({configured: false, path: ''}))
+      setImages({configured: imgStatus.configured, path: imgStatus.path})
       const data = await load()
       addRecent(path, {
         company: data?.fed?.name,
         gameDate: data?.info?.current_date ?? undefined,
+        imagePath: imgStatus.path || undefined,
       })
     } catch (e: any) {
       setDb(prev => ({ ...prev, loading: false }))
@@ -147,7 +152,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const setImagePath = useCallback(async (path: string) => {
     await api.images.setPath(path)
     setImages({configured: !!path, path})
-  }, [])
+    addRecent(db.path, { imagePath: path || undefined })
+  }, [db.path, addRecent])
 
   const disconnectFromDb = useCallback(async () => {
     try {
@@ -173,6 +179,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           api.db.status(),
           api.images.status().catch(() => ({configured: false, path: ''})),
         ])
+        if (!imgStatus.configured && s.connected && s.path) {
+          const saved = loadRecents().find(d => d.path === s.path && d.imagePath)
+          if (saved?.imagePath) {
+            try { await api.images.setPath(saved.imagePath); imgStatus.path = saved.imagePath; imgStatus.configured = true } catch {}
+          }
+        }
         setImages({configured: imgStatus.configured, path: imgStatus.path})
         if (s.connected && s.path) {
           setDb({connected: true, path: s.path, loading: false})
@@ -204,6 +216,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [addPageRaw])
 
   const removePageRaw = useCallback((id: string) => {
+    if (id === 'entity-module-worker-list') return false
     let removed = false
     setPages(prev => {
       const next = prev.filter(p => p.id !== id)

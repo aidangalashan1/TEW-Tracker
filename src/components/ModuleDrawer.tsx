@@ -16,7 +16,7 @@ export function ModuleDrawer({ open, onClose, onAdd }: ModuleDrawerProps) {
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="drawer-body">
-          {getAllModules().map(m => (
+          {getAllModules().filter(m => !m.hideFromDashboard).map(m => (
             <div key={m.id} className="module-picker-item" onClick={() => onAdd(m.id)}>
               <span className="module-picker-icon">{m.icon}</span>
               <div>

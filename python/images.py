@@ -12,6 +12,11 @@ def set_image_root(path: str | None):
         _image_root = path
 
 
+def clear_image_root():
+    global _image_root
+    _image_root = None
+
+
 def get_image_root() -> str | None:
     return _image_root
 

@@ -99,3 +99,9 @@
   color: var(--text-primary);
 }
 
+.context-menu-separator {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+}
+

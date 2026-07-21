@@ -18,9 +18,30 @@ import roadAgentIcon from '../../../assets/UI icons/roadagent.png'
 import { REGION_NAMES, AREAS } from '../regions'
 import { ColumnDef } from './types'
 import { StatusBadge, MoneyDisplay, conditionHeart, condPctBar, AvgCell, Last5Cell, fmtDuration, fmtDurationHm } from './renderers'
-import { calcCurrentScore, calcPotentialScore, starsFromScore } from '../../../lib/scoring'
+import { starLabel, isWrestler } from '../../../lib/scoring'
 import { COLOR_MALE, COLOR_FACE, COLOR_HEEL } from '../../../lib/colors'
 import starIcon from '../../../assets/UI icons/star.png'
+
+function StarDisplay({ stars, isWrestler: iw }: { stars: number; isWrestler: boolean }) {
+  const cls = iw ? 'filter-star-gold' : 'filter-star-silver'
+  return (
+    <span className="inline-flex items-center gap-1px">
+      {Array.from({ length: 5 }, (_, i) => {
+        const remainder = stars - i
+        if (remainder >= 1) return <img key={i} src={starIcon} alt="" className={`w-14 h-14 ${cls}`} />
+        if (remainder >= 0.5) return (
+          <span key={i} className="relative inline-block w-14 h-14">
+            <img src={starIcon} alt="" className="w-14 h-14 absolute inset-0 filter-dark-30" />
+            <span className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
+              <img src={starIcon} alt="" className={`w-14 h-14 ${cls}`} />
+            </span>
+          </span>
+        )
+        return <img key={i} src={starIcon} alt="" className="w-14 h-14 filter-dark-30" />
+      })}
+    </span>
+  )
+}
 
 export function buildColumns(): ColumnDef[] {
   return [
@@ -44,7 +65,7 @@ export function buildColumns(): ColumnDef[] {
     } },
     { id: 'nat', label: 'Nationality', abbrev: 'Nat', width: 28, group: 'info', filterGroup: 'personal', sortKey: 'nat', render: w => {
       const code = NATIONALITY_FLAGS[w.nationality]
-      if (!code) return <span className="text-muted text-xs">—</span>
+      if (!code) return <span>—</span>
       const flagUrl = new URL(`../../../assets/flag-icons-main/flags/4x3/${code}.svg`, import.meta.url).href
       return <div className="flex-center h-full">
         <img src={flagUrl} alt="" className="w-20 h-15 object-cover rounded-xs" />
@@ -56,7 +77,7 @@ export function buildColumns(): ColumnDef[] {
       const p = (w.contract as any)?.Perception ?? 0
       const labels: Record<number, string> = { 0: 'No Perception', 1: 'Major Star', 2: 'Star', 3: 'Well Known', 4: 'Recognisable', 5: 'Unimportant' }
       const colors: Record<number, string> = { 1: 'var(--accent-green)', 2: 'var(--accent-blue)', 3: '#fbbf24', 4: '#94a3b8', 5: '#64748b' }
-      return <span className="text-semibold text-sm" style={{ color: colors[p] || 'var(--text-muted)' }}>{labels[p] || 'Unknown'}</span>
+      return <span style={{ color: colors[p] || 'var(--text-muted)' }}>{labels[p] || 'Unknown'}</span>
     } },
     { id: 'role', label: 'Role', width: 60, group: 'info', filterGroup: 'creative', sortKey: 'role', render: w => {
       const roleIcons: Record<string, string> = {
@@ -72,7 +93,7 @@ export function buildColumns(): ColumnDef[] {
           if (!icon) return null
           return <span key={p} data-tooltip={p} className="role-tooltip inline-flex"><img src={icon} alt={p} className="w-18 h-18" style={{ filter: 'brightness(0) invert(0.7)' }} /></span>
         })}
-        {w.positions.length === 0 && <span className="text-muted text-sm">—</span>}
+        {w.positions.length === 0 && <span>—</span>}
       </div>
     } },
     { id: 'dispo', label: 'Disposition', abbrev: 'Disp', width: 70, group: 'info', filterGroup: 'creative', sortKey: 'dispo', render: w => {
@@ -84,11 +105,11 @@ export function buildColumns(): ColumnDef[] {
       </div>
     } },
     { id: 'storyline', label: 'Storyline', abbrev: 'Story', width: 140, group: 'info', filterGroup: 'creative', sortKey: 'storyline', render: w => {
-      if (!w.storylines || w.storylines.length === 0) return <span className="text-muted">—</span>
-      return <span className="text-sm cursor-pointer text-primary" onClick={e => { e.stopPropagation() }}>{w.storylines[0].storyline_name}</span>
+      if (!w.storylines || w.storylines.length === 0) return <span>—</span>
+      return <span className="cursor-pointer" onClick={e => { e.stopPropagation() }}>{w.storylines[0].storyline_name}</span>
     } },
     { id: 'storyline_with', label: 'In Storyline With', abbrev: 'With', width: 140, group: 'info', filterGroup: 'creative', render: w => {
-      if (!w.storylines || w.storylines.length === 0) return <span className="text-muted">—</span>
+      if (!w.storylines || w.storylines.length === 0) return <span>—</span>
       const myAlignment = w.storylines[0].involved_with.find(i => i.uid === w.uid)?.alignment
       let names = w.storylines[0].involved_with
         .filter(i => i.uid !== w.uid && i.major_role)
@@ -96,8 +117,8 @@ export function buildColumns(): ColumnDef[] {
         .map(i => i.name).filter(Boolean).sort()
       if (names.length === 0) names = w.storylines[0].involved_with.filter(i => i.uid !== w.uid && i.major_role).map(i => i.name).filter(Boolean).sort()
       if (names.length === 0) names = w.storylines[0].involved_with.filter(i => i.uid !== w.uid).map(i => i.name).filter(Boolean).sort()
-      if (names.length === 0) return <span className="text-muted">—</span>
-      return <span className="text-sm cursor-pointer text-primary" onClick={e => { e.stopPropagation() }}>{names.join(', ')}</span>
+      if (names.length === 0) return <span>—</span>
+      return <span className="cursor-pointer" onClick={e => { e.stopPropagation() }}>{names.join(', ')}</span>
     } },
     { id: 'storyline_heat', label: 'Storyline Heat', abbrev: 'Heat', width: 52, group: 'info', filterGroup: 'creative', sortKey: 'storyline_heat', render: w => {
       if (!w.storylines || w.storylines.length === 0) return null
@@ -168,27 +189,27 @@ export function buildColumns(): ColumnDef[] {
       return <span>{fmtDurationHm(w.performance.total_duration)}</span>
     } },
     { id: 'tag_team', label: 'Tag Team', abbrev: 'Tag', width: 110, group: 'info', filterGroup: 'creative', render: w => {
-      if (!w.tag_teams || w.tag_teams.length === 0) return <span className="text-muted">—</span>
-      return <span className="text-sm text-primary">{w.tag_teams.map(t => `${t.name} (${t.partner_name})`).join(', ')}</span>
+      if (!w.tag_teams || w.tag_teams.length === 0) return <span>—</span>
+      return <span>{w.tag_teams.map(t => `${t.name} (${t.partner_name})`).join(', ')}</span>
     } },
     { id: 'stable', label: 'Stable', abbrev: 'Stbl', width: 100, group: 'info', filterGroup: 'creative', render: w => {
-      if (!w.stables || w.stables.length === 0) return <span className="text-muted">—</span>
-      return <span className="text-sm text-primary">{w.stables.map(s => s.leader ? `${s.name} (L)` : s.name).join(', ')}</span>
+      if (!w.stables || w.stables.length === 0) return <span>—</span>
+      return <span>{w.stables.map(s => s.leader ? `${s.name} (L)` : s.name).join(', ')}</span>
     } },
     { id: 'chemistry', label: 'Chemistry', abbrev: 'Chem', width: 110, group: 'info', filterGroup: 'creative', render: w => {
-      if (!w.chemistry || w.chemistry.length === 0) return <span className="text-muted">—</span>
+      if (!w.chemistry || w.chemistry.length === 0) return <span>—</span>
       const pos = w.chemistry.filter(c => c.chemistry > 0)
       const neg = w.chemistry.filter(c => c.chemistry < 0)
-      return <span className="text-sm flex flex-col gap-1px">
+      return <span className="flex flex-col gap-1px">
         {pos.length > 0 && <span className="text-green">+ {pos.map(c => c.worker_name).join(', ')}</span>}
         {neg.length > 0 && <span className="text-red">− {neg.map(c => c.worker_name).join(', ')}</span>}
       </span>
     } },
 
     { id: 'wage', label: 'Wage', width: 70, group: 'contract', filterGroup: 'contract', render: w => <MoneyDisplay amount={w.contract?.amount ?? 0} />, sortKey: 'amount' },
-    { id: 'contract', label: 'Contract', width: 90, group: 'contract', filterGroup: 'contract', render: w => w.contract ? <span>{w.contract.written ? 'Written' : 'Open'}{w.contract.exclusive ? '/Exclusive' : ''}</span> : '—' },
+    { id: 'contract', label: 'Contract', width: 90, group: 'contract', filterGroup: 'contract', render: w => w.contract ? <span>{w.contract.written ? 'Written' : 'Open'}{w.contract.exclusive ? '/Exclusive' : ''}</span> : <span>—</span> },
     { id: 'expiry', label: 'Expiry', width: 100, group: 'contract', filterGroup: 'contract', render: w => {
-      if (!w.contract) return <span className="text-muted">—</span>
+      if (!w.contract) return <span>—</span>
       const d = w.contract.days_left
       const cls = d <= 30 ? 'worker-list-expiry-critical' : d <= 90 ? 'worker-list-expiry-warning' : d <= 180 ? 'worker-list-expiry-soon' : ''
       return <span className={cls}>{`${d}d`}</span>
@@ -283,65 +304,25 @@ export function buildColumns(): ColumnDef[] {
       return v != null ? <RatingBadge rating={{ raw: v, pct: Math.round(v / 10), grade: '' }} /> : null
     }, sortKey: 'booking_skill' },
 
-    { id: 'current_ability', label: 'Ability', abbrev: 'Abil', width: 70, group: 'performance', filterGroup: 'stats', sortKey: 'current_ability', render: w => {
-      const cs = calcCurrentScore(w)
-      if (!cs) return null
-      const stars = starsFromScore(cs)
-      return (
-        <span className="inline-flex items-center gap-1px">
-          {Array.from({ length: 5 }, (_, i) => {
-            const remainder = stars - i
-            if (remainder >= 1) return <img key={i} src={starIcon} alt="" className="w-14 h-14 filter-star-gold" />
-            if (remainder >= 0.5) return (
-              <span key={i} className="relative inline-block w-14 h-14">
-                <img src={starIcon} alt="" className="w-14 h-14 absolute inset-0 filter-dark-30" />
-                <span className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
-                  <img src={starIcon} alt="" className="w-14 h-14 filter-star-gold" />
-                </span>
-              </span>
-            )
-            return <img key={i} src={starIcon} alt="" className="w-14 h-14 filter-dark-30" />
-          })}
-        </span>
-      )
+    { id: 'current_ability', label: 'Ability', abbrev: 'Abil', width: 80, group: 'performance', filterGroup: 'stats', sortKey: 'current_ability', render: w => {
+      const stars = w.current_stars || 0
+      if (!stars) return null
+      return <StarDisplay stars={stars} isWrestler={isWrestler(w)} />
     } },
-    { id: 'potential_ability', label: 'Potential', abbrev: 'Pot', width: 70, group: 'performance', filterGroup: 'stats', sortKey: 'potential_ability', render: w => {
-      const ps = calcPotentialScore(w)
-      if (!ps) return null
-      const stars = starsFromScore(ps)
-      return (
-        <span className="inline-flex items-center gap-1px">
-          {Array.from({ length: 5 }, (_, i) => {
-            const remainder = stars - i
-            if (remainder >= 1) return <img key={i} src={starIcon} alt="" className="w-14 h-14 filter-star-gold" />
-            if (remainder >= 0.5) return (
-              <span key={i} className="relative inline-block w-14 h-14">
-                <img src={starIcon} alt="" className="w-14 h-14 absolute inset-0 filter-dark-30" />
-                <span className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
-                  <img src={starIcon} alt="" className="w-14 h-14 filter-star-gold" />
-                </span>
-              </span>
-            )
-            return <img key={i} src={starIcon} alt="" className="w-14 h-14 filter-dark-30" />
-          })}
-        </span>
-      )
+    { id: 'potential_ability', label: 'Potential', abbrev: 'Pot', width: 80, group: 'performance', filterGroup: 'stats', sortKey: 'potential_ability', render: w => {
+      const stars = w.potential_stars || 0
+      if (!stars) return null
+      return <StarDisplay stars={stars} isWrestler={isWrestler(w)} />
     } },
-    { id: 'current_usage', label: 'Usage', abbrev: 'Use', width: 80, group: 'performance', filterGroup: 'stats', sortKey: 'current_usage', render: w => {
-      const cs = calcCurrentScore(w)
-      if (!cs) return <span className="text-muted text-xs">—</span>
-      const stars = starsFromScore(cs)
-      const labels = ['Barely a Wrestler', 'Deadwood', 'Jobber', 'Opener', 'Lower Midcarder', 'Midcarder', 'Occasional Closer', 'Regular Main Eventer', 'Buildaround Star', 'Generational Talent']
-      const idx = Math.min(9, Math.max(0, Math.round(stars * 2 - 2)))
-      return <span className="text-xs text-semibold text-primary truncate" title={labels[idx]}>{labels[idx]}</span>
+    { id: 'current_usage', label: 'Usage', abbrev: 'Use', width: 140, group: 'performance', filterGroup: 'stats', sortKey: 'current_usage', render: w => {
+      const stars = w.current_stars || 0
+      if (!stars) return <span>—</span>
+      return <span className="truncate" title={starLabel(w, stars, false)}>{starLabel(w, stars, false)}</span>
     } },
-    { id: 'potential_usage', label: 'Pot. Usage', abbrev: 'PotUse', width: 80, group: 'performance', filterGroup: 'stats', sortKey: 'potential_usage', render: w => {
-      const ps = calcPotentialScore(w)
-      if (!ps) return <span className="text-muted text-xs">—</span>
-      const stars = starsFromScore(ps)
-      const labels = ['Barely a Wrestler', 'Deadwood', 'Jobber', 'Opener', 'Lower Midcarder', 'Midcarder', 'Occasional Closer', 'Regular Main Eventer', 'Buildaround Star', 'Generational Talent']
-      const idx = Math.min(9, Math.max(0, Math.round(stars * 2 - 2)))
-      return <span className="text-xs text-semibold text-primary truncate" title={labels[idx]}>{labels[idx]}</span>
+    { id: 'potential_usage', label: 'Pot. Usage', abbrev: 'PotUse', width: 140, group: 'performance', filterGroup: 'stats', sortKey: 'potential_usage', render: w => {
+      const stars = w.potential_stars || 0
+      if (!stars) return <span>—</span>
+      return <span className="truncate" title={starLabel(w, stars, true)}>{starLabel(w, stars, true)}</span>
     } },
 
     { id: 'condition', label: 'Condition', abbrev: 'Cond.', width: 50, group: 'info', filterGroup: 'medical', sortKey: 'condition', render: conditionHeart },
@@ -365,12 +346,12 @@ export function buildColumns(): ColumnDef[] {
     { id: 'draws', label: 'Draws', abbrev: 'D', width: 36, group: 'record', filterGroup: 'creative', render: w => <span>{w.win_loss?.draws ?? 0}</span> },
     { id: 'wl_record', label: 'Record', abbrev: 'Rec', width: 80, group: 'record', filterGroup: 'creative', render: w => {
       const wl = w.win_loss
-      if (!wl) return <span className="text-muted">—</span>
+      if (!wl) return <span>—</span>
       return <span>{wl.wins}-{wl.losses}{wl.draws > 0 ? `-${wl.draws}` : ''}</span>
     }},
     { id: 'wl_pct', label: 'Win %', abbrev: 'W%', width: 48, group: 'record', filterGroup: 'creative', render: w => {
       const wl = w.win_loss
-      if (!wl || wl.wins + wl.losses === 0) return <span className="text-muted">—</span>
+      if (!wl || wl.wins + wl.losses === 0) return <span>—</span>
       return <span>{Math.round(wl.wins / (wl.wins + wl.losses) * 100)}%</span>
     }},
     ...Object.entries(AREAS).map(([area, regionIds]) => {

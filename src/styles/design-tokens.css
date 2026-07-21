@@ -486,7 +486,7 @@ body {
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Condition heart bar (worker list column) — uses icon as mask with gradient fill */
-.cond-bar { display: inline-block; width: 16px; height: 16px; background: #444; }
+.cond-bar { display: inline-block; width: 20px; height: 20px; background: #444; }
 .ws-nowrap { white-space: nowrap; }
 .object-cover { object-fit: cover; }
 .object-contain { object-fit: contain; }
@@ -515,6 +515,7 @@ body {
 .filter-blue { filter: brightness(0) saturate(100%) invert(64%) sepia(66%) saturate(398%) hue-rotate(187deg) brightness(98%) contrast(95%); }
 .filter-red { filter: brightness(0) saturate(100%) invert(37%) sepia(92%) saturate(748%) hue-rotate(340deg) brightness(97%) contrast(91%); }
 .filter-star-gold { filter: brightness(0) saturate(100%) invert(79%) sepia(61%) saturate(559%) hue-rotate(1deg) brightness(106%) contrast(104%); }
+.filter-star-silver { filter: brightness(0) saturate(0%) invert(85%) brightness(90%) contrast(90%); }
 .filter-dark-30 { filter: brightness(0) invert(0.3); }
 
 /*

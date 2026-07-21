@@ -6,6 +6,7 @@ from models import (
 )
 from regions import REGION_TO_AREA, AREAS
 from datetime import datetime, timedelta
+from models import Worker
 from morale_types import NEGATIVE_MORALE
 
 MATCH_TYPE_NAMES = {
@@ -72,6 +73,271 @@ def get_fed_home_area(fed_uid: int) -> str:
     return REGION_TO_AREA.get(row["Based_In"], "") if row else ""
 
 
+def _compute_star_scores(w: Worker):
+    """Port of the frontend scoring logic (src/lib/scoring.ts) so star ratings
+    are computed once on the backend and identical across list / detail views."""
+    s = w.skills
+    if not s:
+        w.current_score = 0; w.potential_score = 0
+        w.current_stars = 0.5; w.potential_stars = 0.5
+        return
+
+    def _pct(k): return (getattr(s, k).pct if hasattr(getattr(s, k, None), 'pct') else 0) or 0
+
+    is_wrestler = 'Wrestler' in (w.positions or []) or 'Occasional' in (w.positions or [])
+    if not is_wrestler:
+        pop = w.pop.pct if w.pop else 0
+        pos = w.positions or []
+        if 'Referee' in pos:
+            skills = [_pct('refereeing'), _pct('respect'), pop]
+        elif 'Announcer' in pos:
+            skills = [_pct('announcing'), _calc_perf(s), pop]
+        elif 'Colour' in pos:
+            skills = [_pct('colour'), _calc_perf(s), pop]
+        elif 'Manager' in pos or 'Personality' in pos:
+            skills = [_calc_perf(s), pop]
+        elif 'Road Agent' in pos:
+            skills = [_pct('psych'), _pct('experience'), _pct('respect') * 1.1]
+        else:
+            skills = []
+        if not skills:
+            w.current_score = 0; w.potential_score = 0
+            w.current_stars = 0.5; w.potential_stars = 0.5
+            return
+        avg = sum(skills) / len(skills)
+        w.current_score = round(max(0, min(100, avg)))
+        w.potential_score = w.current_score
+        w.current_stars = _stars_from_score(w.current_score)
+        w.potential_stars = w.current_stars
+        return
+
+    rv = [_pct(k) for k in ('brawl', 'puroresu', 'hardcore', 'technical', 'air', 'flash')]
+    primary = max(rv)
+    perf = _calc_perf(s)
+    pop = w.pop.pct if w.pop else 0
+    fund = (_pct('psych') + _pct('basics') + _pct('selling') + _pct('consistency') + _pct('safety')) / 5
+    stamina = _pct('stamina')
+    psych = _pct('psych')
+    best_skill = max(primary, perf)
+    worst_skill = min(primary, perf)
+    secondary = (psych + fund + stamina) / 3
+    worker_level = pop * 0.50 + best_skill * 0.25 + worst_skill * 0.15 + secondary * 0.10
+
+    core85 = sum(1 for k in ('charisma', 'mic', 'acting') if _pct(k) >= 85)
+    core90 = sum(1 for k in ('charisma', 'mic', 'acting') if _pct(k) >= 90)
+    best_vis85 = max(_pct('star'), _pct('looks'), _pct('menace')) >= 85
+    if core85 >= 3: worker_level += 10
+    elif core90 >= 2: worker_level += 10
+    elif core85 >= 2: worker_level += 5
+    if best_vis85 and core85 >= 2: worker_level += 5
+    worker_level += max(-10, min(10, _attr_modifier(w)))
+
+    company_pop = w.company_area_pop or 0
+    roster_avg_pop = w.roster_avg_pop or 0
+    company_level = max(company_pop, roster_avg_pop) * 0.65 + min(company_pop, roster_avg_pop) * 0.35 if roster_avg_pop > 0 else company_pop
+    delta = worker_level - company_level
+    score = 60 + delta * 1.5
+    pop_gap_current = max(0, company_level - pop)
+    if pop_gap_current > 10:
+        score -= pop_gap_current * 0.6
+
+    if delta < 0:
+        rp = w.roster_avg_primary or 0
+        re = w.roster_avg_ent or 0
+        if rp > 0 or re > 0:
+            roster_level = rp * 0.35 + re * 0.35 + (w.roster_avg_psych or 0) * 0.10 + (w.roster_avg_fund or 0) * 0.07
+            roster_delta = worker_level - roster_level
+            if roster_delta > 0:
+                score += min((roster_delta / max(company_pop, 1)) * 15, 15)
+
+    score = max(0, min(100, score))
+    w.current_score = round(score)
+    w.current_stars = _stars_from_score(score)
+
+    skill_level = best_skill * 0.40 + worst_skill * 0.30 + secondary * 0.10 + pop * 0.20 + max(-10, min(10, _attr_modifier(w)))
+    skill_level = max(0, min(100, skill_level))
+    skill_delta = skill_level - company_level
+    potential = max(score + _age_growth(w.age), min(100, 60 + skill_delta * 1.5))
+    potential = max(80 if core85 >= 2 and w.age <= 30 else 0, min(100, potential))
+    w.potential_score = round(potential)
+    w.potential_stars = _stars_from_score(potential)
+
+
+def _calc_perf(skills) -> float:
+    def p(k): return (getattr(skills, k).pct if hasattr(getattr(skills, k, None), 'pct') else 0) or 0
+    cha, mic, act = p('charisma'), p('mic'), p('acting')
+    best_vis = max(p('star'), p('looks'), p('menace'))
+    return (cha + mic + act + best_vis) / 4
+
+
+def _attr_modifier(w: Worker) -> float:
+    attrs = (w.attributes or []) if hasattr(w, 'attributes') else (getattr(w, 'attributes', None) or [])
+    if not attrs:
+        attrs = []
+    has = lambda i: i in attrs
+    mod = 0.0
+    age = w.age or 0
+    if age <= 20: mod -= 2
+    elif age <= 22: mod -= 1
+    elif age <= 25: mod += 1
+    elif age <= 28: mod += 2
+    elif age <= 31: mod += 2
+    elif age <= 34: mod += 1
+    elif age <= 37: mod += 0
+    elif age <= 40: mod -= 1
+    elif age <= 43: mod -= 3
+    else: mod -= 5
+    if has(507): mod += 2
+    if has(509): mod += 1
+    if has(510): mod -= 2
+    pos_pers = {1: 3, 3: 2, 4: 2, 5: 3, 8: 4, 9: 5, 11: 1}
+    neg_pers = {12: -2, 13: -1, 14: -1, 15: -4, 16: -1, 17: -5, 18: -2, 19: -1, 20: -1, 21: -3, 22: -2, 23: -2, 24: -1, 25: -1, 26: -5, 27: -3, 28: -5}
+    pers = next((id for id in attrs if 1 <= id <= 28), None)
+    if pers and pers in pos_pers: mod += pos_pers[pers]
+    elif pers and pers in neg_pers: mod += neg_pers[pers]
+    if has(548): mod += 3
+    elif has(547): mod += 2
+    elif any(has(i) for i in [225, 226, 227, 228, 229, 231, 232, 233, 535, 550]): mod += 1
+    if has(314) or has(315): mod += 2
+    if has(310) or has(313): mod -= 2
+    if any(has(i) for i in [125, 131, 134]): mod += 1
+    if has(346): mod += 1
+    if has(345): mod += 1
+    if has(348): mod += 1
+    if has(352): mod += 1
+    if has(502): mod += 1
+    if has(103): mod += 2
+    if has(104) or has(105): mod += 1
+    if has(122): mod += 1
+    if has(106): mod += 1
+    if has(347): mod -= 2
+    if has(344): mod -= 1
+    if has(118): mod -= 2
+    if has(119): mod -= 1
+    if has(351): mod -= 2
+    if any(has(i) for i in [340, 341, 374, 375]): mod -= 1
+    if has(545): mod -= 2
+    if has(546): mod -= 1
+    if has(543): mod -= 5
+    if has(544): mod -= 1
+    if has(349): mod -= 1
+    if has(353): mod -= 1
+    danger = [197, 198, 199, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 27, 563]
+    danger_count = sum(1 for i in danger if has(i))
+    if danger_count: mod -= danger_count * 2
+    if any(has(i) for i in [520, 521, 522, 523, 524]): mod -= 2
+    if has(552): mod -= 2
+    perception = getattr(getattr(w, 'contract', None), 'perception', 0) or 0
+    if perception == 1: mod += 4
+    elif perception == 2: mod += 2
+    return max(-35, min(45, round(mod * 0.5)))
+
+
+def _stars_from_score(score: float) -> float:
+    if score >= 90: return 5
+    if score >= 80: return 4.5
+    if score >= 70: return 4
+    if score >= 60: return 3.5
+    if score >= 50: return 3
+    if score >= 40: return 2.5
+    if score >= 30: return 2
+    if score >= 20: return 1.5
+    if score >= 10: return 1
+    return 0.5
+
+
+def _age_growth(age: int) -> float:
+    if age <= 20: return 15
+    if age <= 22: return 12
+    if age <= 25: return 10
+    if age <= 28: return 7
+    if age <= 31: return 5
+    if age <= 34: return 3
+    if age <= 37: return 0
+    if age <= 40: return -3
+    if age <= 43: return -5
+    return -8
+
+
+def _set_company_data(w: Worker, store, game_date_val):
+    fed_uid = getattr(getattr(w, 'contract', None), 'fed_uid', None)
+    if not fed_uid:
+        controlled = [uid for uid, f in store.feds.items() if f.get("User_Controlled") == 1]
+        fed_uid = controlled[0] if controlled else None
+    w.company_area_pop = 0
+    if fed_uid and game_date_val:
+        fed_row = store.feds.get(fed_uid)
+        if fed_row:
+            based_in = fed_row.get("Based_In", 0)
+            from_area = None
+            for area_name, region_ids in AREAS.items():
+                if based_in in region_ids:
+                    from_area = area_name
+                    break
+            if from_area:
+                area_regions = AREAS.get(from_area, [])
+                if area_regions:
+                    over_row = store.fed_over.get(fed_uid)
+                    if over_row:
+                        vals = [over_row.get(f"Over{i}", 0) for i in area_regions if 1 <= i <= 57]
+                        if vals:
+                            w.company_area_pop = round(sum(vals) / len(vals) / 10)
+    w.roster_avg_primary = 0
+    w.roster_avg_ent = 0
+    w.roster_avg_psych = 0
+    w.roster_avg_fund = 0
+    w.roster_avg_stamina = 0
+    w.roster_avg_pop = 0
+    if fed_uid and game_date_val:
+        roster_ids = [cr["WorkerUID"] for cr in store.contracts_by_fed.get(fed_uid, []) if cr.get("Position_Wrestler") or cr.get("Position_Occasional")]
+        if len(roster_ids) >= 1:
+                skill_vals = [store.skills.get(uid) for uid in roster_ids if uid in store.skills]
+                if skill_vals:
+                    def r10(v): return round((v or 0) / 10)
+                    b_avg = r10(sum(s.get("Brawl", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    p_avg = r10(sum(s.get("Puroresu", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    h_avg = r10(sum(s.get("Hardcore", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    t_avg = r10(sum(s.get("Technical", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    a_avg = r10(sum(s.get("Air", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    ring = sorted([b_avg, p_avg, h_avg, t_avg, a_avg], reverse=True)
+                    w.roster_avg_primary = round(ring[0] * 0.50 + ring[1] * 0.25 + ring[2] * 0.15 + ring[3] * 0.07 + ring[4] * 0.03)
+                    w.roster_avg_psych = r10(sum(s.get("Psych", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    ba = r10(sum(s.get("Basics", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    se = r10(sum(s.get("Sell", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    co = r10(sum(s.get("Consistency", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    sa = r10(sum(s.get("Safety", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    w.roster_avg_fund = round((ba + se + co + sa) / 4)
+                    w.roster_avg_stamina = r10(sum(s.get("Stamina", 0) or 0 for s in skill_vals) / len(skill_vals))
+                    c_list = [
+                        r10(sum(s.get("Charisma", 0) or 0 for s in skill_vals) / len(skill_vals)),
+                        r10(sum(s.get("Mic", 0) or 0 for s in skill_vals) / len(skill_vals)),
+                        r10(sum(s.get("Act", 0) or 0 for s in skill_vals) / len(skill_vals)),
+                        r10(sum(s.get("Star", 0) or 0 for s in skill_vals) / len(skill_vals)),
+                        r10(sum(s.get("Looks", 0) or 0 for s in skill_vals) / len(skill_vals)),
+                        r10(sum(s.get("Menace", 0) or 0 for s in skill_vals) / len(skill_vals)),
+                    ]
+                    c_sorted = sorted(c_list, reverse=True)
+                    w.roster_avg_ent = round(sum(c_list[:5]) / 5) if c_list[5] < c_sorted[2] else round(sum(c_list) / 6)
+                based_in = store.feds[fed_uid].get("Based_In", 0)
+                from_area = None
+                for area_name, region_ids in AREAS.items():
+                    if based_in in region_ids:
+                        from_area = area_name
+                        break
+                if from_area:
+                    area_regions = AREAS.get(from_area, [])
+                    if area_regions:
+                        pop_vals = []
+                        for uid in roster_ids:
+                            ov = store.overness.get(uid)
+                            if ov:
+                                vals = [ov.get(f"Over{r}", 0) or 0 for r in area_regions]
+                                pop_vals.append(sum(vals) / len(vals))
+                        if pop_vals:
+                            w.roster_avg_pop = round(sum(pop_vals) / len(pop_vals) / 10)
+    _compute_star_scores(w)
+
+
 def get_roster(fed_uid: int = None) -> list[Worker]:
     store = get_store()
     if not store:
@@ -90,6 +356,10 @@ def get_roster(fed_uid: int = None) -> list[Worker]:
 
     uids = [c["WorkerUID"] for c in contracts]
     uids_set = set(uids)
+    attrs_by_uid: dict[int, list[int]] = {}
+    for r in store.attributes:
+        if r["WorkerUID"] in uids_set and not r.get("Hidden"):
+            attrs_by_uid.setdefault(r["WorkerUID"], []).append(r["Attribute"])
     twelve_months_ago = (game_date_val - timedelta(days=365)) if game_date_val else (datetime.now() - timedelta(days=365))
 
     # ── Win/loss from match log ──
@@ -214,6 +484,9 @@ def get_roster(fed_uid: int = None) -> list[Worker]:
         w.status = flags
 
         w.age = _compute_age(w_row.get("Birthday"), game_date_val)
+        bday_raw = w_row.get("Birthday")
+        if isinstance(bday_raw, datetime):
+            setattr(w, "Birthday", bday_raw.strftime("%Y-%m-%d"))
 
         biz = store.worker_business.get(uid)
         if biz:
@@ -231,7 +504,7 @@ def get_roster(fed_uid: int = None) -> list[Worker]:
             involved = store.storyline_involved_by_sl.get(sl["UID"], [])
             involved_with = [
                 {"uid": i["uid"], "name": i["name"], "alignment": i["alignment"], "major_role": i["major_role"]}
-                for i in ({"uid": r["WorkerUID"], "name": store.workers.get(r["WorkerUID"], {}).get("Name", "") or "", "alignment": r.get("Alignment", 0) or 0, "major_role": bool(r.get("MajorRole"))} for r in involved) if i["uid"] != uid
+                for i in ({"uid": r["WorkerUID"], "name": (next(iter(store.contracts_by_worker.get(r["WorkerUID"], [])), {})).get("Name", "") or store.workers.get(r["WorkerUID"], {}).get("Name", "") or "", "alignment": r.get("Alignment", 0) or 0, "major_role": bool(r.get("MajorRole"))} for r in involved) if i["uid"] != uid
             ]
             major = uid in store.storyline_major.get(sl["UID"], set())
             assignments.append(StorylineAssignment(
@@ -318,6 +591,8 @@ def get_roster(fed_uid: int = None) -> list[Worker]:
                 for c in chems
             ]
 
+        w.attributes = attrs_by_uid.get(uid, [])
+        _set_company_data(w, store, game_date_val)
         result.append(w)
 
     return result
@@ -381,6 +656,9 @@ def _get_worker_segments(store, worker_uid: int) -> list[dict]:
             "fed_name": (fed_row.get("Name") if fed_row else "") or "",
             "card_uid": card.get("UID"),
             "card": (card.get("CardName") or "").strip(),
+            "card_logo": card.get("Logo", "") or "",
+            "card_logo_tv": bool(card.get("TVLogo")),
+            "card_logo_event": bool(card.get("EventLogo")),
             "is_tv": bool(card.get("TV")),
             "is_angle": is_angle,
             "rating": rating,
@@ -526,6 +804,9 @@ def get_worker_detail(worker_uid: int, fed_uid: int = None) -> Worker | None:
 
     game_date_val = store.game_date_val
     w.age = _compute_age(w_row.get("Birthday"), game_date_val)
+    bday_raw = w_row.get("Birthday")
+    if isinstance(bday_raw, datetime):
+        setattr(w, "Birthday", bday_raw.strftime("%Y-%m-%d"))
 
     biz = store.worker_business.get(worker_uid)
     if biz:
@@ -590,84 +871,7 @@ def get_worker_detail(worker_uid: int, fed_uid: int = None) -> Worker | None:
             w.contract_status = "developmental"
         w.contract_expiry_days = main.get("Daysleft", 0) or 0
 
-    w.company_area_pop = 0
-    if game_date_val:
-        controlled = [uid for uid, f in store.feds.items() if f.get("User_Controlled") == 1]
-        if controlled:
-            inner_fed = store.feds[controlled[0]]
-            based_in = inner_fed.get("Based_In", 0)
-            from_area = None
-            for area_name, region_ids in AREAS.items():
-                if based_in in region_ids:
-                    from_area = area_name
-                    break
-            if from_area:
-                area_regions = AREAS.get(from_area, [])
-                if area_regions:
-                    over_row = store.fed_over.get(controlled[0])
-                    if over_row:
-                        vals = [over_row.get(f"Over{i}", 0) for i in area_regions if 1 <= i <= 57]
-                        if vals:
-                            w.company_area_pop = round(sum(vals) / len(vals) / 10)
-
-    # Roster averages
-    w.roster_avg_primary = 0
-    w.roster_avg_ent = 0
-    w.roster_avg_psych = 0
-    w.roster_avg_fund = 0
-    w.roster_avg_stamina = 0
-    w.roster_avg_pop = 0
-    if game_date_val:
-        controlled = [uid for uid, f in store.feds.items() if f.get("User_Controlled") == 1]
-        if controlled:
-            inner_fed_uid = controlled[0]
-            roster_ids = [cr["WorkerUID"] for cr in store.contracts_by_fed.get(inner_fed_uid, []) if cr.get("Position_Wrestler") or cr.get("Position_Occasional")]
-            if len(roster_ids) >= 1:
-                skill_vals = [store.skills.get(uid) for uid in roster_ids if uid in store.skills]
-                if skill_vals:
-                    def r10(v): return round((v or 0) / 10)
-                    b_avg = r10(sum(s.get("Brawl", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    p_avg = r10(sum(s.get("Puroresu", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    h_avg = r10(sum(s.get("Hardcore", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    t_avg = r10(sum(s.get("Technical", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    a_avg = r10(sum(s.get("Air", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    ring = sorted([b_avg, p_avg, h_avg, t_avg, a_avg], reverse=True)
-                    w.roster_avg_primary = round(ring[0] * 0.50 + ring[1] * 0.25 + ring[2] * 0.15 + ring[3] * 0.07 + ring[4] * 0.03)
-                    w.roster_avg_psych = r10(sum(s.get("Psych", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    ba = r10(sum(s.get("Basics", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    se = r10(sum(s.get("Sell", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    co = r10(sum(s.get("Consistency", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    sa = r10(sum(s.get("Safety", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    w.roster_avg_fund = round((ba + se + co + sa) / 4)
-                    w.roster_avg_stamina = r10(sum(s.get("Stamina", 0) or 0 for s in skill_vals) / len(skill_vals))
-                    c_list = [
-                        r10(sum(s.get("Charisma", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                        r10(sum(s.get("Mic", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                        r10(sum(s.get("Act", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                        r10(sum(s.get("Star", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                        r10(sum(s.get("Looks", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                        r10(sum(s.get("Menace", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                    ]
-                    c_sorted = sorted(c_list, reverse=True)
-                    w.roster_avg_ent = round(sum(c_list[:5]) / 5) if c_list[5] < c_sorted[2] else round(sum(c_list) / 6)
-
-                based_in = store.feds[inner_fed_uid].get("Based_In", 0)
-                from_area = None
-                for area_name, region_ids in AREAS.items():
-                    if based_in in region_ids:
-                        from_area = area_name
-                        break
-                if from_area:
-                    area_regions = AREAS.get(from_area, [])
-                    if area_regions:
-                        pop_vals = []
-                        for uid in roster_ids:
-                            ov = store.overness.get(uid)
-                            if ov:
-                                vals = [ov.get(f"Over{r}", 0) or 0 for r in area_regions]
-                                pop_vals.append(sum(vals) / len(vals))
-                        if pop_vals:
-                            w.roster_avg_pop = round(sum(pop_vals) / len(pop_vals) / 10)
+    _set_company_data(w, store, game_date_val)
 
     # Belt history
     w.belt_history = []

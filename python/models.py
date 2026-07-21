@@ -351,6 +351,10 @@ class Worker(BaseModel):
     roster_avg_fund: int = 0
     roster_avg_stamina: int = 0
     roster_avg_pop: int = 0
+    current_score: int = 0
+    potential_score: int = 0
+    current_stars: float = 0.5
+    potential_stars: float = 0.5
     belt_history: list[dict] = []
     moves: list[dict] = []
 

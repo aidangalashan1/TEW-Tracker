@@ -9,8 +9,8 @@ export function ColumnPickerPane({
   onAdd,
 }: {
   colState: ColumnState[]
-  selectedAvail: string | null
-  onSelectAvail: (id: string | null) => void
+  selectedAvail: Set<string>
+  onSelectAvail: (ids: Set<string>) => void
   onAdd: (id: string) => void
 }) {
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
@@ -89,16 +89,17 @@ export function ColumnPickerPane({
             )}
             {cols.map(def => {
               const inState = colState.some(c => c.id === def.id)
-              const isSelected = selectedAvail === def.id
+              const isSelected = selectedAvail.has(def.id)
               return (
                 <div
                   key={def.id}
                   onClick={() => {
                     if (inState) return
-                    if (isSelected) { onSelectAvail(null); return }
-                    onSelectAvail(def.id)
+                    const next = new Set(selectedAvail)
+                    if (next.has(def.id)) next.delete(def.id); else next.add(def.id)
+                    onSelectAvail(next)
                   }}
-                  onDoubleClick={() => { if (!inState) { onAdd(def.id); onSelectAvail(null) } }}
+                  onDoubleClick={() => { if (!inState) onAdd(def.id) }}
                   className="items-center truncate cursor-pointer rounded-xs text-md"
                   style={{
                     gap: 4, padding: '3px 6px',

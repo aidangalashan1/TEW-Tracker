@@ -5,16 +5,14 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from database import current_path, reconnect
+from database import reconnect
+from storage import profiles_path
 
 router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
 
 def _profiles_path() -> str:
-    base = os.path.dirname(current_path()) if current_path() else os.path.expanduser("~")
-    d = os.path.join(base, "tew-profiles")
-    os.makedirs(d, exist_ok=True)
-    return os.path.join(d, "profiles.json")
+    return profiles_path()
 
 
 def _load_profiles() -> list[dict]:

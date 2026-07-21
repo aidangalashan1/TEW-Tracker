@@ -22,6 +22,7 @@ export interface ModuleDefinition<T = unknown> {
   maxW?: number
   maxH?: number
   supportsPageView?: boolean
+  hideFromDashboard?: boolean
   render: (props: ModuleRenderProps<T>) => ReactNode
   /** Fetch data required by this module. Called by the shell; result passed via `render` props.data. */
   fetchData?: (fedUid: number) => Promise<T>

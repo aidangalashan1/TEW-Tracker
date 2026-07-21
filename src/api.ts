@@ -366,6 +366,28 @@ export const api = {
     list: (fed_uid?: number) => request<FreeAgentsResponse>(`/free-agents${fed_uid ? `?fed_uid=${fed_uid}` : ''}`),
   },
 
+  columns: {
+    export: (data: string) =>
+      request<{ok: boolean; cancelled: boolean; path?: string}>('/columns/export', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({data}),
+      }),
+    import: () =>
+      request<{ok: boolean; cancelled: boolean; data?: string}>('/columns/import', {method: 'POST'}),
+  },
+
+  filters: {
+    export: (data: string) =>
+      request<{ok: boolean; cancelled: boolean; path?: string}>('/filters/export', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({data}),
+      }),
+    import: () =>
+      request<{ok: boolean; cancelled: boolean; data?: string}>('/filters/import', {method: 'POST'}),
+  },
+
   shortlist: {
     list: () => request<ShortlistResponse>('/shortlist'),
     add: (worker_uid: number, notes = '') =>
@@ -545,6 +567,9 @@ export const api = {
   storylines: {
     cross: (fed_uid?: number) =>
       request<StorylinesCrossData>(`/storylines/cross${fed_uid ? `?fed_uid=${fed_uid}` : ''}`),
+  },
+  system: {
+    shutdown: () => request<{ok: boolean}>('/system/shutdown', {method: 'POST'}),
   },
 }
 

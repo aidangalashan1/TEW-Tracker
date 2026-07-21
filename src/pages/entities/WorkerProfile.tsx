@@ -18,7 +18,8 @@ import rightIcon from '../../assets/UI icons/right.png'
 import { ProfileTab } from './worker-profile/ProfileTab'
 import { AgentReportTab } from './worker-profile/AgentReportTab'
 import { FormTab } from './worker-profile/FormTab'
-import { calcCurrentScore, calcPotentialScore, starsFromScore } from '../../lib/scoring'
+import { RadarChart } from './worker-profile/RadarChart'
+
 import { fmtDate as libFmtDate } from '../../lib/dates'
 import condMaleHead from '../../assets/UI icons/condition/malehead.png'
 import condMaleBody from '../../assets/UI icons/condition/malebody.png'
@@ -416,17 +417,12 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
   const { data: w, error } = useSWR('worker-' + workerUid, () => api.roster.detail(workerUid))
   const [tab, setTab] = useState<'profile' | 'agent-report' | 'form'>('profile')
 
-  const stars = useMemo(() => {
-    if (!w) return { current: 0, potential: 0, currentScore: 0, potentialScore: 0 }
-    const cs = calcCurrentScore(w)
-    const ps = calcPotentialScore(w)
-    return {
-      current: starsFromScore(cs),
-      potential: starsFromScore(ps),
-      currentScore: cs,
-      potentialScore: ps,
-    }
-  }, [w])
+  const stars = useMemo(() => ({
+    current: w?.current_stars || 0.5,
+    potential: w?.potential_stars || 0.5,
+    currentScore: w?.current_score || 0,
+    potentialScore: w?.potential_score || 0,
+  }), [w])
 
   if (error) return <div className="loading" style={{ color: 'var(--accent)' }}>Error loading worker</div>
   if (!w) return <div className="loading">Loading...</div>
@@ -472,43 +468,58 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
             ) : (
               <div style={{ width: 150, height: 150, background: 'var(--bg-secondary)', borderRadius: 12, flexShrink: 0 }} />
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center', alignItems: 'flex-start', flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {flagUrl && <img src={flagUrl} alt="" style={{ width: 28, height: 21, objectFit: 'cover', borderRadius: 3 }} />}
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{countryName || 'Unknown'}</span>
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                {w.age} years old{birthday ? ` (${fmtDate(birthday)})` : ''}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{
-                  display: 'inline-block', width: 18, height: 18, flexShrink: 0,
-                  backgroundColor: genderTint(rawGender),
-                  mask: `url(${genderIcon(rawGender)}) center/contain no-repeat`,
-                  WebkitMask: `url(${genderIcon(rawGender)}) center/contain no-repeat`,
-                }} />
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{GENDER_LABELS[rawGender] || w.gender}</span>
-              </div>
-            </div>
-            {(() => {
-              const fedIds: number[] = (w as any).all_fed_ids || []
-              if (c?.fed_uid && !fedIds.includes(c.fed_uid)) fedIds.push(c.fed_uid)
-              if (fedIds.length === 0) return null
-              const feds = fedIds.map(id => allFeds.find(f => f.uid === id)).filter(Boolean)
-              if (feds.length === 0) return null
-              const cols = Math.ceil(Math.sqrt(feds.length))
-              const rows = Math.ceil(feds.length / cols)
-              const logoSize = Math.floor(150 / Math.max(cols, rows))
-              return (
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, ${logoSize}px)`, gap: 4, alignSelf: 'center', marginLeft: 'auto' }}>
-                  {feds.map(fed => {
-                    const logo = fed!.logo ? img('Logos/' + fed!.logo) : ''
-                    if (!logo) return null
-                    return <img key={fed!.uid} src={logo} alt="" style={{ width: logoSize, height: logoSize, objectFit: 'contain', borderRadius: 4, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); navigateToEntity('fed', fed!.uid) }} />
-                  })}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center', alignItems: 'flex-start', width: 170, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {flagUrl && <img src={flagUrl} alt="" style={{ width: 28, height: 21, objectFit: 'cover', borderRadius: 3 }} />}
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{countryName || 'Unknown'}</span>
                 </div>
-              )
-            })()}
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', minHeight: '1.5em' }}>
+                  {w.age} years old{birthday ? ` (${fmtDate(birthday)})` : ''}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{
+                    display: 'inline-block', width: 18, height: 18, flexShrink: 0,
+                    backgroundColor: genderTint(rawGender),
+                    mask: `url(${genderIcon(rawGender)}) center/contain no-repeat`,
+                    WebkitMask: `url(${genderIcon(rawGender)}) center/contain no-repeat`,
+                  }} />
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{GENDER_LABELS[rawGender] || w.gender}</span>
+                </div>
+              </div>
+              {(() => {
+                const s = w.skills
+                if (!s || w.non_wrestler) return null
+                const radarVals = [
+                  Math.max(Number(s.brawl?.pct ?? 0), Number(s.puroresu?.pct ?? 0), Number(s.hardcore?.pct ?? 0), Number(s.technical?.pct ?? 0), Number(s.air?.pct ?? 0)),
+                  [s.psych?.pct, s.experience?.pct, s.respect?.pct, s.reputation?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 4,
+                  [s.charisma?.pct, s.mic?.pct, s.acting?.pct, s.flash?.pct, s.star?.pct, s.looks?.pct, s.menace?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 7,
+                  [s.basics?.pct, s.selling?.pct, s.consistency?.pct, s.safety?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 4,
+                  [s.stamina?.pct, s.athletic?.pct, s.power?.pct, s.toughness?.pct, s.injury?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 5,
+                  w.pop?.pct ?? 0,
+                ].map(v => Math.round(v ?? 0))
+                return <RadarChart values={radarVals} labels={['Primary', 'Mental', 'Perf.', 'Fund.', 'Phys.', 'Pop']} tooltipLabels={['Primary', 'Mental', 'Performance', 'Fundamental', 'Physical', 'Popularity']} size={120} />
+              })()}
+              {(() => {
+                const fedIds: number[] = (w as any).all_fed_ids || []
+                if (c?.fed_uid && !fedIds.includes(c.fed_uid)) fedIds.push(c.fed_uid)
+                if (fedIds.length === 0) return null
+                const feds = fedIds.map(id => allFeds.find(f => f.uid === id)).filter(Boolean)
+                if (feds.length === 0) return null
+                const cols = Math.ceil(Math.sqrt(feds.length))
+                const rows = Math.ceil(feds.length / cols)
+                const logoSize = Math.floor(150 / Math.max(cols, rows))
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, ${logoSize}px)`, gap: 4, alignSelf: 'center' }}>
+                    {feds.map(fed => {
+                      const logo = fed!.logo ? img('Logos/' + fed!.logo) : ''
+                      if (!logo) return null
+                      return <img key={fed!.uid} src={logo} alt="" style={{ width: logoSize, height: logoSize, objectFit: 'contain', borderRadius: 4, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); navigateToEntity('fed', fed!.uid) }} />
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
           </div>
 
           <div style={{ width: 1, alignSelf: 'stretch', background: '#5a6470', margin: '0 20px', flexShrink: 0 }} />
@@ -551,7 +562,7 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
       </div>
 
       {tab === 'profile' ? (
-      <ProfileTab w={w} stars={stars} img={img} focusedFed={focusedFed} playerFed={playerFed} allFeds={allFeds} navigateToEntity={navigateToEntity} AREAS={AREAS} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} condMaleHead={condMaleHead} condMaleBody={condMaleBody} condMaleLegs={condMaleLegs} condMaleArmLeft={condMaleArmLeft} condMaleArmRight={condMaleArmRight} condFemHead={condFemHead} condFemBody={condFemBody} condFemLegs={condFemLegs} condFemArmLeft={condFemArmLeft} condFemArmRight={condFemArmRight} wrestlerIcon={wrestlerIcon} refereeIcon={refereeIcon} announcerIcon={announcerIcon} managerIcon={managerIcon} personalityIcon={personalityIcon} roadAgentIcon={roadAgentIcon} />
+      <ProfileTab w={w} stars={stars} img={img} focusedFed={focusedFed} playerFed={playerFed} allFeds={allFeds} navigateToEntity={navigateToEntity} onViewForm={() => setTab('form')} AREAS={AREAS} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} condMaleHead={condMaleHead} condMaleBody={condMaleBody} condMaleLegs={condMaleLegs} condMaleArmLeft={condMaleArmLeft} condMaleArmRight={condMaleArmRight} condFemHead={condFemHead} condFemBody={condFemBody} condFemLegs={condFemLegs} condFemArmLeft={condFemArmLeft} condFemArmRight={condFemArmRight} wrestlerIcon={wrestlerIcon} refereeIcon={refereeIcon} announcerIcon={announcerIcon} managerIcon={managerIcon} personalityIcon={personalityIcon} roadAgentIcon={roadAgentIcon} />
 
       ) : tab === 'agent-report' ? (
       <AgentReportTab w={w} stars={stars} img={img} focusedFed={focusedFed} playerFed={playerFed} AREAS={AREAS} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} ScoutIcon={ScoutIcon} />

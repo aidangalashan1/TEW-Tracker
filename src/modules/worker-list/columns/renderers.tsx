@@ -4,7 +4,12 @@ import { useApp } from '../../../context/AppContext'
 import { Worker } from '../../../api'
 import { NavChip } from '../../../components/NavChip'
 import conditionIcon from '../../../assets/UI icons/condition.png'
+import faceIcon from '../../../assets/UI icons/face.png'
+import heelIcon from '../../../assets/UI icons/heel.png'
 import { ratingColor } from '../../../lib/colors'
+import { fmtDate } from '../../../lib/dates'
+import { NATIONALITY_FLAGS, NATIONALITY_NAMES, NATIONALITY_CODES_3 } from '../nationality'
+import type { ColumnState } from './types'
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   injured: { label: 'Inj', color: '#ef4444' },
@@ -17,6 +22,8 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 const STATUS_PRIORITY = ['injured', 'absent', 'unhappy', 'promise', 'champion']
 
 export function StatusBadge({ status, workerUid }: { status: string[]; workerUid: number }) {
+  const [showTooltip, setShowTooltip] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
   if (!status || status.length === 0) return null
   const sorted = [...status].sort((a, b) => {
     const aKey = a.split(':')[0]
@@ -30,7 +37,10 @@ export function StatusBadge({ status, workerUid }: { status: string[]; workerUid
   if (!def) return null
   const tooltip = (key === 'unhappy' && reason) ? reason : undefined
   return (
-    <span data-tooltip={tooltip} className="status-tooltip relative">
+    <span ref={ref} className="status-tooltip relative inline-flex"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
       <NavChip type="worker" id={workerUid} label={def.label}
         style={{
           display: 'inline-block', padding: '1px 4px', borderRadius: 4,
@@ -38,6 +48,15 @@ export function StatusBadge({ status, workerUid }: { status: string[]; workerUid
           textDecoration: 'none',
         }}
       />
+      {showTooltip && tooltip && ref.current && createPortal(
+        <div className="tooltip-flyout" style={{
+          left: ref.current.getBoundingClientRect().left + ref.current.offsetWidth / 2,
+          top: ref.current.getBoundingClientRect().top - 8,
+          transform: 'translateX(-50%) translateY(-100%)',
+          zIndex: 99999,
+        }}>{tooltip}</div>,
+        document.body
+      )}
     </span>
   )
 }
@@ -47,37 +66,59 @@ export function MoneyDisplay({ amount }: { amount: number }) {
   return <span>${(amount / 1000).toFixed(1)}k</span>
 }
 
+function PortalTip({ content, children }: { content: string; children: React.ReactNode }) {
+  const [show, setShow] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  return (
+    <span ref={ref} className="status-tooltip relative inline-flex"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      {show && ref.current && createPortal(
+        <div className="tooltip-flyout" style={{
+          left: ref.current.getBoundingClientRect().left + ref.current.offsetWidth / 2,
+          top: ref.current.getBoundingClientRect().top - 8,
+          transform: 'translateX(-50%) translateY(-100%)',
+          zIndex: 99999,
+        }}>{content}</div>,
+        document.body
+      )}
+    </span>
+  )
+}
+
 export function conditionHeart(w: Worker) {
   const p = w.physical as any
-  const vals = [p?.condition1, p?.condition2, p?.condition3, p?.condition4].map(v => Number(v ?? 1000))
+  const vals = [p?.condition1, p?.condition2, p?.condition3, p?.condition4].map(v => Number(v ?? 100))
   const avg = vals.reduce((a, b) => a + b, 0) / vals.length
-  const pct = Math.round(avg / 10)
+  const pct = Math.round(avg)
   const color = ratingColor(pct)
   return <div className="flex-center w-full h-full">
-    <span data-tooltip={`${pct}%`} className="status-tooltip relative inline-flex">
+    <PortalTip content={`${pct}%`}>
       <span className="cond-bar" style={{
         mask: `url(${conditionIcon}) center/contain no-repeat`,
         WebkitMask: `url(${conditionIcon}) center/contain no-repeat`,
         background: `linear-gradient(to top, ${color} 0%, ${color} ${pct}%, #444 ${pct}%, #444 100%)`,
       }} />
-    </span>
+    </PortalTip>
   </div>
 }
 
 export function condPctBar(w: Worker, idx: number) {
   const p = w.physical as any
   const key = `condition${idx}`
-  const raw = Number(p?.[key] ?? 1000)
-  const pct = Math.round(raw / 10)
+  const raw = Number(p?.[key] ?? 100)
+  const pct = Math.round(raw)
   const color = ratingColor(pct)
   return <div className="flex-center w-full h-full">
-    <span data-tooltip={`${pct}%`} className="status-tooltip relative inline-flex">
+    <PortalTip content={`${pct}%`}>
       <span className="cond-bar" style={{
         mask: `url(${conditionIcon}) center/contain no-repeat`,
         WebkitMask: `url(${conditionIcon}) center/contain no-repeat`,
         background: `linear-gradient(to top, ${color} 0%, ${color} ${pct}%, #444 ${pct}%, #444 100%)`,
       }} />
-    </span>
+    </PortalTip>
   </div>
 }
 
@@ -159,7 +200,7 @@ export function Last5Cell({ items, workerUid }: { items: { rating: number; label
   }
   return (
     <span ref={ref}
-      className="cursor-pointer text-mono text-sm text-primary relative"
+      className="cursor-pointer relative"
       onClick={e => { e.stopPropagation(); navigateToEntity('worker', workerUid) }}
       onMouseEnter={() => { keepVisible(); setShowTooltip(true) }}
       onMouseLeave={scheduleHide}
@@ -204,7 +245,7 @@ export function AvgCell({ workerUid, avg, best, worst, count, bestInfo, worstInf
   const worstPct = worstInfo ? pct(worstInfo.rating) : null
   return (
     <span ref={ref}
-      className="cursor-pointer text-mono text-sm text-primary relative"
+      className="cursor-pointer relative"
       onClick={e => { e.stopPropagation(); navigateToEntity('worker', workerUid) }}
       onMouseEnter={() => { keepVisible(); setShowTooltip(true) }}
       onMouseLeave={scheduleHide}
@@ -271,4 +312,74 @@ export function AvgCell({ workerUid, avg, best, worst, count, bestInfo, worstInf
       )}
     </span>
   )
+}
+
+/** Dispatches per-row cell content by column id for the handful of columns
+ *  whose display depends on more than just `def.render(w)` (image needs a
+ *  click handler, age/expiry need date formatting plus width-gated detail,
+ *  dispo needs a face/heel icon, nat needs width-gated flag/code/name).
+ *  Falls back to the plain `cellContent` for every other column, matching
+ *  how the rest of the table already renders via `def.render`. */
+export function renderCell(opts: {
+  cs: ColumnState
+  w: Worker
+  pw: number
+  cellContent: React.ReactNode
+  currentDate?: string | null
+  onNavigate: (uid: number) => void
+}): React.ReactNode {
+  const { cs, w, pw, cellContent, currentDate, onNavigate } = opts
+
+  if (cs.id === 'img') {
+    return <span className="items-center cursor-pointer" style={{ height: '100%' }} onClick={e => { e.stopPropagation(); onNavigate(w.uid) }}>{cellContent}</span>
+  }
+
+  if (cs.id === 'age') {
+    return <span className="text-md" style={{ lineHeight: 1.3 }}>
+      <div>{w.age}</div>
+      {pw >= 90 && <div>{(w as any).Birthday ? fmtDate((w as any).Birthday) : ''}</div>}
+    </span>
+  }
+
+  if (cs.id === 'expiry') {
+    const expDate = w.contract && currentDate
+      ? (() => {
+          const d = new Date(currentDate)
+          d.setDate(d.getDate() + w.contract!.days_left)
+          return fmtDate(d.toISOString().split('T')[0])
+        })()
+      : null
+    return <span className="text-md" style={{ lineHeight: 1.3 }}>
+      <div>{expDate || `${w.contract?.days_left ?? 0}d`}</div>
+      {pw >= 90 && expDate && <div>{w.contract ? `${w.contract.days_left}d remaining` : ''}</div>}
+    </span>
+  }
+
+  if (cs.id === 'dispo' && w.contract) {
+    const color = w.contract.face ? 'var(--accent-green)' : '#ef4444'
+    const icon = w.contract.face ? faceIcon : heelIcon
+    return <div className="items-center h-full gap-3px">
+      <span className="inline-block w-14 h-14 flex-shrink-0" style={{
+        backgroundColor: color,
+        mask: `url(${icon}) center/contain no-repeat`,
+        WebkitMask: `url(${icon}) center/contain no-repeat`,
+      }} />
+      {pw >= 65 && <span style={{ color }}>{w.contract.face ? 'Face' : 'Heel'}</span>}
+    </div>
+  }
+
+  if (cs.id === 'nat') {
+    const code = NATIONALITY_FLAGS[w.nationality]
+    const code3 = NATIONALITY_CODES_3[w.nationality]
+    const name = NATIONALITY_NAMES[w.nationality]
+    if (!code) return <span>—</span>
+    const flagUrl = new URL(`../../../assets/flag-icons-main/flags/4x3/${code}.svg`, import.meta.url).href
+    return <div className="items-center h-full cursor-pointer gap-1" onClick={e => { e.stopPropagation(); onNavigate(w.uid) }}>
+      <img src={flagUrl} alt="" className="w-20 h-15 object-cover rounded-xs" />
+      {pw >= 60 && pw < 100 && <span className="ws-nowrap">{code3 || code.toUpperCase()}</span>}
+      {pw >= 100 && <span className="ws-nowrap">{name}</span>}
+    </div>
+  }
+
+  return cellContent
 }

@@ -1,4 +1,4 @@
-// Auto-generated from python/models.py — do not edit directly
+// Auto-generated from python/models.py ï¿½ do not edit directly
 // Run: py scripts/generate_types.py > src/api-types.ts
 
 export interface RatingDisplay {
@@ -186,6 +186,10 @@ export interface Worker {
   chemistry: ChemistryInfo[];
   injury_count: number;
   contract_status: string;
+  current_score: number;
+  potential_score: number;
+  current_stars: number;
+  potential_stars: number;
   contract_expiry_days: number;
   company_area_pop: number;
   roster_avg_primary: number;

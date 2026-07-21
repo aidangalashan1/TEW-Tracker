@@ -3,6 +3,7 @@ promotion. TEW9's own free-agent browsing is a small filtered list; this
 mirrors get_roster()'s level of detail (a browsable list, not the full
 worker-detail payload) so the frontend can filter/sort/shortlist at a glance.
 """
+from datetime import datetime
 from datastore import get_store
 from models import Worker, WorkerSkills, WorkerPhysical, RatingDisplay, OvernessEntry
 from regions import REGION_TO_AREA, AREAS
@@ -37,6 +38,9 @@ def get_free_agents(fed_uid: int = None) -> list[Worker]:
         w.skills = WorkerSkills.from_db_row(store.skills.get(uid, {})) if uid in store.skills else None
         w.physical = WorkerPhysical.from_db_row(store.physical.get(uid, {})) if uid in store.physical else None
         w.age = _compute_age(w_row.get("Birthday"), game_date_val)
+        bday_raw = w_row.get("Birthday")
+        if isinstance(bday_raw, datetime):
+            setattr(w, "Birthday", bday_raw.strftime("%Y-%m-%d"))
 
         over_row = store.overness.get(uid)
         if over_row:

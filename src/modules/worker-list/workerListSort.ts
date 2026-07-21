@@ -1,6 +1,6 @@
 import { Worker, WorkerSkills } from '../../api'
 import { AREAS } from './regions'
-import { calcCurrentScore, calcPotentialScore } from '../../lib/scoring'
+
 
 export type SortKey = string
 
@@ -41,16 +41,16 @@ export function sortWorkers(list: Worker[], sorts: { key: SortKey; dir: 'asc' | 
         case 'condition': {
           const ca = (a.physical as any)
           const cb = (b.physical as any)
-          const va2 = [ca?.condition1, ca?.condition2, ca?.condition3, ca?.condition4].map((v: any) => Number(v ?? 1000))
-          const vb2 = [cb?.condition1, cb?.condition2, cb?.condition3, cb?.condition4].map((v: any) => Number(v ?? 1000))
+          const va2 = [ca?.condition1, ca?.condition2, ca?.condition3, ca?.condition4].map((v: any) => Number(v ?? 100))
+          const vb2 = [cb?.condition1, cb?.condition2, cb?.condition3, cb?.condition4].map((v: any) => Number(v ?? 100))
           va = va2.reduce((s: number, v: number) => s + v, 0) / va2.length
           vb = vb2.reduce((s: number, v: number) => s + v, 0) / vb2.length
           break
         }
-        case 'condition1': va = Number((a.physical as any)?.condition1 ?? 1000); vb = Number((b.physical as any)?.condition1 ?? 1000); break
-        case 'condition2': va = Number((a.physical as any)?.condition2 ?? 1000); vb = Number((b.physical as any)?.condition2 ?? 1000); break
-        case 'condition3': va = Number((a.physical as any)?.condition3 ?? 1000); vb = Number((b.physical as any)?.condition3 ?? 1000); break
-        case 'condition4': va = Number((a.physical as any)?.condition4 ?? 1000); vb = Number((b.physical as any)?.condition4 ?? 1000); break
+        case 'condition1': va = Number((a.physical as any)?.condition1 ?? 100); vb = Number((b.physical as any)?.condition1 ?? 100); break
+        case 'condition2': va = Number((a.physical as any)?.condition2 ?? 100); vb = Number((b.physical as any)?.condition2 ?? 100); break
+        case 'condition3': va = Number((a.physical as any)?.condition3 ?? 100); vb = Number((b.physical as any)?.condition3 ?? 100); break
+        case 'condition4': va = Number((a.physical as any)?.condition4 ?? 100); vb = Number((b.physical as any)?.condition4 ?? 100); break
         case 'business': va = (a as any).Business ?? 0; vb = (b as any).Business ?? 0; break
         case 'booking_rep': va = (a as any).Booking_Reputation ?? 0; vb = (b as any).Booking_Reputation ?? 0; break
         case 'booking_skill': va = (a as any).Booking_Skill ?? 0; vb = (b as any).Booking_Skill ?? 0; break
@@ -60,10 +60,10 @@ export function sortWorkers(list: Worker[], sorts: { key: SortKey; dir: 'asc' | 
         case 'total_segments': va = a.performance?.total_segments ?? 0; vb = b.performance?.total_segments ?? 0; break
         case 'avg_duration': va = a.performance?.avg_duration ?? 0; vb = b.performance?.avg_duration ?? 0; break
         case 'total_duration': va = a.performance?.total_duration ?? 0; vb = b.performance?.total_duration ?? 0; break
-        case 'current_ability': va = calcCurrentScore(a); vb = calcCurrentScore(b); break
-        case 'potential_ability': va = calcPotentialScore(a); vb = calcPotentialScore(b); break
-        case 'current_usage': va = calcCurrentScore(a); vb = calcCurrentScore(b); break
-        case 'potential_usage': va = calcPotentialScore(a); vb = calcPotentialScore(b); break
+        case 'current_ability': va = a.current_score || 0; vb = b.current_score || 0; break
+        case 'potential_ability': va = a.potential_score || 0; vb = b.potential_score || 0; break
+        case 'current_usage': va = a.current_score || 0; vb = b.current_score || 0; break
+        case 'potential_usage': va = a.potential_score || 0; vb = b.potential_score || 0; break
         case 'storyline_heat': va = a.storylines?.[0]?.heat?.pct ?? 0; vb = b.storylines?.[0]?.heat?.pct ?? 0; break
         case 'avg_segment': va = a.performance?.avg_segment_rating?.pct ?? 0; vb = b.performance?.avg_segment_rating?.pct ?? 0; break
         case 'avg_match': va = a.performance?.avg_match_rating?.pct ?? 0; vb = b.performance?.avg_match_rating?.pct ?? 0; break

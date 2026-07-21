@@ -43,6 +43,88 @@
 .filter-select:focus {
   border-color: var(--accent);
 }
+
+/* Boxed section used by FilterPanel — bordered card with an uppercase
+   label header, giving each logical group (Group By, Subgroups, Custom
+   Filters) its own visually distinct region instead of a flat flowing list. */
+.filter-box {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-secondary);
+  padding: 10px;
+}
+
+.filter-box-header {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+/* Numeric min/max control: a 1-100 quick-select dropdown, then minus, then
+   plus, each its own solid-white-bordered box with a gap between (matching
+   an FM-style attribute row) rather than one merged pill. A dropdown clamps
+   structurally to its option list, so out-of-range/negative values can't
+   be entered — no separate validation needed. */
+.stepper {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.stepper select,
+.stepper button {
+  border: 1px solid #fff;
+  border-radius: var(--border-radius);
+  background: var(--bg-secondary);
+}
+
+.stepper select {
+  width: 38px;
+  padding: 5px 2px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-family);
+  text-align: center;
+  text-align-last: center;
+  outline: none;
+  cursor: pointer;
+}
+
+.stepper button {
+  color: var(--text-muted);
+  width: 22px;
+  flex-shrink: 0;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepper button:hover {
+  background: var(--bg-hover);
+}
+
+.stepper button img {
+  width: 10px;
+  height: 10px;
+  filter: brightness(0) invert(1);
+}
+
+/* Custom-filter-rule row: dimension / operator / value / remove aligned in
+   fixed columns so multiple rules line up, matching a scouting-report-style
+   attribute list rather than a wrapping inline flex row. */
+.filter-rule-row {
+  display: grid;
+  grid-template-columns: 1fr 96px minmax(0, 1fr) 20px;
+  gap: 6px;
+  align-items: center;
+}
+
 .btn {
   padding: 6px 14px;
   border: 1px solid var(--border-color);
@@ -183,7 +265,7 @@
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s;
-  z-index: 1000;
+  z-index: 10000;
   border: 1px solid var(--border-color);
 }
 
@@ -258,9 +340,8 @@
 
 /* Worker images */
 .worker-thumb {
-  width: 32px;
-  height: 32px;
-  object-fit: cover;
-  border-radius: 4px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
   display: block;
 }

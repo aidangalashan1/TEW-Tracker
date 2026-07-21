@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { api, ViewSummary } from '../api'
 import { loadPages, savePages } from '../pages/pageStorage'
-import { loadLayout, saveLayout } from '../layout/storage'
+import { loadLayout, saveLayout, setActiveViewId } from '../layout/storage'
 
 interface ViewManagerProps {
   onClose: () => void
@@ -60,6 +60,7 @@ export function ViewManager({ onClose, onLoad }: ViewManagerProps) {
       for (const p of full.pages) {
         saveLayout(p.id, { page: p.id, items: p.layout })
       }
+      setActiveViewId(v.id)
       onLoad()
       onClose()
       window.location.reload()

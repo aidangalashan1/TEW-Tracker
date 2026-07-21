@@ -66,16 +66,18 @@ export function Sidebar() {
           >
             <span className="nav-item-icon">📄</span>
             <span style={{ flex: 1 }}>{page.label}</span>
-            <button
-              className="nav-item-remove"
-              title="Remove page"
-              onClick={e => {
-                e.stopPropagation()
-                removePage(page.id)
-              }}
-            >
-              ✕
-            </button>
+            {page.id !== 'entity-module-worker-list' && (
+              <button
+                className="nav-item-remove"
+                title="Remove page"
+                onClick={e => {
+                  e.stopPropagation()
+                  removePage(page.id)
+                }}
+              >
+                ✕
+              </button>
+            )}
           </div>
         ))}
         <div className="nav-item nav-item-add" onClick={() => setShowAddPage(true)}>

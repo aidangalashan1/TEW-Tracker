@@ -1,5 +1,5 @@
 export type { ColumnDef, ColumnState } from './types'
-export { StatusBadge, MoneyDisplay, conditionHeart, condPctBar, fmtDuration, fmtDurationHm, MiniGraphTooltip, Last5Cell, AvgCell } from './renderers'
+export { StatusBadge, MoneyDisplay, conditionHeart, condPctBar, fmtDuration, fmtDurationHm, MiniGraphTooltip, Last5Cell, AvgCell, renderCell } from './renderers'
 export { ratingColor } from '../../../lib/colors'
 
 const STORAGE_KEY = 'tew-worker-columns'
@@ -30,10 +30,10 @@ export function defaultColumnState(): import('./types').ColumnState[] {
     { id: 'nat', width: 28 },
     { id: 'name', width: 250 },
     { id: 'condition', width: 50 },
-    { id: 'current_ability', width: 60 },
-    { id: 'potential_ability', width: 60 },
-    { id: 'current_usage', width: 70 },
-    { id: 'potential_usage', width: 70 },
+    { id: 'current_ability', width: 80 },
+    { id: 'potential_ability', width: 80 },
+    { id: 'current_usage', width: 140 },
+    { id: 'potential_usage', width: 140 },
   ]
 }
 

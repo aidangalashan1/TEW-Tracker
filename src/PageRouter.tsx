@@ -1,6 +1,7 @@
 import { useApp } from './context/AppContext'
 import { DynamicPage } from './DynamicPage'
 import { WorkerProfile } from './pages/entities/WorkerProfile'
+import { WorkerListPage } from './pages/entities/WorkerListPage'
 import { ModulePage } from './pages/entities/ModulePage'
 import { SettingsPage } from './pages/Settings'
 import { WelcomePage } from './pages/Welcome'
@@ -29,7 +30,9 @@ export function PageRouter() {
   if (entity) {
     switch (entity.type) {
       case 'worker': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="WorkerProfile"><WorkerProfile workerUid={entity.id as number} /></ErrorBoundary>
-      case 'module': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="ModulePage"><ModulePage moduleId={entity.id as string} /></ErrorBoundary>
+      case 'module':
+        if (entity.id === 'worker-list') return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="WorkerListPage"><WorkerListPage /></ErrorBoundary>
+        return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="ModulePage"><ModulePage moduleId={entity.id as string} /></ErrorBoundary>
       default: break
     }
   }

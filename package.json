@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "concurrently -k \"npm run dev:react\" \"npm run dev:python\"",
     "dev:electron": "wait-on http://localhost:5173 && wait-on http-get://127.0.0.1:8567/api/health && electron .",
-    "dev:react": "vite --open",
-    "dev:python": "py python/main.py",
+    "dev:react": "powershell -Command \"Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }\" 2>nul & vite --open",
+    "dev:python": "powershell -Command \"Get-NetTCPConnection -LocalPort 8567 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }\" 2>nul & py python/main.py",
     "gen:types": "py scripts/generate_types.py > src/api-types.ts",
     "build:react": "vite build && node scripts/strip-crossorigin.js",
     "build:python": "taskkill /F /IM main.exe 2>nul & timeout /t 2 /nobreak >nul & py -m PyInstaller --noconfirm --onedir --distpath dist-python --workpath build-python --paths python --name main python/main.py",

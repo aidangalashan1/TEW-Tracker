@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import type { Federation } from '../api'
-import { api } from '../api'
+import { api, imageUrl } from '../api'
 import { getAllModules } from '../modules/registry'
 import moveDownIcon from '../assets/UI icons/movedown.png'
 import moveUpIcon from '../assets/UI icons/moveup.png'
@@ -60,7 +60,7 @@ function groupFeds(feds: Federation[], playerFed: Federation | null): [string, F
 }
 
 export function TopBar() {
-  const { currentPage, pages, closeEntity, playerFed, focusedFed, allFeds, setFocusedFed, navigateToEntity, img, goBack, goForward, canGoBack, canGoForward, workerRoster } = useApp()
+  const { currentPage, pages, closeEntity, playerFed, focusedFed, allFeds, setFocusedFed, navigateToEntity, img, goBack, goForward, canGoBack, canGoForward } = useApp()
   const [logoErr, setLogoErr] = useState(false)
   const [fedOpen, setFedOpen] = useState(false)
   const [fedPos, setFedPos] = useState<{ top: number; left: number; width: number } | null>(null)
@@ -86,12 +86,42 @@ export function TopBar() {
   const isWorkerEntity = entityType === 'worker'
   const workerUid = isWorkerEntity ? Number(entityId) : null
   const [workerName, setWorkerName] = useState('')
-  const currentWorkerIdx = isWorkerEntity && workerUid ? workerRoster.indexOf(workerUid) : -1
+  const [perceptionOrder, setPerceptionOrder] = useState<number[]>([])
+  const currentPerceptionIdx = isWorkerEntity && workerUid ? perceptionOrder.indexOf(workerUid) : -1
+  const [rosterOpen, setRosterOpen] = useState(false)
+  const [rosterList, setRosterList] = useState<{ uid: number; name: string; perception: number; picture: string; contractPicture: string }[]>([])
+  const rosterRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (isWorkerEntity && workerUid) {
       api.roster.detail(workerUid).then(w => setWorkerName(w.name)).catch(() => {})
     }
   }, [isWorkerEntity, workerUid])
+  useEffect(() => {
+    const fed = focusedFed || playerFed
+    if (!fed) return
+    api.roster.list(fed.uid).then(res => {
+      const list = (res.workers || []).map((w: any) => ({
+        uid: w.uid,
+        name: w.name,
+        perception: (w.contract as any)?.Perception ?? 99,
+        picture: (w as any).picture || '',
+        contractPicture: (w as any).contract?.picture || '',
+      }))
+      list.sort((a: any, b: any) => a.perception - b.perception)
+      setRosterList(list)
+      setPerceptionOrder(list.map(w => w.uid))
+    }).catch(() => {})
+  }, [focusedFed, playerFed])
+  useEffect(() => {
+    if (!rosterOpen) return
+    const handler = (e: MouseEvent) => {
+      if (rosterRef.current && !rosterRef.current.contains(e.target as Node)) {
+        setRosterOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [rosterOpen])
 
   // Close fed dropdown on outside click
   useEffect(() => {
@@ -157,14 +187,39 @@ export function TopBar() {
             <img src={rightIcon} alt="" style={{ width: 16, height: 16, filter: 'brightness(0) invert(0.6)' }} />
           </button>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginLeft: 4 }}>
-            <button className="btn" onClick={() => { const id = workerRoster[currentWorkerIdx - 1]; if (id) navigateToEntity('worker', id) }} disabled={currentWorkerIdx <= 0} style={{ padding: 0, lineHeight: 0 }} title="Previous worker">
+            <button className="btn" onClick={() => { const id = perceptionOrder[currentPerceptionIdx - 1]; if (id) navigateToEntity('worker', id) }} disabled={currentPerceptionIdx <= 0} style={{ padding: 0, lineHeight: 0 }} title="Previous worker">
               <img src={moveUpIcon} alt="" style={{ width: 10, height: 10, filter: 'brightness(0) invert(0.6)', display: 'block' }} />
             </button>
-            <button className="btn" onClick={() => { const id = workerRoster[currentWorkerIdx + 1]; if (id) navigateToEntity('worker', id) }} disabled={currentWorkerIdx >= workerRoster.length - 1} style={{ padding: 0, lineHeight: 0 }} title="Next worker">
+            <button className="btn" onClick={() => { const id = perceptionOrder[currentPerceptionIdx + 1]; if (id) navigateToEntity('worker', id) }} disabled={currentPerceptionIdx >= perceptionOrder.length - 1} style={{ padding: 0, lineHeight: 0 }} title="Next worker">
               <img src={moveDownIcon} alt="" style={{ width: 10, height: 10, filter: 'brightness(0) invert(0.6)', display: 'block' }} />
             </button>
           </div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginLeft: 8 }}>{workerName || 'Worker'}</div>
+          <div style={{ position: 'relative', display: 'inline-flex' }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginLeft: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, userSelect: 'none' }} onClick={() => setRosterOpen(p => !p)}>
+              {workerName || 'Worker'}
+              <img src={moveDownIcon} alt="" style={{ width: 12, height: 12, filter: 'brightness(0) invert(0.6)' }} />
+            </div>
+            {rosterOpen && (
+            <div ref={rosterRef} style={{ position: 'absolute', top: '100%', left: 8, zIndex: 1000, background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 6, maxHeight: 400, overflow: 'auto', minWidth: 250 }}>
+              {rosterList.map(w => (
+                <div key={w.uid} onClick={() => { navigateToEntity('worker', w.uid); setRosterOpen(false) }}
+                  style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, background: w.uid === workerUid ? 'var(--accent)' : 'transparent', color: w.uid === workerUid ? '#fff' : 'var(--text-primary)' }}
+                  onMouseEnter={e => { if (w.uid !== workerUid) (e.currentTarget as HTMLElement).style.background = 'var(--bg-tertiary)' }}
+                  onMouseLeave={e => { if (w.uid !== workerUid) (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
+                  {(() => {
+                    const pic = w.contractPicture || w.picture
+                    if (!pic) return <div style={{ width: 28, height: 28, borderRadius: 4, background: 'var(--bg-tertiary)', flexShrink: 0 }} />
+                    return <img src={imageUrl('People/' + pic)} alt=""
+                      style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }}
+                      onError={(e) => { (e.target as HTMLElement).style.display = 'none' }} />
+                  })()}
+                  <span>{w.name}</span>
+                </div>
+              ))}
+              {rosterList.length === 0 && <div style={{ padding: '6px 10px', fontSize: 13, color: 'var(--text-muted)' }}>Loading...</div>}
+            </div>
+          )}
+        </div>
         </div>
       ) : (
         <>
@@ -228,7 +283,7 @@ export function TopBar() {
         )}
         </>)}
       <div className="topbar-breadcrumb">
-        {!isWorkerEntity && isEntity && <button className="btn" onClick={closeEntity} style={{ padding: '2px 8px', fontSize: 12, marginRight: 8 }}>← Back</button>}
+        {!isWorkerEntity && isEntity && entityType !== 'module' && <button className="btn" onClick={closeEntity} style={{ padding: '2px 8px', fontSize: 12, marginRight: 8 }}>← Back</button>}
         <span className="topbar-breadcrumb-current">{pageName}</span>
       </div>
       <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

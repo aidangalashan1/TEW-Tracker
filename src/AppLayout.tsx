@@ -5,10 +5,12 @@ import { TopBar } from './components/TopBar'
 import { PageRouter } from './PageRouter'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import trackerLogo from './assets/TrackerLogo.png'
+import { WORKER_LIST_PAGE_ID } from './pages/pageStorage'
 
 export function AppLayout() {
-  const { currentPage, db, syncWorkspace } = useApp()
+  const { currentPage, db, syncWorkspace, rosterTab, setRosterTab } = useApp()
   const isWelcome = currentPage === 'welcome' || (!db.connected && !db.loading)
+  const isRosterPage = currentPage === WORKER_LIST_PAGE_ID
   const isLoading = db.loading && !db.connected
 
   useEffect(() => {
@@ -32,6 +34,13 @@ export function AppLayout() {
       {!isWelcome && <ErrorBoundary label="Sidebar"><Sidebar /></ErrorBoundary>}
       <div className="main-area">
         {!isWelcome && <ErrorBoundary label="TopBar"><TopBar /></ErrorBoundary>}
+        {isRosterPage && (
+          <div className="page-tabs">
+            <span className={`page-tab${rosterTab === 'workers' ? ' active' : ''}`} onClick={() => setRosterTab('workers')}>Full Roster</span>
+            <span className={`page-tab${rosterTab === 'teams' ? ' active' : ''}`} onClick={() => setRosterTab('teams')}>Teams &amp; Stables</span>
+            <span className={`page-tab${rosterTab === 'champions' ? ' active' : ''}`} onClick={() => setRosterTab('champions')}>Champions</span>
+          </div>
+        )}
         <div className="content">
           <ErrorBoundary label="PageRouter" resetKey={currentPage}><PageRouter /></ErrorBoundary>
         </div>
