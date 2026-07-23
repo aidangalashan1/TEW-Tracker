@@ -31,7 +31,10 @@ register_error_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
+    # localhost/127.0.0.1 covers the Vite dev server; app://bundle is the custom
+    # scheme the packaged Electron renderer is served from (see electron/main.js),
+    # which lets the desktop build keep webSecurity enabled.
+    allow_origin_regex=r"^(app://bundle|http://(localhost|127\.0\.0\.1)(:\d+)?)$",
     allow_methods=["*"],
     allow_headers=["*"],
 )

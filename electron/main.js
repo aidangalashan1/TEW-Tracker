@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol } = require('electron')
 const path = require('path')
 const { spawn } = require('child_process')
 const http = require('http')
@@ -7,6 +7,25 @@ const fs = require('fs')
 
 let pythonProcess = null
 let mainWindow = null
+
+// The packaged renderer is served from a custom `app://` scheme rather than a
+// bare file:// path. That gives the page a real, stable web origin so Chromium's
+// same-origin policy can stay ON (webSecurity: true) — the backend's CORS
+// allowlist includes `app://bundle`, and 127.0.0.1 is a trustworthy origin, so
+// API calls work without disabling web security. Registered as privileged so it
+// behaves like https (secure context, fetch support) before the app is ready.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+])
+
+const MIME_TYPES = {
+  '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
+  '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon',
+  '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
+  '.map': 'application/json', '.wasm': 'application/wasm',
+}
 
 // ── Diagnostics log (userData/logs/app.log) ──
 // Captures renderer errors (via IPC) and the Python backend's output, so a
@@ -137,7 +156,6 @@ async function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false,
     },
   })
 
@@ -157,7 +175,30 @@ async function createWindow() {
     } catch (e) {
       console.error('[Electron] Failed to start Python backend:', e.message)
     }
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
+    // Serve the built SPA over app:// from dist/ (bundled into the asar). fs
+    // reads work transparently inside the asar; an explicit MIME map keeps ES
+    // modules executable (Chromium refuses modules served as octet-stream).
+    const distDir = path.join(__dirname, '..', 'dist')
+    protocol.handle('app', (request) => {
+      const { pathname } = new URL(request.url)
+      let rel = decodeURIComponent(pathname)
+      if (rel === '/' || rel === '') rel = '/index.html'
+      const filePath = path.normalize(path.join(distDir, rel))
+      if (!filePath.startsWith(distDir)) return new Response('Forbidden', { status: 403 })
+      try {
+        const data = fs.readFileSync(filePath)
+        const ext = path.extname(filePath).toLowerCase()
+        return new Response(data, { headers: { 'content-type': MIME_TYPES[ext] || 'application/octet-stream' } })
+      } catch {
+        // SPA fallback: unknown non-asset path resolves to the app shell.
+        try {
+          return new Response(fs.readFileSync(path.join(distDir, 'index.html')), { headers: { 'content-type': 'text/html' } })
+        } catch {
+          return new Response('Not found', { status: 404 })
+        }
+      }
+    })
+    mainWindow.loadURL('app://bundle/index.html')
   }
   // F12 to toggle DevTools
   mainWindow.webContents.on('before-input-event', (e, input) => {
