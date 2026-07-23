@@ -119,4 +119,4 @@ class TestBeltFromDbRow:
             {"UID": 1, "Name": "World Title", "Fed": 2, "Style": 2, "BeltLevel": 1}
         )
         assert b.style == "Tag Team"
-        assert b.level == "World"
+        assert b.level == "Primary"

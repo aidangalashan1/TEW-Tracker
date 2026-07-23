@@ -135,7 +135,7 @@ export function ChampionsTab({ fedUid, workers }: { fedUid: number; workers: Wor
 
   const visibleBelts = useMemo(() => {
     if (!belts) return null
-    let list = activeOnly ? belts.filter(b => b.active) : [...belts]
+    const list = activeOnly ? belts.filter(b => b.active) : [...belts]
     if (!activeOnly) {
       list.sort((a, b) => {
         if (a.active && !b.active) return -1

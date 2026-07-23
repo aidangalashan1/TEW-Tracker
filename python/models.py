@@ -304,7 +304,7 @@ class ChemistryInfo(BaseModel):
     model_config = ConfigDict(extra='allow')
     worker_name: str = ""
     worker_uid: int = 0
-    chemistry: int = 0  # 1=positive, -1=negative
+    chemistry: int = 0  # signed strength: >0 = good chemistry, <0 = bad
 
 
 class Worker(BaseModel):

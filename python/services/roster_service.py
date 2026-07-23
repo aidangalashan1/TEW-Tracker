@@ -584,7 +584,10 @@ def get_roster(fed_uid: int = None) -> list[Worker]:
         for cr in store.chemistry:
             if cr.get("Player") != 1:
                 continue
-            cval = 1 if cr["Chem"] > 0 else -1
+            # Preserve the real signed magnitude (TEW stores strength in Chem,
+            # sign = good/bad) instead of collapsing to ±1 — the frontend still
+            # groups by sign, but the magnitude is now available to surface.
+            cval = cr["Chem"]
             if cr["Person1"] == uid:
                 chems.append({"worker": cr["Person2"], "chem": cval})
             elif cr["Person2"] == uid:
