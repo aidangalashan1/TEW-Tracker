@@ -46,11 +46,12 @@ export function WorkerListPage() {
     })
   }, [])
 
+  const fedUid = fed?.uid
   useEffect(() => {
-    if (!fed) { setLoading(false); return }
+    if (fedUid == null) { setLoading(false); return }
     setLoading(true)
-    api.roster.list(fed.uid).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
-  }, [fed?.uid])
+    api.roster.list(fedUid).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
+  }, [fedUid])
 
   if (loading) return <div className="loading" style={{ padding: 24 }}>Loading...</div>
   if (!data?.workers) return <div className="text-muted" style={{ padding: 24 }}>No workers</div>

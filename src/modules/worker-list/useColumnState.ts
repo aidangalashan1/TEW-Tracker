@@ -267,6 +267,9 @@ export function useColumnState(opts: {
       window.removeEventListener('mouseup', onUp)
       if (indicator.parentNode) document.body.removeChild(indicator)
     }
+    // Resize listeners live for the duration of a drag (keyed on `resizing`);
+    // tableRef is a stable ref and onConfigChange is captured for the drag.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resizing])
 
   const onDragStart = (e: React.DragEvent, id: string) => {

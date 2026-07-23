@@ -47,9 +47,10 @@ export function DynamicPage({ pageId }: { pageId: string }) {
 
   const moduleSetKey = Array.from(new Set(layout.map(item => item.moduleId))).sort().join(",")
 
+  const fedUid = fed?.uid
   useEffect(() => {
-    if (!fed) return
-    const fedKey = `fed_${fed.uid}`
+    if (fedUid == null) return
+    const fedKey = `fed_${fedUid}`
     // Invalidate cache on fed change
     if (!_fedCache.has(fedKey)) {
       _fedCache.clear()
@@ -63,7 +64,7 @@ export function DynamicPage({ pageId }: { pageId: string }) {
       if (cached) return { moduleId, data: cached }
       const def = getModule(moduleId)
       if (def?.fetchData) {
-        const data = await def.fetchData(fed.uid).catch(() => null)
+        const data = await def.fetchData(fedUid).catch(() => null)
         if (data) cache.set(moduleId, data)
         return { moduleId, data }
       }
@@ -74,7 +75,7 @@ export function DynamicPage({ pageId }: { pageId: string }) {
       results.forEach(r => { if (r) next[r.moduleId] = r.data })
       setModuleData(next)
     })
-  }, [fed?.uid, moduleSetKey])
+  }, [fedUid, moduleSetKey])
 
   return <LayoutEngine layout={layout} data={moduleData} onLayoutChange={handleLayoutChange} />
 }

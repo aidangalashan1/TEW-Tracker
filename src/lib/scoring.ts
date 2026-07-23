@@ -1,51 +1,8 @@
-import type { Worker } from '../api'
-
-export function getEntertainmentAvg(w: Worker): number {
-  const s = w.skills
-  if (!s) return 0
-  return Math.round((s.charisma.pct + s.mic.pct + s.acting.pct + s.star.pct) / 4)
-}
-
-export function getPrimaryAvg(w: Worker): number {
-  const s = w.skills
-  if (!s) return 0
-  return Math.round((s.brawl.pct + s.puroresu.pct + s.hardcore.pct + s.technical.pct + s.air.pct) / 5)
-}
-
-export function getTalentScore(w: Worker): number {
-  return Math.round((getEntertainmentAvg(w) + getPrimaryAvg(w)) / 2)
-}
-
-const PRIMARY_STATS = [
-  ['Brawling', 'brawl'], ['Puroresu', 'puroresu'], ['Hardcore', 'hardcore'],
-  ['Technical', 'technical'], ['Aerial', 'air'],
-] as const
-
-export function getHighestPrimarySkill(w: Worker): { label: string; pct: number } | null {
-  const s = w.skills
-  if (!s) return null
-  let best: { label: string; pct: number } | null = null
-  for (const [label, key] of PRIMARY_STATS) {
-    const val = s[key]?.pct ?? 0
-    if (!best || val > best.pct) best = { label, pct: val }
-  }
-  return best
-}
-
-export function sortByPopularityThenTalent(workers: Worker[]): Worker[] {
-  return [...workers].sort((a, b) => {
-    const popDiff = b.pop.pct - a.pop.pct
-    if (popDiff !== 0) return popDiff
-    return getTalentScore(b) - getTalentScore(a)
-  })
-}
-
-export function starsFromScore(score: number): number {
-  if (score >= 90) return 5; if (score >= 80) return 4.5; if (score >= 70) return 4
-  if (score >= 60) return 3.5; if (score >= 50) return 3; if (score >= 40) return 2.5
-  if (score >= 30) return 2; if (score >= 20) return 1.5; if (score >= 10) return 1
-  return 0.5
-}
+// Frontend display helpers for the Agent Report and star labels. The numeric
+// star scores themselves (current_score / current_stars / potential_*) are
+// computed once on the backend (roster_service._compute_star_scores) and
+// consumed from the API — this module holds only presentation-layer
+// derivations, so the score algorithm has a single source of truth.
 
 function pct(r: any): number { return Number(r?.pct ?? 0) }
 

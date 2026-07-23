@@ -176,6 +176,9 @@ export function CardEditor({ show, fedUid, onClose }: CardEditorProps) {
       }
       setLoading(false)
     }).catch(() => setLoading(false))
+    // Runs once when the editor opens to load initial data; the editor is
+    // remounted per show, so intentionally not re-run on show/fed changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const assignedUids = new Set<number>()

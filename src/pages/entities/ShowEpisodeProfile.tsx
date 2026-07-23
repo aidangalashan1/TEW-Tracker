@@ -18,7 +18,7 @@ function fmtDate(d: string): string {
 }
 
 export function ShowEpisodeProfile({ entityId }: { entityId: string }) {
-  const { img, navigateToEntity, focusedFed, playerFed } = useApp()
+  const { img, focusedFed, playerFed } = useApp()
   const workerById = (uid: number) => workers.find(w => w.uid === uid)
   const fed = focusedFed || playerFed
   const [tvUid, showDate] = (entityId || '').split('@')
@@ -29,9 +29,10 @@ export function ShowEpisodeProfile({ entityId }: { entityId: string }) {
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
   const [workers, setWorkers] = useState<any[]>([])
+  const fedUid = fed?.uid
   useEffect(() => {
-    if (fed) api.roster.list(fed.uid).then(r => setWorkers(r.workers || [])).catch(() => {})
-  }, [fed?.uid])
+    if (fedUid != null) api.roster.list(fedUid).then(r => setWorkers(r.workers || [])).catch(() => {})
+  }, [fedUid])
 
   useEffect(() => {
     if (tvUid) {

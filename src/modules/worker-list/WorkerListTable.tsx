@@ -33,28 +33,32 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
   const { navigateToEntity, gameInfo, focusedFed, playerFed, currentPage } = useApp()
   const tableRef = useRef<HTMLDivElement>(null)
   const [positionFilter, setPositionFilter] = useState('all')
-  const [genderFilter, setGenderFilter] = useState('all')
-  const [activeFilter, setActiveFilter] = useState('all')
-  const [roleFilter, setRoleFilter] = useState('all')
-  const [contractFilter, setContractFilter] = useState('all')
+  // These four dimensions are superseded by the filterRules system and are no
+  // longer settable from the UI (only positionFilter has a live control); their
+  // values stay 'all'. Kept as state so filterWorkers/hasActiveFilters signatures
+  // are unchanged — setters dropped since nothing assigns them.
+  const [genderFilter] = useState('all')
+  const [activeFilter] = useState('all')
+  const [roleFilter] = useState('all')
+  const [contractFilter] = useState('all')
   // Persisted via config (like subgroups/filterRules below) rather than local
   // useState, so group-by/active-subgroup/advanced-role selections survive a
   // reload instead of resetting to empty every time the module remounts.
-  const groupBy = new Set<string>(config.groupBy || [])
+  const groupBy = useMemo(() => new Set<string>(config.groupBy || []), [config.groupBy])
   const setGroupBy = (s: Set<string>) => onConfigChange({ groupBy: Array.from(s) })
-  const activeSubgroups = new Set<string>(config.activeSubgroups || [])
+  const activeSubgroups = useMemo(() => new Set<string>(config.activeSubgroups || []), [config.activeSubgroups])
   const setActiveSubgroups = (s: Set<string>) => onConfigChange({ activeSubgroups: Array.from(s) })
-  const advancedRoleFilters = new Set<string>(config.advancedRoleFilters || [])
+  const advancedRoleFilters = useMemo(() => new Set<string>(config.advancedRoleFilters || []), [config.advancedRoleFilters])
   const setAdvancedRoleFilters = (s: Set<string>) => onConfigChange({ advancedRoleFilters: Array.from(s) })
 
-  const subgroups: SubgroupDef[] = config.subgroups || []
+  const subgroups = useMemo<SubgroupDef[]>(() => config.subgroups || [], [config.subgroups])
   const [selectedDim, setSelectedDim] = useState<string | null>(null)
   const [selectedSg, setSelectedSg] = useState<string | null>(null)
   const [showSgEditor, setShowSgEditor] = useState(false)
   const [sgLabel, setSgLabel] = useState('')
   const [sgFilters, setSgFilters] = useState<SubgroupFilter>({})
 
-  const filterRules: FilterRule[] = config.filterRules || []
+  const filterRules = useMemo<FilterRule[]>(() => config.filterRules || [], [config.filterRules])
   const [sorts, setSorts] = useState<{ key: SortKey; dir: 'asc' | 'desc' }[]>(() => {
     try {
       const raw = localStorage.getItem('tew-worker-sorts')
@@ -114,18 +118,10 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
 
   const groups = useMemo(
     () => computeGroups(filtered, { groupBy, subgroups, activeSubgroups, advancedRoleFilters, sorts }),
-    [groupBy, filtered, advancedRoleFilters, subgroups, activeSubgroups, sorts, orderedDims]
+    [groupBy, filtered, advancedRoleFilters, subgroups, activeSubgroups, sorts]
   )
 
-  const clearFilters = () => {
-    setPositionFilter('all')
-    setGenderFilter('all')
-    setActiveFilter('all')
-    setRoleFilter('all')
-    setContractFilter('all')
-  }
-
-  const hasActiveFilters = positionFilter !== 'all' || genderFilter !== 'all' || activeFilter !== 'all' || roleFilter !== 'all' || contractFilter !== 'all'
+  const hasActiveFilters =positionFilter !== 'all' || genderFilter !== 'all' || activeFilter !== 'all' || roleFilter !== 'all' || contractFilter !== 'all'
 
   const toggleSort = (key: string) => {
     const sk = key as SortKey

@@ -200,8 +200,6 @@ export function FilterPanel({
             </div>
             <div className="flex flex-col gap-1">
               {subgroups.map((sg, sgIdx) => {
-                const activeDims = (Object.keys(sg.filters) as (keyof SubgroupFilter)[]).filter(k => (sg.filters[k]?.length ?? 0) > 0)
-                const sub = activeDims.map(d => `${d}: ${sg.filters[d]!.join(',')}`).join(' ')
                 const isSelected = selectedSg === sg.label
                 return (
                   <div key={sg.label} className="flex items-center gap-1"

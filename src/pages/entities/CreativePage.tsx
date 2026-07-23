@@ -21,10 +21,11 @@ function ScheduleTab() {
   const [data, setData] = useState<any>(null)
   const [planShow, setPlanShow] = useState<any>(null)
 
+  const fedUid = fed?.uid
   useEffect(() => {
-    if (!fed) return
-    api.schedule.list(fed.uid).then(setData).catch(() => {})
-  }, [fed?.uid])
+    if (fedUid == null) return
+    api.schedule.list(fedUid).then(setData).catch(() => {})
+  }, [fedUid])
 
   const grouped = useMemo(() => {
     if (!data?.upcoming) return []
@@ -97,10 +98,11 @@ function ShowHistoryTab() {
   const fed = focusedFed || playerFed
   const [shows, setShows] = useState<PastShow[]>([])
 
+  const fedUid = fed?.uid
   useEffect(() => {
-    if (!fed) return
-    api.show_history.list(fed.uid, 100).then(r => setShows(r.shows)).catch(() => {})
-  }, [fed?.uid])
+    if (fedUid == null) return
+    api.show_history.list(fedUid, 100).then(r => setShows(r.shows)).catch(() => {})
+  }, [fedUid])
 
   const grouped = useMemo(() => {
     const groups: { month: string; items: PastShow[] }[] = []
@@ -127,7 +129,7 @@ function ShowHistoryTab() {
         <div key={group.month} style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.06)' }}>{group.month}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {group.items.map((show, i) => (
+            {group.items.map((show) => (
               <div key={show.uid}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 4, background: 'var(--bg-secondary)' }}>
                 <div style={{ fontSize: 12, color: '#fff', minWidth: 90 }}>{fmtDate(show.date)}</div>
@@ -165,11 +167,12 @@ function StorylinesTab() {
   const [roster, setRoster] = useState<any[]>([])
   const [selectedWorker, setSelectedWorker] = useState<number | null>(null)
 
+  const fedUid = fed?.uid
   useEffect(() => {
-    if (!fed) return
-    api.storylines.cross(fed.uid).then(setData).catch(() => {})
-    api.roster.list(fed.uid).then(r => setRoster(r.workers || [])).catch(() => {})
-  }, [fed?.uid])
+    if (fedUid == null) return
+    api.storylines.cross(fedUid).then(setData).catch(() => {})
+    api.roster.list(fedUid).then(r => setRoster(r.workers || [])).catch(() => {})
+  }, [fedUid])
 
   const openIdeas = () => {
     setSelectedWorker(null)

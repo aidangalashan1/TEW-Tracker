@@ -7,7 +7,6 @@ import { ConditionBody } from './ConditionBody'
 import { RatingBadge } from './RatingBadge'
 import { ratingColor } from '../../../lib/colors'
 import { calcPerformance } from '../../../lib/scoring'
-import { SectionCard } from './SectionCard'
 import { Tooltip } from '../../../components/Tooltip'
 import rightIcon from '../../../assets/UI icons/right.png'
 

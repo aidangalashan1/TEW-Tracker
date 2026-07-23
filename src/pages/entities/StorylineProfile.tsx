@@ -39,12 +39,14 @@ export function StorylineProfile({ storylineUid }: { storylineUid: number }) {
         api.cards.get(card.id).then(full => setCardDetails(prev => ({ ...prev, [card.id]: full }))).catch(() => {})
       }
     }
+    // cardDetails is read only as a fetch-once cache guard; re-running when it
+    // changes would just re-scan and no-op. Keyed on cardsList intentionally.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardsList])
 
   const plannedSegments = useMemo(() => {
     if (!sl?.workers) return []
     const workerUids = new Set(sl.workers.map((w: any) => w.uid))
-    const workerMap = new Map(sl.workers.map((w: any) => [w.uid, w.name]))
     const nameByUid = new Map<number, string>()
     for (const w of sl.workers) nameByUid.set(w.uid, w.name)
     const result: { date: string; show: string; text: string }[] = []

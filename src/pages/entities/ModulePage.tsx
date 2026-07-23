@@ -45,11 +45,12 @@ export function ModulePage({ moduleId }: { moduleId: string }) {
     })
   }, [moduleId])
 
+  const fedUid = fed?.uid
   useEffect(() => {
-    if (!fed || !def?.fetchData) { setLoading(false); return }
+    if (fedUid == null || !def?.fetchData) { setLoading(false); return }
     setLoading(true)
-    def.fetchData(fed.uid).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
-  }, [moduleId, fed?.uid])
+    def.fetchData(fedUid).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
+  }, [def, fedUid])
 
   if (!def) {
     return (

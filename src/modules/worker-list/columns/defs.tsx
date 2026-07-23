@@ -198,11 +198,15 @@ export function buildColumns(): ColumnDef[] {
     } },
     { id: 'chemistry', label: 'Chemistry', abbrev: 'Chem', width: 110, group: 'info', filterGroup: 'creative', render: w => {
       if (!w.chemistry || w.chemistry.length === 0) return <span>—</span>
-      const pos = w.chemistry.filter(c => c.chemistry > 0)
-      const neg = w.chemistry.filter(c => c.chemistry < 0)
+      // Sort strongest-first and surface the real magnitude (TEW stores it but
+      // buries it), so a standout pairing reads differently from a faint one.
+      const pos = w.chemistry.filter(c => c.chemistry > 0).sort((a, b) => b.chemistry - a.chemistry)
+      const neg = w.chemistry.filter(c => c.chemistry < 0).sort((a, b) => a.chemistry - b.chemistry)
+      const fmt = (c: { worker_name: string; chemistry: number }) =>
+        `${c.worker_name} (${Math.abs(c.chemistry)})`
       return <span className="flex flex-col gap-1px">
-        {pos.length > 0 && <span className="text-green">+ {pos.map(c => c.worker_name).join(', ')}</span>}
-        {neg.length > 0 && <span className="text-red">− {neg.map(c => c.worker_name).join(', ')}</span>}
+        {pos.length > 0 && <span className="text-green">+ {pos.map(fmt).join(', ')}</span>}
+        {neg.length > 0 && <span className="text-red">− {neg.map(fmt).join(', ')}</span>}
       </span>
     } },
 
