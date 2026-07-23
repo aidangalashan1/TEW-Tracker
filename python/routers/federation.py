@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Query
-from services.fed_service import get_fed, get_all_feds, get_belts, get_storylines, get_fed_finances
+from services.fed_service import get_fed, get_all_feds, get_belts, get_storylines, get_fed_finances, get_belt_history
 from services.roster_service import get_player_fed_uid
 
 router = APIRouter(prefix="/api/fed", tags=["federation"])
@@ -36,6 +36,10 @@ def storylines(fed_uid: int):
 @router.get("/{fed_uid}/finances")
 def finances(fed_uid: int):
     return get_fed_finances(fed_uid)
+
+@router.get("/{fed_uid}/belt-history")
+def belt_history_route(fed_uid: int, limit: int = 5):
+    return {"history": get_belt_history(fed_uid, limit)}
 
 @router.get("/{fed_uid}/overview")
 def overview(fed_uid: int):

@@ -25,10 +25,11 @@ class DataStore:
     Each group is a raw table plus any lookup indices derived from it. Groups
     load on first access via __getattr__, so a request only pays for the tables
     it touches (a light endpoint no longer drags in the big match-log/morale
-    tables). A single read-only connection per store is opened on first load and
-    reused for every group (serialised by _load_lock, so there's no per-group
-    connection churn on heavy pages); it's released when the store is
-    garbage-collected after a reload swaps in a newer snapshot.
+    tables). Each group opens its own short-lived connection and closes it
+    immediately after that group's query completes (serialised by _load_lock)
+    — TEW itself needs to write to this same file, and holding a connection
+    open for a store's whole lifetime (as this used to do) is a well-known
+    cause of save failures for whichever process actually needs to write.
     """
 
     # group -> (attributes it populates, loader method name)
@@ -56,8 +57,11 @@ class DataStore:
         "morale": (["morale"], "_load_morale"),
         "belts": (["belts", "champ_set"], "_load_belts"),
         "belt_history": (["belt_history"], "_load_belt_history"),
+        "belt_pre_history": (["belt_pre_history"], "_load_belt_pre_history"),
         "attributes": (["attributes"], "_load_attributes"),
+        "worker_bio": (["worker_bio"], "_load_worker_bio"),
         "worker_business": (["worker_business"], "_load_worker_business"),
+        "belt_prestige": (["belt_prestige"], "_load_belt_prestige"),
         "chemistry": (["chemistry"], "_load_chemistry"),
         "cards": (["cards"], "_load_cards"),
         "tv_shows": (["tv_shows"], "_load_tv_shows"),
@@ -78,7 +82,6 @@ class DataStore:
         self.version = version
         self._loaded: set[str] = set()
         self._load_lock = threading.Lock()
-        self._conn = None
 
     # ── lazy dispatch ──
     def __getattr__(self, name: str):
@@ -99,13 +102,15 @@ class DataStore:
         with self._load_lock:
             if group in self._loaded:
                 return
-            if self._conn is None:
-                self._conn = self._temp_conn()
-            cur = self._conn.cursor()
+            conn = self._temp_conn()
             try:
-                getattr(self, self._GROUPS[group][1])(cur)
+                cur = conn.cursor()
+                try:
+                    getattr(self, self._GROUPS[group][1])(cur)
+                finally:
+                    cur.close()
             finally:
-                cur.close()
+                conn.close()
             self._loaded.add(group)
 
     def _fetch_all(self, cursor, sql: str, params: tuple = None) -> list[dict]:
@@ -123,6 +128,20 @@ class DataStore:
     #    is unchanged from the previous monolithic load) ──
     def _load_workers(self, cur):
         self.workers = {r["UID"]: r for r in self._fetch_all(cur, "SELECT * FROM tblWorker")}
+
+    def _load_worker_bio(self, cur):
+        try:
+            rows = self._fetch_all(cur, "SELECT * FROM tblWorkerBio")
+            self.worker_bio = {}
+            for r in rows:
+                uid = r.get("UID")
+                if uid is None:
+                    continue
+                text = r.get("Profile") or r.get("Bio") or r.get("Biography") or ""
+                if text:
+                    self.worker_bio[uid] = text
+        except Exception:
+            self.worker_bio = {}
 
     def _load_contracts(self, cur):
         self.contracts = []
@@ -204,11 +223,25 @@ class DataStore:
     def _load_belt_history(self, cur):
         self.belt_history = self._fetch_all(cur, "SELECT * FROM tblBeltHistory")
 
+    def _load_belt_pre_history(self, cur):
+        self.belt_pre_history = self._fetch_all(cur, "SELECT * FROM tblBeltPreHistory")
+
     def _load_attributes(self, cur):
         self.attributes = self._fetch_all(cur, "SELECT * FROM tblAttribute")
 
     def _load_worker_business(self, cur):
         self.worker_business = {r["WorkerUID"]: r for r in self._fetch_all(cur, "SELECT * FROM tblWorkerBusiness")}
+
+    def _load_belt_prestige(self, cur):
+        try:
+            rows = self._fetch_all(cur, "SELECT * FROM tblBeltPrestige")
+            self.belt_prestige = {}
+            for r in rows:
+                key = r.get("BeltUID") or r.get("UID")
+                if key is not None:
+                    self.belt_prestige[key] = r
+        except Exception:
+            self.belt_prestige = {}
 
     def _load_chemistry(self, cur):
         self.chemistry = self._fetch_all(cur, "SELECT * FROM tblChemistry")
@@ -297,6 +330,29 @@ def _reload_snapshot(path: str) -> None:
     _last_mtime = os.path.getmtime(path)
 
 
+SETTLE_RETRIES = 3
+SETTLE_DELAY = 1.0
+
+
+def _settled_mtime(path: str, first_seen: float) -> float | None:
+    """TEW's save can touch several tables in sequence, so mtime can tick
+    partway through a write. Wait for it to stop moving before reloading —
+    reconnecting mid-save would open a fresh connection at the exact moment
+    TEW needs the file free, and risks reading a half-written snapshot."""
+    last = first_seen
+    for _ in range(SETTLE_RETRIES):
+        if _watcher_stop.wait(SETTLE_DELAY):
+            return None
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            return None
+        if mtime == last:
+            return mtime
+        last = mtime
+    return last
+
+
 def _watch_loop() -> None:
     tick = 0
     while not _watcher_stop.wait(POLL_INTERVAL):
@@ -313,6 +369,9 @@ def _watch_loop() -> None:
         if mtime == _last_mtime:
             continue
         if not os.path.isfile(path):
+            continue
+        settled = _settled_mtime(path, mtime)
+        if settled is None or _watched_path != path:
             continue
         print("[DataStore] File change detected, reloading...")
         try:

@@ -8,9 +8,10 @@ import trackerLogo from './assets/TrackerLogo.png'
 import { WORKER_LIST_PAGE_ID } from './pages/pageStorage'
 
 export function AppLayout() {
-  const { currentPage, db, syncWorkspace, rosterTab, setRosterTab } = useApp()
+  const { currentPage, db, syncWorkspace, rosterTab, setRosterTab, creativeTab, setCreativeTab } = useApp()
   const isWelcome = currentPage === 'welcome' || (!db.connected && !db.loading)
   const isRosterPage = currentPage === WORKER_LIST_PAGE_ID
+  const isCreativePage = currentPage === 'booking'
   const isLoading = db.loading && !db.connected
 
   useEffect(() => {
@@ -39,6 +40,13 @@ export function AppLayout() {
             <span className={`page-tab${rosterTab === 'workers' ? ' active' : ''}`} onClick={() => setRosterTab('workers')}>Full Roster</span>
             <span className={`page-tab${rosterTab === 'teams' ? ' active' : ''}`} onClick={() => setRosterTab('teams')}>Teams &amp; Stables</span>
             <span className={`page-tab${rosterTab === 'champions' ? ' active' : ''}`} onClick={() => setRosterTab('champions')}>Champions</span>
+          </div>
+        )}
+        {isCreativePage && (
+          <div className="page-tabs">
+            <span className={`page-tab${creativeTab === 'schedule' ? ' active' : ''}`} onClick={() => setCreativeTab('schedule')}>Schedule</span>
+            <span className={`page-tab${creativeTab === 'history' ? ' active' : ''}`} onClick={() => setCreativeTab('history')}>Show History</span>
+            <span className={`page-tab${creativeTab === 'storylines' ? ' active' : ''}`} onClick={() => setCreativeTab('storylines')}>Storylines</span>
           </div>
         )}
         <div className="content">

@@ -446,20 +446,14 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border-color)', paddingLeft: 16 }}>
-        <div onClick={() => setTab('profile')} style={{ padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', color: tab === 'profile' ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === 'profile' ? '2px solid var(--accent)' : '2px solid transparent' }}>
-          Profile
-        </div>
-        <div onClick={() => setTab('agent-report')} style={{ padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', color: tab === 'agent-report' ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === 'agent-report' ? '2px solid var(--accent)' : '2px solid transparent' }}>
-          Agent Report
-        </div>
-        <div onClick={() => setTab('form')} style={{ padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', color: tab === 'form' ? 'var(--accent)' : 'var(--text-muted)', borderBottom: tab === 'form' ? '2px solid var(--accent)' : '2px solid transparent' }}>
-          Form
-        </div>
+      <div className="page-tabs">
+        <span className={`page-tab${tab === 'profile' ? ' active' : ''}`} onClick={() => setTab('profile')}>Profile</span>
+        <span className={`page-tab${tab === 'agent-report' ? ' active' : ''}`} onClick={() => setTab('agent-report')}>Agent Report</span>
+        <span className={`page-tab${tab === 'form' ? ' active' : ''}`} onClick={() => setTab('form')}>Form</span>
       </div>
 
       {/* Info bar: portrait+info+logos | contract | agent's report */}
-      <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flexShrink: 0, padding: 20 }}>
+      <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flexShrink: 0, padding: '20px 20px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'stretch', background: 'var(--bg-secondary)', borderRadius: 8, padding: '12px 16px' }}>
           {/* Portrait + info + logos */}
           <div style={{ flex: 1, display: 'flex', gap: 12, minWidth: 0 }}>
@@ -559,10 +553,19 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
           </>
           )}
         </div>
+        </div>
+
+      <div style={{ padding: '0 20px 14px' }}>
+        <div style={{ borderRadius: 8, padding: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Biography</div>
+          <div style={{ fontSize: 13, color: '#fff', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+            {(w as any).bio || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No biography available</span>}
+          </div>
+        </div>
       </div>
 
       {tab === 'profile' ? (
-      <ProfileTab w={w} stars={stars} img={img} focusedFed={focusedFed} playerFed={playerFed} allFeds={allFeds} navigateToEntity={navigateToEntity} onViewForm={() => setTab('form')} AREAS={AREAS} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} condMaleHead={condMaleHead} condMaleBody={condMaleBody} condMaleLegs={condMaleLegs} condMaleArmLeft={condMaleArmLeft} condMaleArmRight={condMaleArmRight} condFemHead={condFemHead} condFemBody={condFemBody} condFemLegs={condFemLegs} condFemArmLeft={condFemArmLeft} condFemArmRight={condFemArmRight} wrestlerIcon={wrestlerIcon} refereeIcon={refereeIcon} announcerIcon={announcerIcon} managerIcon={managerIcon} personalityIcon={personalityIcon} roadAgentIcon={roadAgentIcon} />
+      <ProfileTab w={w} stars={stars} img={img} focusedFed={focusedFed} playerFed={playerFed} allFeds={allFeds} gameInfo={gameInfo} navigateToEntity={navigateToEntity} onViewForm={() => setTab('form')} AREAS={AREAS} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} condMaleHead={condMaleHead} condMaleBody={condMaleBody} condMaleLegs={condMaleLegs} condMaleArmLeft={condMaleArmLeft} condMaleArmRight={condMaleArmRight} condFemHead={condFemHead} condFemBody={condFemBody} condFemLegs={condFemLegs} condFemArmLeft={condFemArmLeft} condFemArmRight={condFemArmRight} wrestlerIcon={wrestlerIcon} refereeIcon={refereeIcon} announcerIcon={announcerIcon} managerIcon={managerIcon} personalityIcon={personalityIcon} roadAgentIcon={roadAgentIcon} />
 
       ) : tab === 'agent-report' ? (
       <AgentReportTab w={w} stars={stars} img={img} focusedFed={focusedFed} playerFed={playerFed} AREAS={AREAS} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} ScoutIcon={ScoutIcon} />

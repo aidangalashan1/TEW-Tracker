@@ -10,7 +10,7 @@ export function defaultPages(): UserPage[] {
   return [
     { id: WORKER_LIST_PAGE_ID, label: 'Roster' },
     { id: 'roster', label: 'Roster' },
-    { id: 'booking', label: 'Booking' },
+    { id: 'booking', label: 'Creative' },
     { id: 'finances', label: 'Finances' },
   ]
 }

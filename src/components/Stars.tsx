@@ -13,7 +13,7 @@ export function Stars({ filled, total = 5, size = 18 }: { filled: number; total?
           return (
             <span key={i} className={`relative inline-block ${cls}`}>
               <img src={starIcon} alt="" className={`${cls} absolute inset-0 filter-dark-30`} />
-              <span className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
+              <span className="absolute inset-0 overflow-hidden flex items-center" style={{ width: '50%' }}>
                 <img src={starIcon} alt="" className={`${cls} filter-star-gold`} />
               </span>
             </span>

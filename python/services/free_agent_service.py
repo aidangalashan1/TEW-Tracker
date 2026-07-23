@@ -35,6 +35,10 @@ def get_free_agents(fed_uid: int = None) -> list[Worker]:
             continue
 
         w = Worker.from_db_row(w_row)
+        try:
+            w.bio = store.worker_bio.get(uid, "")
+        except Exception:
+            w.bio = ""
         w.skills = WorkerSkills.from_db_row(store.skills.get(uid, {})) if uid in store.skills else None
         w.physical = WorkerPhysical.from_db_row(store.physical.get(uid, {})) if uid in store.physical else None
         w.age = _compute_age(w_row.get("Birthday"), game_date_val)

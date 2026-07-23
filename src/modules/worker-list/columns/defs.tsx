@@ -32,7 +32,7 @@ function StarDisplay({ stars, isWrestler: iw }: { stars: number; isWrestler: boo
         if (remainder >= 0.5) return (
           <span key={i} className="relative inline-block w-14 h-14">
             <img src={starIcon} alt="" className="w-14 h-14 absolute inset-0 filter-dark-30" />
-            <span className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
+            <span className="absolute inset-0 overflow-hidden flex items-center" style={{ width: '50%' }}>
               <img src={starIcon} alt="" className={`w-14 h-14 ${cls}`} />
             </span>
           </span>

@@ -357,6 +357,7 @@ class Worker(BaseModel):
     potential_stars: float = 0.5
     belt_history: list[dict] = []
     moves: list[dict] = []
+    bio: str = ""
 
     @classmethod
     def from_db_row(cls, row: dict) -> "Worker":
@@ -450,7 +451,7 @@ class Stable(BaseModel):
 # ---------- Belt ----------
 
 BELT_STYLE_MAP = {1: "Singles", 2: "Tag Team", 3: "Trios"}
-BELT_LEVEL_MAP = {1: "World", 2: "Midcard", 3: "Lower Card", 4: "Divisional"}
+BELT_LEVEL_MAP = {1: "Primary", 2: "Secondary", 3: "Tertiary", 4: "Floating"}
 
 class Belt(BaseModel):
     model_config = ConfigDict(extra='allow')
@@ -463,10 +464,13 @@ class Belt(BaseModel):
     active: bool = True
     holder1: int = 0
     holder2: int = 0
+    holder3: int = 0
     brand: int = 0
     defences: int = 0
     belt_level: int = 0
     picture: str = ""
+    bio: str = ""
+    belt_captured: str = ""
 
     @classmethod
     def from_db_row(cls, row: dict) -> "Belt":
@@ -475,15 +479,18 @@ class Belt(BaseModel):
             name=row.get("Name", ""),
             fed_uid=row.get("Fed", 0),
             style=BELT_STYLE_MAP.get(row.get("Style", 1), "Singles"),
-            level=BELT_LEVEL_MAP.get(row.get("BeltLevel", 1), "World"),
+            level=BELT_LEVEL_MAP.get(row.get("BeltLevel", 1), "Primary"),
             prestige=RatingDisplay.from_raw(row.get("Prestige", 0)),
             active=bool(row.get("Active", True)),
             holder1=row.get("Holder1", 0),
             holder2=row.get("Holder2", 0),
+            holder3=row.get("Holder3", 0),
             brand=row.get("Brand", 0),
             defences=row.get("Defences", 0),
             belt_level=row.get("BeltLevel", 1),
             picture=row.get("Picture", ""),
+            bio=row.get("Profile") or row.get("Bio") or row.get("Description") or "",
+            belt_captured=str(row.get("BeltCaptured")) if row.get("BeltCaptured") else "",
         ))
 
 

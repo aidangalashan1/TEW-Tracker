@@ -217,6 +217,8 @@ export interface FormSegment {
   label: string
   log_entry: string
   is_title_match: boolean
+  title1: number
+  title2: number
   won: boolean
   lost: boolean
   allies: FormSegmentPerson[]
@@ -411,6 +413,8 @@ export const api = {
     detail: (uid: number) => request<import('./api-types').Federation>(`/fed/${uid}`),
     all: () => request<{feds: import('./api-types').Federation[]}>('/feds'),
     belts: (uid: number) => request<{belts: import('./api-types').Belt[]}>(`/fed/${uid}/belts`),
+    beltHistory: (uid: number, limit?: number) =>
+      request<{history: import('./api-types').BeltHistoryGroup[]}>(`/fed/${uid}/belt-history${limit != null ? `?limit=${limit}` : ''}`),
     storylines: (uid: number) =>
       request<{storylines: import('./api-types').Storyline[]}>(`/fed/${uid}/storylines`),
     finances: (uid: number) => request<Record<string, number>>(`/fed/${uid}/finances`),
@@ -418,6 +422,10 @@ export const api = {
       request<{fed: import('./api-types').Federation; belts: import('./api-types').Belt[]; storylines: import('./api-types').Storyline[]; finances: Record<string, number>}>(
         `/fed/${uid}/overview`
       ),
+  },
+
+  belt: {
+    detail: (uid: number) => request<import('./api-types').Belt>(`/belt/${uid}`),
   },
 
   db: {
@@ -498,6 +506,8 @@ export const api = {
   schedule: {
     list: (fed_uid?: number, weeks = 13) =>
       request<ScheduleData>(`/schedule?weeks=${weeks}${fed_uid ? `&fed_uid=${fed_uid}` : ''}`),
+    tvDetail: (tvUid: number) => request<any>(`/schedule/tv/${tvUid}`),
+    eventDetail: (cardUid: number) => request<any>(`/schedule/event/${cardUid}`),
   },
   cards: {
     list: (fed_uid?: number) =>
@@ -523,6 +533,7 @@ export const api = {
   show_history: {
     list: (fed_uid?: number, limit = 50) =>
       request<{shows: PastShow[]; count: number}>(`/show_history?limit=${limit}${fed_uid ? `&fed_uid=${fed_uid}` : ''}`),
+    detail: (uid: number) => request<PastShow>(`/show_history/${uid}`),
   },
   plannedStorylines: {
     list: () => request<{storylines: PlannedStoryline[]}>('/storylines/planned'),
@@ -567,6 +578,10 @@ export const api = {
   storylines: {
     cross: (fed_uid?: number) =>
       request<StorylinesCrossData>(`/storylines/cross${fed_uid ? `?fed_uid=${fed_uid}` : ''}`),
+    detail: (uid: number, fed_uid?: number) =>
+      request<any>(`/storylines/${uid}${fed_uid ? `?fed_uid=${fed_uid}` : ''}`),
+    ideas: (fed_uid?: number, worker_uid?: number) =>
+      request<{ideas: any[]}>(`/storylines/ideas${fed_uid ? `?fed_uid=${fed_uid}` : ''}${worker_uid ? `&worker_uid=${worker_uid}` : ''}`),
   },
   system: {
     shutdown: () => request<{ok: boolean}>('/system/shutdown', {method: 'POST'}),

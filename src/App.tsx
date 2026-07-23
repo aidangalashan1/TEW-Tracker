@@ -17,10 +17,11 @@ function shutdownBackend() {
 
 export default function App() {
   useEffect(() => {
+    // Only shut the backend down when the window is actually closing —
+    // visibilitychange also fires with 'hidden' on a plain Alt-Tab or
+    // minimize (e.g. switching to TEW itself), which used to kill the
+    // backend on every such switch.
     window.addEventListener('beforeunload', shutdownBackend)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') shutdownBackend()
-    })
     return () => {
       window.removeEventListener('beforeunload', shutdownBackend)
     }

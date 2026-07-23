@@ -200,6 +200,7 @@ export interface Worker {
   roster_avg_pop: number;
   belt_history: { belt_uid: number; belt_name: string; belt_picture: string; captured: string; lost: string; defences: number }[];
   moves: { name: string; desc: string; level: number }[];
+  bio?: string;
   home_region_pop?: RatingDisplay;
   Gender?: number;
   all_fed_ids?: number[];
@@ -246,10 +247,29 @@ export interface Belt {
   active: boolean;
   holder1: number;
   holder2: number;
+  holder3?: number;
   brand: number;
   defences: number;
   belt_level: number;
   picture: string;
+  bio?: string;
+  belt_captured?: string;
+  prestige_history?: number[];
+}
+
+export interface BeltHistoryEntry {
+  holders: { uid: number; name: string; picture: string }[];
+  captured: string;
+  lost: string;
+  defences?: number;
+  team_name?: string;
+}
+
+export interface BeltHistoryGroup {
+  belt_uid: number;
+  belt_name: string;
+  belt_picture: string;
+  entries: BeltHistoryEntry[];
 }
 
 export interface GameInfo {

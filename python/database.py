@@ -2,28 +2,24 @@ import os
 import pyodbc
 
 _MDB_PASSWORD = "20YearsOfTEW"
-_connection = None
 _current_path = None
 
 
-def get_connection(force_path: str = None):
-    global _connection, _current_path
-    path = force_path or _current_path
-    if path is None:
-        raise RuntimeError("No database connected. Call reconnect(path) first.")
-    if _connection is None or path != _current_path:
-        if _connection:
-            try:
-                _connection.close()
-            except Exception:
-                pass
-            _connection = None
-        _connection = pyodbc.connect(
-            f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};PWD={_MDB_PASSWORD};ReadOnly=True;Exclusive=0;Pooling=False;",
-            autocommit=True,
-        )
-        _current_path = path
-    return _connection
+def _conn_string(path: str) -> str:
+    return f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};PWD={_MDB_PASSWORD};ReadOnly=True;Exclusive=0;Pooling=False;"
+
+
+def test_connection(path: str) -> None:
+    """Verify `path` can be opened, then close immediately.
+
+    This module never holds a connection open — TEW itself needs to write to
+    this same file, and Access/Jet's file-locking model means any process
+    holding the file open continuously (even read-only) is a well-known
+    cause of save failures for whichever process actually needs to write.
+    All real reads go through datastore.py's own short-lived connections.
+    """
+    conn = pyodbc.connect(_conn_string(path), autocommit=True)
+    conn.close()
 
 
 def current_path() -> str | None:
@@ -32,20 +28,16 @@ def current_path() -> str | None:
 
 def reconnect(path: str = None):
     global _current_path
-    if path:
-        _current_path = path
-    return get_connection(path)
+    path = path or _current_path
+    if path is None:
+        raise RuntimeError("No database connected. Call reconnect(path) first.")
+    test_connection(path)
+    _current_path = path
 
 
 def close():
-    global _connection, _current_path
-    if _connection:
-        try:
-            _connection.close()
-        except Exception:
-            pass
-        _connection = None
-        _current_path = None
+    global _current_path
+    _current_path = None
 
 
 def browse_file():

@@ -171,3 +171,33 @@ def get_storylines_cross(fed_uid: int):
     shows.sort(key=lambda s: s["date"], reverse=False)
 
     return {"storylines": storylines, "shows": shows}
+
+
+def get_storyline_detail(storyline_uid: int, fed_uid: int) -> dict | None:
+    store = get_store()
+    if not store:
+        return None
+    sl = next((s for s in store.storylines if s.get("UID") == storyline_uid), None)
+    if not sl:
+        return None
+
+    workers = []
+    for inv in store.storyline_involved:
+        if inv["StorylineUID"] == storyline_uid:
+            w_row = store.workers.get(inv["WorkerUID"])
+            workers.append({
+                "uid": inv["WorkerUID"],
+                "name": w_row.get("Name", "") if w_row else "",
+                "picture": w_row.get("Picture", "") if w_row else "",
+                "major": bool(inv.get("MajorRole")),
+                "alignment": inv.get("Alignment", 0),
+            })
+
+    return {
+        "uid": sl["UID"],
+        "name": sl.get("Name", ""),
+        "heat": round((sl.get("Heat") or 0) / 10),
+        "description": sl.get("Description", ""),
+        "furthered": bool(sl.get("Furthered")),
+        "workers": workers,
+    }

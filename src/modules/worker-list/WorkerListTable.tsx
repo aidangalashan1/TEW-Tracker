@@ -32,7 +32,6 @@ import {
 export function WorkerListColumnTable({ workers, config, onConfigChange }: { workers: Worker[]; config: Record<string, any>; onConfigChange: (c: Record<string, any>) => void }) {
   const { navigateToEntity, gameInfo, focusedFed, playerFed, currentPage } = useApp()
   const tableRef = useRef<HTMLDivElement>(null)
-  const [search, setSearch] = useState('')
   const [positionFilter, setPositionFilter] = useState('all')
   const [genderFilter, setGenderFilter] = useState('all')
   const [activeFilter, setActiveFilter] = useState('all')
@@ -105,8 +104,8 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
   const FILTER_DIMENSIONS: DimDef[] = useMemo(() => buildFilterDimensions(allContracts, allBrands), [allContracts, allBrands])
 
   const filtered = useMemo(
-    () => filterWorkers(workers, { search, positionFilter, genderFilter, activeFilter, roleFilter, contractFilter }, filterRules, FILTER_DIMENSIONS),
-    [workers, search, positionFilter, genderFilter, activeFilter, roleFilter, contractFilter, filterRules, FILTER_DIMENSIONS]
+    () => filterWorkers(workers, { search: '', positionFilter, genderFilter, activeFilter, roleFilter, contractFilter }, filterRules, FILTER_DIMENSIONS),
+    [workers, positionFilter, genderFilter, activeFilter, roleFilter, contractFilter, filterRules, FILTER_DIMENSIONS]
   )
 
   const dimOptions = useMemo(() => buildDimOptions(allBrands), [allBrands])
@@ -226,13 +225,6 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
         document.body
       )}
       <div className="filter-bar">
-        <input
-          className="search-input"
-          type="text"
-          placeholder="Search workers..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
         <select
           className="filter-select"
           value={positionFilter}

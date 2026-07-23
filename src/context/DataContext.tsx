@@ -217,6 +217,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const removePageRaw = useCallback((id: string) => {
     if (id === 'entity-module-worker-list') return false
+    if (id === 'booking') return false
     let removed = false
     setPages(prev => {
       const next = prev.filter(p => p.id !== id)

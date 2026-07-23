@@ -99,14 +99,9 @@ def switch_to_profile(pid: str):
             if not os.path.isfile(mdb):
                 raise HTTPException(400, f"MDB file not found: {mdb}")
             try:
-                conn = reconnect(mdb)
+                reconnect(mdb)
                 from datastore import init_store
                 init_store(mdb)
-                import database as db_mod
-                if db_mod._connection:
-                    try: db_mod._connection.close()
-                    except: pass
-                    db_mod._connection = None
             except Exception as e:
                 raise HTTPException(500, f"Failed to connect: {e}")
             return {

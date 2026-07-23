@@ -154,7 +154,7 @@ def _compute_star_scores(w: Worker):
     w.current_score = round(score)
     w.current_stars = _stars_from_score(score)
 
-    skill_level = best_skill * 0.40 + worst_skill * 0.30 + secondary * 0.10 + pop * 0.20 + max(-10, min(10, _attr_modifier(w)))
+    skill_level = best_skill * 0.50 + worst_skill * 0.35 + secondary * 0.15 + max(-10, min(10, _attr_modifier(w)))
     skill_level = max(0, min(100, skill_level))
     skill_delta = skill_level - company_level
     potential = max(score + _age_growth(w.age), min(100, 60 + skill_delta * 1.5))
@@ -446,6 +446,10 @@ def get_roster(fed_uid: int = None) -> list[Worker]:
         w.skills = WorkerSkills.from_db_row(store.skills.get(uid, {})) if uid in store.skills else None
         w.physical = WorkerPhysical.from_db_row(store.physical.get(uid, {})) if uid in store.physical else None
         w.contract = WorkerContract.from_db_row(c)
+        try:
+            w.bio = store.worker_bio.get(uid, "")
+        except Exception:
+            w.bio = ""
 
         cname = c.get("Name", "").strip()
         if cname:
@@ -665,6 +669,8 @@ def _get_worker_segments(store, worker_uid: int) -> list[dict]:
             "label": MATCH_TYPE_NAMES.get(mt) or store.match_types.get(mt) or f"Type {mt}",
             "log_entry": (ml.get("LogEntry") or "").strip(),
             "is_title_match": bool(ml.get("Title1") or ml.get("Title2")),
+            "title1": ml.get("Title1", 0),
+            "title2": ml.get("Title2", 0),
             "won": bool(victor and my_side == victor),
             "lost": bool(victor and my_side != victor),
             "allies": allies,
@@ -757,6 +763,10 @@ def get_worker_detail(worker_uid: int, fed_uid: int = None) -> Worker | None:
         return None
 
     w = Worker.from_db_row(w_row)
+    try:
+        w.bio = store.worker_bio.get(worker_uid, "")
+    except Exception:
+        w.bio = ""
 
     skill_row = store.skills.get(worker_uid)
     if skill_row:
@@ -873,9 +883,21 @@ def get_worker_detail(worker_uid: int, fed_uid: int = None) -> Worker | None:
 
     _set_company_data(w, store, game_date_val)
 
-    # Belt history
+    # Career win/loss from match log
+    wl_rec = {"wins": 0, "losses": 0, "draws": 0}
+    for mc in store.match_log_competitors:
+        if mc["Worker"] == worker_uid:
+            ml = store.match_log_by_uid.get(mc["MatchLogUID"])
+            if ml and ml.get("Victor", 0) > 0:
+                if mc["Side"] == ml["Victor"]:
+                    wl_rec["wins"] += 1
+                else:
+                    wl_rec["losses"] += 1
+    w.win_loss = WinLoss(**wl_rec)
+
+    # Belt history (in-game + pre-game)
     w.belt_history = []
-    for br in store.belt_history:
+    for br in list(store.belt_history) + list(getattr(store, 'belt_pre_history', []) or []):
         if br.get("Holder1") == worker_uid or br.get("Holder2") == worker_uid or br.get("Holder3") == worker_uid:
             belt = store.belts.get(br["BeltUID"])
             w.belt_history.append({

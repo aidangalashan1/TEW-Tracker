@@ -4,7 +4,7 @@ import { UIProvider, useUI } from './UIContext'
 import { DataProvider, useData } from './DataContext'
 import type { GameInfo, Federation } from '../api'
 import type { UserPage } from '../pages/pageTypes'
-import type { RatingFormat, RosterTab } from './UIContext'
+import type { RatingFormat, RosterTab, CreativeTab } from './UIContext'
 import type { RecentDb } from './DataContext'
 
 export type { RatingFormat }
@@ -49,6 +49,8 @@ interface AppState {
   syncWorkspace: () => Promise<void>
   rosterTab: RosterTab
   setRosterTab: (t: RosterTab) => void
+  creativeTab: CreativeTab
+  setCreativeTab: (t: CreativeTab) => void
 }
 
 function AppInner({ children }: { children: React.ReactNode }) {
@@ -126,6 +128,8 @@ function AppInner({ children }: { children: React.ReactNode }) {
     syncWorkspace: data.syncWorkspace,
     rosterTab: ui.rosterTab,
     setRosterTab: ui.setRosterTab,
+    creativeTab: ui.creativeTab,
+    setCreativeTab: ui.setCreativeTab,
   }), [data, nav, ui, connectToDb, disconnectFromDb, addPage, removePage, resetDefaultView])
 
   return (

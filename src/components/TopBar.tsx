@@ -8,7 +8,6 @@ import moveDownIcon from '../assets/UI icons/movedown.png'
 import moveUpIcon from '../assets/UI icons/moveup.png'
 import leftIcon from '../assets/UI icons/left.png'
 import rightIcon from '../assets/UI icons/right.png'
-import searchIcon from '../assets/UI icons/search.png'
 
 const pageNames: Record<string, string> = {
   roster: 'Roster',
@@ -21,6 +20,11 @@ const entityLabels: Record<string, string> = {
   belt: 'Belt Profile',
   fed: 'Company Profile',
   tagteam: 'Tag Team Profile',
+  tvshow: 'TV Show',
+  tvepisode: 'TV Episode',
+  pastshow: 'Past Show',
+  storyline: 'Storyline',
+  event: 'Event',
   module: 'Module',
 }
 
@@ -64,18 +68,50 @@ export function TopBar() {
   const [logoErr, setLogoErr] = useState(false)
   const [fedOpen, setFedOpen] = useState(false)
   const [fedPos, setFedPos] = useState<{ top: number; left: number; width: number } | null>(null)
-  const [search, setSearch] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
   const fedRef = useRef<HTMLDivElement>(null)
   const entityMatch = currentPage.match(/^entity-(\w+)-(.+)$/)
   const isEntity = !!entityMatch
   const entityType = entityMatch?.[1]
   const entityId = entityMatch?.[2]
+
+  // Belt entity: fetch name
+  const isBeltEntity = entityType === 'belt'
+  const beltUid = isBeltEntity ? Number(entityId) : null
+  const [beltName, setBeltName] = useState('')
+  useEffect(() => {
+    if (isBeltEntity && beltUid) {
+      api.belt.detail(beltUid).then(b => setBeltName(b.name)).catch(() => {})
+    }
+  }, [isBeltEntity, beltUid])
+
+  // Past show entity: fetch name
+  const isPastShowEntity = entityType === 'pastshow'
+  const pastShowUid = isPastShowEntity ? Number(entityId) : null
+  const [pastShowName, setPastShowName] = useState('')
+  useEffect(() => {
+    if (isPastShowEntity && pastShowUid) {
+      api.show_history.detail(pastShowUid).then(s => setPastShowName(s.name)).catch(() => {})
+    }
+  }, [isPastShowEntity, pastShowUid])
+
+  // TV episode entity: fetch show name from tvUid encoded in entityId (format: "tvUid@date")
+  const isTvEpisodeEntity = entityType === 'tvepisode'
+  const tvEpisodeTvUid = isTvEpisodeEntity ? parseInt((entityId || '').split('@')[0], 10) : null
+  const [tvEpisodeName, setTvEpisodeName] = useState('')
+  useEffect(() => {
+    if (isTvEpisodeEntity && tvEpisodeTvUid) {
+      api.schedule.tvDetail(tvEpisodeTvUid).then(s => setTvEpisodeName(s.name)).catch(() => {})
+    }
+  }, [isTvEpisodeEntity, tvEpisodeTvUid])
+
   let pageName = pageNames[currentPage] || pages.find(p => p.id === currentPage)?.label || currentPage
   if (entityType === 'module') {
     const mod = getAllModules().find(m => m.id === entityId)
     if (mod) pageName = mod.name
+  } else if (entityType === 'belt') {
+    pageName = beltName || 'Belt Profile'
+  } else if (entityType === 'tvepisode') {
+    pageName = 'TV Episode'
   } else if (entityType && entityLabels[entityType]) {
     pageName = entityLabels[entityType]
   }
@@ -134,31 +170,6 @@ export function TopBar() {
     document.addEventListener('click', handler)
     return () => document.removeEventListener('click', handler)
   }, [fedOpen])
-
-  // Close search dropdown on outside click
-  useEffect(() => {
-    if (!searchOpen) return
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [searchOpen])
-
-  const searchResults = useMemo(() => {
-    if (!search.trim()) return []
-    const q = search.toLowerCase()
-    const feds = allFeds.filter(f => f.name.toLowerCase().includes(q)).slice(0, 8)
-    const pages = pageOptions.filter(p => p.name.toLowerCase().includes(q)).slice(0, 4)
-    return [...feds.map(f => ({ type: 'fed' as const, label: f.name, sub: f.size_label || '', id: f.uid, action: () => { setFocusedFed(f); setSearchOpen(false) } })),
-      ...pages.map(p => ({ type: 'page' as const, label: p.name, sub: '', id: p.id, action: () => { navigateToEntity(p.id as any, '' as any); setSearchOpen(false) } }))]
-  }, [search, allFeds])
-
-  const pageOptions = useMemo(() => {
-    return [...Object.entries(pageNames).map(([k, v]) => ({ id: k, name: v })), ...pages.map(p => ({ id: p.id, name: p.label }))]
-  }, [pages])
 
   const orderedFeds = useMemo(() => {
     const result: Federation[] = []
@@ -220,6 +231,36 @@ export function TopBar() {
             </div>
           )}
         </div>
+        </div>
+      ) : isBeltEntity ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button className="btn" onClick={goBack} disabled={!canGoBack} style={{ padding: '2px 4px', border: 'none', background: 'transparent' }} title="Back">
+            <img src={leftIcon} alt="" style={{ width: 16, height: 16, filter: 'brightness(0) invert(0.6)' }} />
+          </button>
+          <button className="btn" onClick={goForward} disabled={!canGoForward} style={{ padding: '2px 4px', border: 'none', background: 'transparent' }} title="Forward">
+            <img src={rightIcon} alt="" style={{ width: 16, height: 16, filter: 'brightness(0) invert(0.6)' }} />
+          </button>
+          <div style={{ fontSize: 43, fontWeight: 700, lineHeight: 1.1, color: '#fff' }}>{beltName || 'Belt'}</div>
+        </div>
+      ) : isPastShowEntity ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button className="btn" onClick={goBack} disabled={!canGoBack} style={{ padding: '2px 4px', border: 'none', background: 'transparent' }} title="Back">
+            <img src={leftIcon} alt="" style={{ width: 16, height: 16, filter: 'brightness(0) invert(0.6)' }} />
+          </button>
+          <button className="btn" onClick={goForward} disabled={!canGoForward} style={{ padding: '2px 4px', border: 'none', background: 'transparent' }} title="Forward">
+            <img src={rightIcon} alt="" style={{ width: 16, height: 16, filter: 'brightness(0) invert(0.6)' }} />
+          </button>
+          <div style={{ fontSize: 43, fontWeight: 700, lineHeight: 1.1, color: '#fff' }}>{pastShowName || 'Past Show'}</div>
+        </div>
+      ) : isTvEpisodeEntity ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button className="btn" onClick={goBack} disabled={!canGoBack} style={{ padding: '2px 4px', border: 'none', background: 'transparent' }} title="Back">
+            <img src={leftIcon} alt="" style={{ width: 16, height: 16, filter: 'brightness(0) invert(0.6)' }} />
+          </button>
+          <button className="btn" onClick={goForward} disabled={!canGoForward} style={{ padding: '2px 4px', border: 'none', background: 'transparent' }} title="Forward">
+            <img src={rightIcon} alt="" style={{ width: 16, height: 16, filter: 'brightness(0) invert(0.6)' }} />
+          </button>
+          <div style={{ fontSize: 43, fontWeight: 700, lineHeight: 1.1, color: '#fff' }}>{tvEpisodeName || 'TV Episode'}</div>
         </div>
       ) : (
         <>
@@ -283,31 +324,8 @@ export function TopBar() {
         )}
         </>)}
       <div className="topbar-breadcrumb">
-        {!isWorkerEntity && isEntity && entityType !== 'module' && <button className="btn" onClick={closeEntity} style={{ padding: '2px 8px', fontSize: 12, marginRight: 8 }}>← Back</button>}
+        {!isWorkerEntity && !isBeltEntity && !isPastShowEntity && !isTvEpisodeEntity && isEntity && entityType !== 'module' && <button className="btn" onClick={closeEntity} style={{ padding: '2px 8px', fontSize: 12, marginRight: 8 }}>← Back</button>}
         <span className="topbar-breadcrumb-current">{pageName}</span>
-      </div>
-      <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div ref={searchRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <img src={searchIcon} alt="" style={{ position: 'absolute', left: 8, width: 14, height: 14, filter: 'brightness(0) invert(0.4)', pointerEvents: 'none' }} />
-          <input type="text" className="search-input" placeholder="Search companies..." value={search}
-            onChange={e => { setSearch(e.target.value); setSearchOpen(true) }}
-            onFocus={() => search.trim() && setSearchOpen(true)}
-            onKeyDown={e => { if (e.key === 'Escape') { setSearchOpen(false); (e.target as HTMLInputElement).blur() } }}
-            style={{ width: 180, height: 28, fontSize: 12, padding: '0 8px 0 28px', color: '#fff' }} />
-          {searchOpen && searchResults.length > 0 && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 6, padding: 4, maxHeight: 300, overflowY: 'auto', marginTop: 2, boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
-              {searchResults.map(r => (
-                <div key={`${r.type}-${r.id}`} onClick={r.action}
-                  style={{ padding: '5px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 12, color: 'var(--text-primary)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <div style={{ fontWeight: 600, fontSize: 12 }}>{r.label}</div>
-                  {r.sub && <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{r.sub}</div>}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   )

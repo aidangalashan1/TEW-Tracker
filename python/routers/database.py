@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from database import get_connection, current_path, browse_file, close as db_close
+from database import reconnect, current_path, browse_file, close as db_close
 from datastore import init_store, reset_store
 from images import get_image_root, auto_detect_image_root, set_image_root, clear_image_root
 
@@ -32,7 +32,7 @@ def connect(req: ConnectRequest):
     if not os.path.isfile(req.path):
         raise HTTPException(400, f"File not found: {req.path}")
     try:
-        conn = get_connection(force_path=req.path)
+        reconnect(req.path)
         init_store(req.path)
         if not get_image_root():
             img = auto_detect_image_root(req.path)

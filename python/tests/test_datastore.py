@@ -77,7 +77,6 @@ def test_construction_is_lazy_and_opens_no_connection(tmp_path):
     # or real file, since nothing connects here.)
     store = datastore.DataStore(str(tmp_path / "nope.mdb"), version=5)
     assert store.version == 5
-    assert store._conn is None
     assert store._loaded == set()
 
 

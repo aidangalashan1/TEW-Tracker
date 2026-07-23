@@ -58,7 +58,7 @@ export function WorkerListPage() {
   return (
     <div style={{ height: '100%', overflow: 'hidden' }}>
       {tab === 'workers' && <WorkerListColumnTable workers={data.workers} config={config} onConfigChange={handleConfigChange} />}
-      {tab === 'teams' && fed && <TeamsStablesTab fedUid={fed.uid} workers={data.workers} />}
+      {tab === 'teams' && fed && <TeamsStablesTab fedUid={fed.uid} workers={data.workers} config={config} onConfigChange={handleConfigChange} />}
       {tab === 'champions' && fed && <ChampionsTab fedUid={fed.uid} workers={data.workers} />}
     </div>
   )
