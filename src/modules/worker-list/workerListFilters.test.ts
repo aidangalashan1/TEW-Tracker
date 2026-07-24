@@ -44,7 +44,7 @@ describe('getAllPositions / getAllContracts / getAllBrands', () => {
 })
 
 describe('filterWorkers', () => {
-  const noFilters = { search: '', positionFilter: 'all', genderFilter: 'all', activeFilter: 'all', roleFilter: 'all', contractFilter: 'all' }
+  const noFilters = { search: '', positionFilter: 'all' }
   const dims = buildFilterDimensions(['all', 'Signed'], [])
 
   it('filters by search across name and short_name', () => {
@@ -53,10 +53,10 @@ describe('filterWorkers', () => {
     expect(result.map(w => w.name)).toEqual(['Aaron Andrews'])
   })
 
-  it('filters by active status', () => {
+  it('filters by active status via the status dimension', () => {
     const workers = [makeWorker({ active: true }), makeWorker({ active: false })]
-    expect(filterWorkers(workers, { ...noFilters, activeFilter: 'active' }, [], dims)).toHaveLength(1)
-    expect(filterWorkers(workers, { ...noFilters, activeFilter: 'inactive' }, [], dims)).toHaveLength(1)
+    expect(filterWorkers(workers, noFilters, [{ dimension: 'status', operator: 'is', values: ['Active'] }], dims)).toHaveLength(1)
+    expect(filterWorkers(workers, noFilters, [{ dimension: 'status', operator: 'is', values: ['Inactive'] }], dims)).toHaveLength(1)
   })
 
   it('applies a categorical filterRule via the dimension catalog (gender)', () => {

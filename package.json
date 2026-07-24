@@ -10,7 +10,7 @@
     "dev:python": "powershell -Command \"Get-NetTCPConnection -LocalPort 8567 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }\" 2>nul & cd python && py -m uvicorn main:app --reload --port 8567",
     "gen:types": "py scripts/generate_types.py > src/api-types.ts",
     "build:react": "vite build && node scripts/strip-crossorigin.js",
-    "build:python": "taskkill /F /IM main.exe 2>nul & timeout /t 2 /nobreak >nul & py -m PyInstaller --noconfirm --onedir --distpath dist-python --workpath build-python --paths python --name main python/main.py",
+    "build:python": "node scripts/kill-backend.js && py -m PyInstaller --noconfirm --onedir --distpath dist-python --workpath build-python --paths python --name main python/main.py",
     "build:electron": "npm run build:react && npm run build:python && electron-builder --win",
     "build": "npm run gen:types && npm run build:react",
     "lint": "eslint .",

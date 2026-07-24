@@ -32,15 +32,9 @@ import {
 export function WorkerListColumnTable({ workers, config, onConfigChange }: { workers: Worker[]; config: Record<string, any>; onConfigChange: (c: Record<string, any>) => void }) {
   const { navigateToEntity, gameInfo, focusedFed, playerFed, currentPage } = useApp()
   const tableRef = useRef<HTMLDivElement>(null)
+  // Position is the only basic dropdown filter; gender/status/type/contract are
+  // handled by the filterRules system (see buildFilterDimensions).
   const [positionFilter, setPositionFilter] = useState('all')
-  // These four dimensions are superseded by the filterRules system and are no
-  // longer settable from the UI (only positionFilter has a live control); their
-  // values stay 'all'. Kept as state so filterWorkers/hasActiveFilters signatures
-  // are unchanged — setters dropped since nothing assigns them.
-  const [genderFilter] = useState('all')
-  const [activeFilter] = useState('all')
-  const [roleFilter] = useState('all')
-  const [contractFilter] = useState('all')
   // Persisted via config (like subgroups/filterRules below) rather than local
   // useState, so group-by/active-subgroup/advanced-role selections survive a
   // reload instead of resetting to empty every time the module remounts.
@@ -108,8 +102,8 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
   const FILTER_DIMENSIONS: DimDef[] = useMemo(() => buildFilterDimensions(allContracts, allBrands), [allContracts, allBrands])
 
   const filtered = useMemo(
-    () => filterWorkers(workers, { search: '', positionFilter, genderFilter, activeFilter, roleFilter, contractFilter }, filterRules, FILTER_DIMENSIONS),
-    [workers, positionFilter, genderFilter, activeFilter, roleFilter, contractFilter, filterRules, FILTER_DIMENSIONS]
+    () => filterWorkers(workers, { search: '', positionFilter }, filterRules, FILTER_DIMENSIONS),
+    [workers, positionFilter, filterRules, FILTER_DIMENSIONS]
   )
 
   const dimOptions = useMemo(() => buildDimOptions(allBrands), [allBrands])
@@ -121,7 +115,7 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
     [groupBy, filtered, advancedRoleFilters, subgroups, activeSubgroups, sorts]
   )
 
-  const hasActiveFilters =positionFilter !== 'all' || genderFilter !== 'all' || activeFilter !== 'all' || roleFilter !== 'all' || contractFilter !== 'all'
+  const hasActiveFilters = positionFilter !== 'all'
 
   const toggleSort = (key: string) => {
     const sk = key as SortKey
@@ -233,7 +227,7 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
         <div className="ml-auto items-center gap-6px">
           <button className="manage-view-btn" onClick={() => setShowFilterPanel(p => !p)}>
             <img src={filterIcon} alt="Filter" className="w-14 h-14" />
-            Filter{hasActiveFilters ? ` (${[positionFilter !== 'all', genderFilter !== 'all', activeFilter !== 'all', roleFilter !== 'all', contractFilter !== 'all'].filter(Boolean).length})` : ''}
+            Filter{hasActiveFilters ? ' (1)' : ''}
           </button>
           <button className="manage-view-btn" onClick={() => setShowColPicker(p => !p)}>
             <img src={manageIcon} alt="Manage" className="w-14 h-14" />

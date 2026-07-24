@@ -16,10 +16,6 @@ export interface FilterRule {
 export interface BasicFilters {
   search: string
   positionFilter: string
-  genderFilter: string
-  activeFilter: string
-  roleFilter: string
-  contractFilter: string
 }
 
 export type DimDef = {
@@ -102,29 +98,13 @@ export function buildFilterDimensions(allContracts: string[], allBrands: number[
  *  second hand-duplicated dimension-to-field chain. */
 export function filterWorkers(workers: Worker[], basic: BasicFilters, filterRules: FilterRule[], dimensions: DimDef[]): Worker[] {
   let list = workers
-  const { search, positionFilter, genderFilter, activeFilter, roleFilter, contractFilter } = basic
+  const { search, positionFilter } = basic
   if (search) {
     const q = search.toLowerCase()
     list = list.filter(w => w.name.toLowerCase().includes(q) || w.short_name.toLowerCase().includes(q))
   }
   if (positionFilter !== 'all') {
     list = list.filter(w => w.positions.includes(positionFilter))
-  }
-  if (genderFilter !== 'all') {
-    list = list.filter(w => w.gender === genderFilter)
-  }
-  if (activeFilter === 'active') {
-    list = list.filter(w => w.active)
-  } else if (activeFilter === 'inactive') {
-    list = list.filter(w => !w.active)
-  }
-  if (roleFilter === 'wrestler') {
-    list = list.filter(w => !w.non_wrestler)
-  } else if (roleFilter === 'non-wrestler') {
-    list = list.filter(w => w.non_wrestler)
-  }
-  if (contractFilter !== 'all') {
-    list = list.filter(w => w.contract_status === contractFilter)
   }
 
   if (filterRules.length === 0) return list

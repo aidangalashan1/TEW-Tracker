@@ -4,6 +4,7 @@ dist-python/
 build-python/
 release/
 main.spec
+/main.js
 *.pyc
 __pycache__/
 *.exe

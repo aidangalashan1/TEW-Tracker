@@ -584,6 +584,8 @@ def get_roster(fed_uid: int = None) -> list[Worker]:
         for cr in store.chemistry:
             if cr.get("Player") != 1:
                 continue
+            if cr.get("IgnoreChem"):
+                continue  # pairing the player has muted in-game — not a live signal
             # Preserve the real signed magnitude (TEW stores strength in Chem,
             # sign = good/bad) instead of collapsing to ±1 — the frontend still
             # groups by sign, but the magnitude is now available to surface.
