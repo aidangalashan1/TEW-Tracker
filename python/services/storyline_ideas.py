@@ -128,13 +128,17 @@ def _stable_together(store, fed_uid: int, a: int, b: int) -> bool:
     return False
 
 
-def _team_together(store, fed_uid: int, a: int, b: int) -> bool:
+def _active_team_partners(store, fed_uid: int) -> dict[int, set]:
+    """Map of worker -> set of current tag-team partners (active teams only)."""
+    partners: dict[int, set] = {}
     for t in store.teams:
-        if t.get("Fed") != fed_uid:
+        if t.get("Fed") != fed_uid or not t.get("Active"):
             continue
-        if {t.get("Worker1"), t.get("Worker2")} == {a, b}:
-            return True
-    return False
+        w1, w2 = t.get("Worker1"), t.get("Worker2")
+        if w1 and w2:
+            partners.setdefault(w1, set()).add(w2)
+            partners.setdefault(w2, set()).add(w1)
+    return partners
 
 
 def _top(candidates: list[dict], key: str) -> list[dict]:
@@ -199,6 +203,12 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
 
     w_pop, w_growth = _pop_growth(worker_uid)
 
+    # Tag-team membership: a worker in an active team is a tag act, whose stories
+    # usually run team-vs-team rather than as a singles feud.
+    team_partners = _active_team_partners(store, fed_uid)
+    w_partners = team_partners.get(worker_uid, set())
+    w_in_team = bool(w_partners)
+
     def _contract_bits(uid):
         c = contracts_by_worker.get(uid, {})
         return (
@@ -221,12 +231,17 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
         feud_reasons: list[tuple[int, str]] = []
         ally_reasons: list[tuple[int, str]] = []
 
-        # ── disposition ──
+        # ── disposition (tblContract.Face: 1 = face, 0 = heel) ──
+        # Opposite alignments feud; same alignments ally. The mismatched story
+        # type is penalised (not just un-bonused) so two faces don't surface as
+        # a feud, nor a face+heel pair as an alliance, off other signals alone.
         if w_face != c_face:
             feud += 55
+            alliance -= 30
             feud_reasons.append((55, "Opposite alignment"))
         else:
             alliance += 40
+            feud -= 30
             ally_reasons.append((40, "Same alignment"))
 
         # ── chemistry (real signed magnitude) ──
@@ -268,12 +283,24 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
                 ally_reasons.append((12, "Good working relationship"))
 
         # ── established pairings ──
-        if _team_together(store, fed_uid, worker_uid, uid):
+        if uid in w_partners:
             alliance += 35
             ally_reasons.append((35, "Established tag team"))
         if _stable_together(store, fed_uid, worker_uid, uid):
             alliance += 30
             ally_reasons.append((30, "Stablemates"))
+
+        # ── tag-team context: a tag act's story usually runs team-vs-team ──
+        if w_in_team:
+            c_partners = team_partners.get(uid, set())
+            if c_partners and uid not in w_partners:
+                feud += 30
+                alliance += 25
+                feud_reasons.append((30, "Tag team rivalry"))
+                ally_reasons.append((25, "Faction potential"))
+            elif not c_partners:
+                feud -= 12  # a singles feud for a tag act is a harder sell
+                alliance -= 8
 
         # ── division / title stakes (feud signal) ──
         if w_division and c_division and w_division == c_division:
