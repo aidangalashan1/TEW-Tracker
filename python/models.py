@@ -355,6 +355,16 @@ class Worker(BaseModel):
     potential_score: int = 0
     current_stars: float = 0.5
     potential_stars: float = 0.5
+    worker_type: str = ""
+    usage_label: str = ""
+    potential_usage_label: str = ""
+    age_prefix: str = ""
+    is_banged_up: bool = False
+    is_wrestler: bool = False
+    pillar_primary: int = 0
+    pillar_perf: int = 0
+    pillar_pop: int = 0
+    perf_score: int = 0
     belt_history: list[dict] = []
     moves: list[dict] = []
     bio: str = ""

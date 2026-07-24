@@ -9,7 +9,7 @@ export const WORKER_LIST_PAGE_ID = 'entity-module-worker-list'
 export function defaultPages(): UserPage[] {
   return [
     { id: WORKER_LIST_PAGE_ID, label: 'Roster' },
-    { id: 'roster', label: 'Roster' },
+    { id: 'worker-search', label: 'Worker Search' },
     { id: 'booking', label: 'Creative' },
     { id: 'finances', label: 'Finances' },
   ]

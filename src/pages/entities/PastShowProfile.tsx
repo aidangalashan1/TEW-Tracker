@@ -67,7 +67,7 @@ export function PastShowProfile({ pastCardUid }: { pastCardUid: number }) {
         </div>
         {show.overall_rating > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: ratingColor(show.overall_rating), color: '#fff', borderRadius: 6, width: 150, height: 150, flexShrink: 0 }}>
-            <span style={{ fontSize: 36, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{show.overall_rating}</span>
+            <span style={{ fontSize: 36, fontWeight: 700, fontFamily: 'var(--font-family)' }}>{show.overall_rating}</span>
           </div>
         )}
       </div>

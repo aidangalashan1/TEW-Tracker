@@ -186,11 +186,26 @@ export function MiniGraphTooltip({ items }: { items: { rating: number; label: st
 export function Last5Cell({ items, workerUid }: { items: { rating: number; label: string; card: string; log_entry: string }[]; workerUid: number }) {
   const { navigateToEntity } = useApp()
   const [showTooltip, setShowTooltip] = useState(false)
+  const [hoverPt, setHoverPt] = useState<number | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout>>()
   const ref = useRef<HTMLSpanElement>(null)
   if (items.length === 0) return null
   const pct = (r: number) => Math.round(r / 10)
   const avg = Math.round(items.reduce((s, it) => s + pct(it.rating), 0) / items.length)
+  const ordered = [...items].reverse()
+  const allRatings = ordered.map(s => s.rating)
+  const minR = Math.min(...allRatings, 0)
+  const maxR = Math.max(...allRatings, 1)
+  const range = (maxR - minR) || 100
+  const sw = 60, sh = 22, pad = 2
+  const plotH = sh - pad * 2
+  const pts = ordered.map((s, i) => ({
+    x: pad + i * ((sw - pad * 2) / Math.max(ordered.length - 1, 1)),
+    y: pad + plotH - ((s.rating - minR) / range) * plotH,
+    r: s.rating,
+    label: s.log_entry || s.label || '',
+  }))
+  const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(0)},${p.y.toFixed(0)}`).join(' ')
   const scheduleHide = () => {
     if (hideTimer.current) clearTimeout(hideTimer.current)
     hideTimer.current = setTimeout(() => setShowTooltip(false), 80)
@@ -201,11 +216,22 @@ export function Last5Cell({ items, workerUid }: { items: { rating: number; label
   return (
     <span ref={ref}
       className="cursor-pointer relative"
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
       onClick={e => { e.stopPropagation(); navigateToEntity('worker', workerUid) }}
       onMouseEnter={() => { keepVisible(); setShowTooltip(true) }}
       onMouseLeave={scheduleHide}
     >
-      {avg}
+      <svg width={sw} height={sh} style={{ display: 'block', flexShrink: 0 }}
+        onMouseEnter={() => { keepVisible(); setShowTooltip(true) }}
+        onMouseLeave={scheduleHide}>
+        {pts.length > 1 && <path d={lineD} fill="none" stroke="#60a5fa" strokeWidth={1.2} />}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={2} fill={ratingColor(pct(p.r))} stroke="#1a1a2e" strokeWidth={0.5}
+            onMouseEnter={(e) => { e.stopPropagation(); keepVisible(); setHoverPt(i); setShowTooltip(true) }}
+            onMouseLeave={() => { setHoverPt(null); scheduleHide() }} />
+        ))}
+      </svg>
+      <span style={{ fontSize: 11, fontFamily: 'var(--font-family)', color: 'var(--text-secondary)' }}>{avg}</span>
       {showTooltip && ref.current && createPortal(
         <div className="tooltip-flyout" style={{
           left: ref.current.getBoundingClientRect().left,
@@ -214,7 +240,14 @@ export function Last5Cell({ items, workerUid }: { items: { rating: number; label
           onMouseEnter={keepVisible}
           onMouseLeave={scheduleHide}
         >
-          <MiniGraphTooltip items={items} />
+          {hoverPt != null && pts[hoverPt] ? (
+            <div style={{ fontSize: 11, padding: '2px 6px' }}>
+              <div style={{ fontWeight: 600, color: '#fff' }}>{pts[hoverPt].label}</div>
+              <div style={{ color: ratingColor(pct(pts[hoverPt].r)), fontWeight: 700 }}>{pct(pts[hoverPt].r)}</div>
+            </div>
+          ) : (
+            <MiniGraphTooltip items={items} />
+          )}
         </div>,
         document.body
       )}
@@ -335,9 +368,9 @@ export function renderCell(opts: {
   }
 
   if (cs.id === 'age') {
-    return <span className="text-md" style={{ lineHeight: 1.3 }}>
-      <div>{w.age}</div>
-      {pw >= 90 && <div>{(w as any).Birthday ? fmtDate((w as any).Birthday) : ''}</div>}
+    return <span style={{ lineHeight: 1.3 }}>
+      <span style={{ background: 'var(--bg-tertiary)', color: '#fff', borderRadius: 3, padding: '0 6px', fontFamily: 'var(--font-family)', fontSize: 11, fontWeight: 700, lineHeight: '18px', display: 'inline-block' }}>{w.age}</span>
+      {pw >= 90 && <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{(w as any).Birthday ? fmtDate((w as any).Birthday) : ''}</div>}
     </span>
   }
 

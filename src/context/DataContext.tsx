@@ -30,6 +30,8 @@ interface DataState {
   focusedFed: Federation | null
   setFocusedFed: (fed: Federation) => void
   loading: boolean
+  cacheLoading: boolean
+  cacheProgress: { phase: string; total: number; done: number }
   error: string | null
   refresh: () => Promise<void>
   db: DbState
@@ -71,6 +73,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [allFeds, setAllFeds] = useState<Federation[]>([])
   const [focusedFed, setFocusedFed] = useState<Federation | null>(null)
   const [loading, setLoading] = useState(true)
+  const [cacheLoading, setCacheLoading] = useState(false)
+  const [cacheProgress, setCacheProgress] = useState({ phase: '', total: 0, done: 0 })
   const [error, setError] = useState<string | null>(null)
   const [db, setDb] = useState<DbState>({connected: false, path: '', loading: true})
   const [images, setImages] = useState<ImageState>({configured: false, path: ''})
@@ -130,6 +134,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const buildCache = useCallback(async () => {
+    setCacheLoading(true)
+    setCacheProgress({ phase: 'Starting...', total: 0, done: 0 })
+    try {
+      await api.roster.all(1, 1)
+    } catch {}
+    setCacheLoading(false)
+    setCacheProgress({ phase: '', total: 0, done: 0 })
+  }, [])
+
+  useEffect(() => {
+    if (!cacheLoading) return
+    const id = setInterval(async () => {
+      try {
+        const p = await api.roster.cacheProgress()
+        setCacheProgress(p)
+      } catch {}
+    }, 300)
+    return () => clearInterval(id)
+  }, [cacheLoading])
+
   const connectToDb = useCallback(async (path: string) => {
     setDb(prev => ({ ...prev, loading: true }))
     try {
@@ -143,11 +168,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         gameDate: data?.info?.current_date ?? undefined,
         imagePath: imgStatus.path || undefined,
       })
+      buildCache()
     } catch (e: any) {
       setDb(prev => ({ ...prev, loading: false }))
       throw e
     }
-  }, [load, addRecent])
+  }, [load, addRecent, buildCache])
 
   const setImagePath = useCallback(async (path: string) => {
     await api.images.setPath(path)
@@ -217,6 +243,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const removePageRaw = useCallback((id: string) => {
     if (id === 'entity-module-worker-list') return false
+    if (id === 'worker-search') return false
     if (id === 'booking') return false
     let removed = false
     setPages(prev => {
@@ -278,14 +305,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const value: DataState = useMemo(() => ({
     gameInfo, playerFed, allFeds, focusedFed, setFocusedFed,
-    loading, error, refresh,
+    loading, cacheLoading, cacheProgress, error, refresh,
     db, connectToDb, disconnectFromDb,
     recentDbs, addRecent, images, setImagePath, img,
     pages, addPage, addPageRaw, removePage, removePageRaw, reorderPages,
     resetDefaultView, syncWorkspace,
   }), [
     gameInfo, playerFed, allFeds, focusedFed,
-    loading, error, refresh,
+    loading, cacheLoading, cacheProgress, error, refresh,
     db, connectToDb, disconnectFromDb,
     recentDbs, addRecent, images, setImagePath, img,
     pages, addPage, addPageRaw, removePage, removePageRaw, reorderPages,

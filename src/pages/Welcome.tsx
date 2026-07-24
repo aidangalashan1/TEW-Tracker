@@ -68,8 +68,8 @@ export function WelcomePage() {
       }
     } catch (e: any) {
       setStatus(e.message || 'Failed to start')
+      setBusy('')
     }
-    setBusy('')
   }
 
   return (
@@ -199,7 +199,7 @@ export function WelcomePage() {
                     {entry.company ? `${entry.company}` : entry.filename}
                     {entry.gameDate ? <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>, {fmtDateOrdinal(entry.gameDate)}</span> : ''}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-family)', marginTop: 3 }}>
                     Last accessed {fmtDateOrdinal(entry.last_accessed)}
                   </div>
                 </div>

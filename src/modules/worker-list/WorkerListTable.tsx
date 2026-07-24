@@ -38,14 +38,16 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
   // Persisted via config (like subgroups/filterRules below) rather than local
   // useState, so group-by/active-subgroup/advanced-role selections survive a
   // reload instead of resetting to empty every time the module remounts.
-  const groupBy = useMemo(() => new Set<string>(config.groupBy || []), [config.groupBy])
-  const setGroupBy = (s: Set<string>) => onConfigChange({ groupBy: Array.from(s) })
-  const activeSubgroups = useMemo(() => new Set<string>(config.activeSubgroups || []), [config.activeSubgroups])
-  const setActiveSubgroups = (s: Set<string>) => onConfigChange({ activeSubgroups: Array.from(s) })
+  const LS = (key: string) => { try { return JSON.parse(localStorage.getItem('tew-wl-' + key) || 'null') } catch { return null } }
+  const groupBy = useMemo(() => new Set<string>(config.groupBy || LS('groupBy') || []), [config.groupBy])
+  const setGroupBy = (s: Set<string>) => { localStorage.setItem('tew-wl-groupBy', JSON.stringify(Array.from(s))); onConfigChange({ groupBy: Array.from(s) }) }
+  const activeSubgroups = useMemo(() => new Set<string>(config.activeSubgroups || LS('activeSubgroups') || []), [config.activeSubgroups])
+  const setActiveSubgroups = (s: Set<string>) => { localStorage.setItem('tew-wl-activeSubgroups', JSON.stringify(Array.from(s))); onConfigChange({ activeSubgroups: Array.from(s) }) }
   const advancedRoleFilters = useMemo(() => new Set<string>(config.advancedRoleFilters || []), [config.advancedRoleFilters])
   const setAdvancedRoleFilters = (s: Set<string>) => onConfigChange({ advancedRoleFilters: Array.from(s) })
 
-  const subgroups = useMemo<SubgroupDef[]>(() => config.subgroups || [], [config.subgroups])
+  const subgroups = useMemo<SubgroupDef[]>(() => config.subgroups || LS('subgroups') || [], [config.subgroups])
+  useEffect(() => { localStorage.setItem('tew-wl-subgroups', JSON.stringify(subgroups)) }, [subgroups])
   const [selectedDim, setSelectedDim] = useState<string | null>(null)
   const [selectedSg, setSelectedSg] = useState<string | null>(null)
   const [showSgEditor, setShowSgEditor] = useState(false)
@@ -141,8 +143,8 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
 
   const sortIndicator = (key: string) => {
     const idx = sorts.findIndex(s => s.key === key)
-    if (idx < 0) return ''
-    return ` ${idx + 1}${sorts[idx].dir === 'desc' ? '▼' : '▲'}`
+    if (idx < 0) return null
+    return <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 4 }}>{idx + 1}{sorts[idx].dir === 'desc' ? '▼' : '▲'}</span>
   }
 
   const {
@@ -155,7 +157,8 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
     dragCol, dropTarget, onDragStart, onDragOver, onDrop, onDragEnd,
     ctxMenu, setCtxMenu, openColPicker,
     separators, sepHas, toggleSeparator,
-    onResizeStart,
+    onResizeStart, justResizedRef,
+    selectedCols, onHeaderPointerDown, dragSelectRef,
   } = useColumnState({
     workers, filtered, isPlayerFed, onConfigChange, tableRef,
     initialColumnState: config.columnState || defaultColumnState(),
@@ -184,15 +187,13 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
         await api.views.update(activeViewId, { pages: nextPages })
       } catch {}
     } else {
-      // No view pinned yet — silently create an unnamed working view rather
-      // than prompting; naming/saving a real view is the Views dropdown's
-      // "Save Current View" job, not Confirm's.
       try {
         const r = await api.views.create('Default')
         await api.views.update(r.view.id, { pages: [snapshot] })
         setActiveViewId(r.view.id)
       } catch {}
     }
+    setShowColPicker(false)
   }
 
   return (
@@ -377,8 +378,10 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
                     onDragOver={e => onDragOver(e, cs.id)}
                     onDrop={e => onDrop(e, cs.id)}
                     onDragEnd={onDragEnd}
+                    data-col-id={cs.id}
+                    onPointerDown={e => onHeaderPointerDown(e, cs.id)}
                     onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: cs.id, x: e.clientX, y: e.clientY }) }}
-                    onClick={() => def.sortKey && toggleSort(def.sortKey)}
+                    onClick={e => { if (justResizedRef.current || dragSelectRef.current?.started) return; if (!e.shiftKey && !e.ctrlKey && !e.metaKey) { def.sortKey && toggleSort(def.sortKey) } }}
                     className="data-table-cell data-header-cell"
                     style={{
                       flex: 'none', width: pw,
@@ -407,13 +410,18 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
                       ...(cs.id === 'dispo' ? { justifyContent: 'center' } : {}),
                       ...(cs.id === 'condition' || cs.id.startsWith('cond') ? { justifyContent: 'center' } : {}),
                       ...(def.filterGroup === 'stats' || def.filterGroup === 'popularity' || def.filterGroup === 'creative' ? { justifyContent: 'center' } : {}),
+                      ...(selectedCols.has(cs.id) ? { background: 'rgba(233,69,96,0.12)', boxShadow: 'inset 0 -2px 0 var(--accent)' } : {}),
                     }}
                     >
-                  {pw < def.label.length * 7 && def.abbrev ? def.abbrev : def.label}{isSorted ? sortIndicator(def.sortKey!) : ''}
+                  <span className="flex items-center" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="truncate">{pw < def.label.length * 7 && def.abbrev ? def.abbrev : def.label}</span>
+                    {isSorted ? sortIndicator(def.sortKey!) : null}
+                  </span>
                   <span
-                    onMouseDown={e => onResizeStart(e, cs.id)}
+                    className="resize-handle"
+                    onMouseDown={e => { e.stopPropagation(); onResizeStart(e, cs.id) }}
                     onDoubleClick={() => autoSizeColumn(cs.id)}
-                    style={{ position: 'absolute', right: -2, top: 0, bottom: 0, width: 6, cursor: 'col-resize', zIndex: 2 }}
+                    style={{ position: 'absolute', right: -4, top: 0, bottom: 0, width: 14, cursor: 'col-resize', zIndex: 2 }}
                   />
                 </div>
               )
@@ -443,6 +451,7 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
                       ...(cs.id === 'role' ? { justifyContent: 'center', overflow: 'visible' } : {}),
                       ...(cs.id === 'nat' ? { justifyContent: 'center' } : {}),
                       ...(cs.id === 'condition' || cs.id.startsWith('cond') ? { justifyContent: 'center', overflow: 'visible' } : {}),
+                      ...(cs.id === 'age' ? { justifyContent: 'center' } : {}),
                       ...(cs.id === 'storyline_with' || cs.id === 'tag_team' || cs.id === 'stable' ? { whiteSpace: 'normal', overflow: 'visible' } : {}),
                       ...(def.filterGroup === 'stats' || def.filterGroup === 'popularity' || def.filterGroup === 'creative' ? { justifyContent: 'center' } : {}),
                       ...(cs.id === 'dispo' ? { justifyContent: 'center' } : {}),

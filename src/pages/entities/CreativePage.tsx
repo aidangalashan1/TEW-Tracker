@@ -147,7 +147,7 @@ function ShowHistoryTab() {
                   })()}
                   {show.name}
                 </div>
-                {show.overall_rating > 0 && <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', background: show.overall_rating > 79 ? '#60a5fa' : show.overall_rating > 69 ? '#22c55e' : show.overall_rating > 59 ? '#f59e0b' : show.overall_rating > 39 ? '#f97316' : show.overall_rating > 19 ? '#ef4444' : '#6b7280', color: '#fff', borderRadius: 4, padding: '2px 8px' }}>{Math.round(show.overall_rating)}</span>}
+                {show.overall_rating > 0 && <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-family)', background: show.overall_rating > 79 ? '#60a5fa' : show.overall_rating > 69 ? '#22c55e' : show.overall_rating > 59 ? '#f59e0b' : show.overall_rating > 39 ? '#f97316' : show.overall_rating > 19 ? '#ef4444' : '#6b7280', color: '#fff', borderRadius: 4, padding: '2px 8px' }}>{Math.round(show.overall_rating)}</span>}
 
               </div>
             ))}
@@ -224,8 +224,7 @@ function StorylinesTab() {
               {w.picture && <img src={img('People/' + w.picture)} alt="" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 4 }}
                 onError={(e) => (e.target as HTMLElement).style.display = 'none'} />}
               {w.name}
-                  {w.alignment === 0 && <span style={{ fontSize: 9, color: '#ef4444', fontWeight: 600 }}>Heel</span>}
-                  {w.alignment === 1 && <span style={{ fontSize: 9, color: '#22c55e', fontWeight: 600 }}>Face</span>}
+                  <span style={{ fontSize: 9, color: w.face ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{w.face ? 'Face' : 'Heel'}</span>
             </span>
           ))}
         </div>

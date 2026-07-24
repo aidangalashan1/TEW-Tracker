@@ -190,6 +190,11 @@ export interface Worker {
   potential_score: number;
   current_stars: number;
   potential_stars: number;
+  worker_type: string;
+  usage_label: string;
+  potential_usage_label: string;
+  age_prefix: string;
+  is_banged_up: boolean;
   contract_expiry_days: number;
   company_area_pop: number;
   roster_avg_primary: number;

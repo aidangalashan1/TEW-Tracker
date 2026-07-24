@@ -18,7 +18,7 @@ import roadAgentIcon from '../../../assets/UI icons/roadagent.png'
 import { REGION_NAMES, AREAS } from '../regions'
 import { ColumnDef } from './types'
 import { StatusBadge, MoneyDisplay, conditionHeart, condPctBar, AvgCell, Last5Cell, fmtDuration, fmtDurationHm } from './renderers'
-import { starLabel, isWrestler } from '../../../lib/scoring'
+import { isWrestler } from '../../../lib/scoring'
 import { COLOR_MALE, COLOR_FACE, COLOR_HEEL } from '../../../lib/colors'
 import starIcon from '../../../assets/UI icons/star.png'
 
@@ -71,13 +71,13 @@ export function buildColumns(): ColumnDef[] {
         <img src={flagUrl} alt="" className="w-20 h-15 object-cover rounded-xs" />
       </div>
     } },
-    { id: 'age', label: 'Age', width: 50, group: 'info', filterGroup: 'personal', sortKey: 'age', render: w => <span>{w.age}</span> },
+    { id: 'age', label: 'Age', width: 50, group: 'info', filterGroup: 'personal', sortKey: 'age', render: w => <span style={{ background: 'var(--bg-tertiary)', color: '#fff', borderRadius: 3, padding: '0 6px', fontFamily: 'var(--font-family)', fontSize: 11, fontWeight: 700, lineHeight: '18px', display: 'inline-block' }}>{w.age}</span> },
 
     { id: 'perception', label: 'Perception', abbrev: 'Prc', width: 90, group: 'info', filterGroup: 'creative', sortKey: 'perception', render: w => {
       const p = (w.contract as any)?.Perception ?? 0
       const labels: Record<number, string> = { 0: 'No Perception', 1: 'Major Star', 2: 'Star', 3: 'Well Known', 4: 'Recognisable', 5: 'Unimportant' }
-      const colors: Record<number, string> = { 1: 'var(--accent-green)', 2: 'var(--accent-blue)', 3: '#fbbf24', 4: '#94a3b8', 5: '#64748b' }
-      return <span style={{ color: colors[p] || 'var(--text-muted)' }}>{labels[p] || 'Unknown'}</span>
+      const colors: Record<number, string> = { 1: '#2d7d46', 2: '#2c6b9e', 3: '#b8941e', 4: '#6b7280', 5: '#4b5563' }
+      return <span style={{ background: colors[p] || 'transparent', color: '#fff', borderRadius: 3, padding: '0 6px', fontFamily: 'var(--font-family)', fontSize: 11, fontWeight: 700, lineHeight: '20px', display: 'inline-block' }}>{labels[p] || 'Unknown'}</span>
     } },
     { id: 'role', label: 'Role', width: 60, group: 'info', filterGroup: 'creative', sortKey: 'role', render: w => {
       const roleIcons: Record<string, string> = {
@@ -156,7 +156,7 @@ export function buildColumns(): ColumnDef[] {
         count={w.performance.total_angles}
         bestInfo={w.performance.best_angle_info} worstInfo={w.performance.worst_angle_info} />
     } },
-    { id: 'last5_segment', label: 'Last 5 Seg.', abbrev: 'L5Seg', width: 100, group: 'performance', filterGroup: 'creative', sortKey: 'last5_segment', render: w => {
+    { id: 'last5_segment', label: 'Last 5 Segments', abbrev: 'L5Seg', width: 100, group: 'performance', filterGroup: 'creative', sortKey: 'last5_segment', render: w => {
       if (!w.performance || w.performance.last_5_segment_ratings.length === 0) return null
       return <Last5Cell items={w.performance.last_5_segment_ratings} workerUid={w.uid} />
     } },
@@ -294,12 +294,12 @@ export function buildColumns(): ColumnDef[] {
     { id: 'ath', label: 'Athleticism', abbrev: 'Ath', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.athletic} /> : null, sortKey: 'athletic' },
     { id: 'power', label: 'Power', abbrev: 'Pwr', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.power} /> : null, sortKey: 'power' },
     { id: 'tough', label: 'Toughness', abbrev: 'Tough', width: 48, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.toughness} /> : null, sortKey: 'toughness' },
-    { id: 'inj', label: 'Injury Res.', abbrev: 'Inj', width: 38, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.injury} /> : null, sortKey: 'injury' },
+    { id: 'inj', label: 'Injury Resistance', abbrev: 'Inj', width: 38, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.injury} /> : null, sortKey: 'injury' },
     { id: 'business', label: 'Business', abbrev: 'Bus', width: 44, group: 'skills', filterGroup: 'stats', render: w => {
       const v = (w as any).Business
       return v != null ? <RatingBadge rating={{ raw: v, pct: Math.round(v / 10), grade: '' }} /> : null
     }, sortKey: 'business' },
-    { id: 'booking_rep', label: 'Booking Rep.', abbrev: 'BkRep', width: 50, group: 'skills', filterGroup: 'stats', render: w => {
+    { id: 'booking_rep', label: 'Booking Reputation', abbrev: 'BkRep', width: 50, group: 'skills', filterGroup: 'stats', render: w => {
       const v = (w as any).Booking_Reputation
       return v != null ? <RatingBadge rating={{ raw: v, pct: Math.round(v / 10), grade: '' }} /> : null
     }, sortKey: 'booking_rep' },
@@ -319,14 +319,12 @@ export function buildColumns(): ColumnDef[] {
       return <StarDisplay stars={stars} isWrestler={isWrestler(w)} />
     } },
     { id: 'current_usage', label: 'Usage', abbrev: 'Use', width: 140, group: 'performance', filterGroup: 'stats', sortKey: 'current_usage', render: w => {
-      const stars = w.current_stars || 0
-      if (!stars) return <span>—</span>
-      return <span className="truncate" title={starLabel(w, stars, false)}>{starLabel(w, stars, false)}</span>
+      if (!w.current_stars) return <span>—</span>
+      return <span className="truncate" title={w.usage_label}>{w.usage_label}</span>
     } },
-    { id: 'potential_usage', label: 'Pot. Usage', abbrev: 'PotUse', width: 140, group: 'performance', filterGroup: 'stats', sortKey: 'potential_usage', render: w => {
-      const stars = w.potential_stars || 0
-      if (!stars) return <span>—</span>
-      return <span className="truncate" title={starLabel(w, stars, true)}>{starLabel(w, stars, true)}</span>
+    { id: 'potential_usage', label: 'Potential Usage', abbrev: 'PotUse', width: 140, group: 'performance', filterGroup: 'stats', sortKey: 'potential_usage', render: w => {
+      if (!w.potential_stars) return <span>—</span>
+      return <span className="truncate" title={w.potential_usage_label}>{w.potential_usage_label}</span>
     } },
 
     { id: 'condition', label: 'Condition', abbrev: 'Cond.', width: 50, group: 'info', filterGroup: 'medical', sortKey: 'condition', render: conditionHeart },
@@ -337,12 +335,12 @@ export function buildColumns(): ColumnDef[] {
     { id: 'fatigue', label: 'Fatigue', abbrev: 'Fat', width: 50, group: 'info', filterGroup: 'medical', render: w => {
       const v = (w.physical as any)?.Fatigue ?? 0
       const pct = Math.round(v / 10)
-      return <span style={{ color: pct > 0 ? 'var(--accent-yellow)' : 'var(--text-muted)' }}>{pct > 0 ? `${pct}%` : '—'}</span>
+      return pct > 0 ? <RatingBadge rating={{ raw: v, pct, grade: '' }} /> : <span style={{ color: 'var(--text-muted)' }}>—</span>
     } },
     { id: 'ringrust', label: 'Ring Rust', abbrev: 'Rust', width: 44, group: 'info', filterGroup: 'medical', render: w => {
       const v = (w.physical as any)?.Ringrust ?? 0
       const pct = Math.round(v / 10)
-      return <span style={{ color: pct > 0 ? '#ef4444' : 'var(--text-muted)' }}>{pct > 0 ? `${pct}%` : '—'}</span>
+      return pct > 0 ? <RatingBadge rating={{ raw: v, pct, grade: '' }} /> : <span style={{ color: 'var(--text-muted)' }}>—</span>
     } },
 
     { id: 'win', label: 'Wins', abbrev: 'W', width: 36, group: 'record', filterGroup: 'creative', render: w => <span>{w.win_loss?.wins ?? 0}</span> },
@@ -356,7 +354,8 @@ export function buildColumns(): ColumnDef[] {
     { id: 'wl_pct', label: 'Win %', abbrev: 'W%', width: 48, group: 'record', filterGroup: 'creative', render: w => {
       const wl = w.win_loss
       if (!wl || wl.wins + wl.losses === 0) return <span>—</span>
-      return <span>{Math.round(wl.wins / (wl.wins + wl.losses) * 100)}%</span>
+      const pct = Math.round(wl.wins / (wl.wins + wl.losses) * 100)
+      return <RatingBadge rating={{ raw: pct * 10, pct, grade: '' }} />
     }},
     ...Object.entries(AREAS).map(([area, regionIds]) => {
       const id = `pop_area_${area.toLowerCase().replace(/\s+/g, '_')}`

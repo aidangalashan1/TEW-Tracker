@@ -70,8 +70,13 @@ export function useColumnState(opts: {
     return {}
   })
   const [resizing, setResizing] = useState<{ id: string; colIdx: number; colLeft: number } | null>(null)
+  const justResizedRef = useRef(false)
   const colStateRef = useRef(colState)
   colStateRef.current = colState
+  const [selectedCols, setSelectedCols] = useState<Set<string>>(new Set())
+  const selectedColsRef = useRef(selectedCols)
+  selectedColsRef.current = selectedCols
+  const dragSelectRef = useRef<{ startId: string; started: boolean } | null>(null)
 
   const colMap = useMemo(() => {
     const m = new Map<string, ColumnDef>()
@@ -250,14 +255,19 @@ export function useColumnState(opts: {
     document.body.appendChild(indicator)
     const onMove = (e: MouseEvent) => {
       const newPixelW = Math.max(10, e.clientX - resizing.colLeft)
-      const newState = colStateRef.current.map(cs => cs.id === resizing.id ? { ...cs, width: newPixelW } : cs)
-      colStateRef.current = newState
+      const sel = selectedColsRef.current
+      const multi = sel.has(resizing.id) && sel.size > 1
+      colStateRef.current = colStateRef.current.map(cs =>
+        (cs.id === resizing.id || (multi && sel.has(cs.id))) ? { ...cs, width: newPixelW } : cs
+      )
       indicator.style.left = e.clientX + 'px'
     }
     const onUp = () => {
       setColState(colStateRef.current)
       onConfigChange({ columnState: colStateRef.current })
       setResizing(null)
+      justResizedRef.current = true
+      setTimeout(() => { justResizedRef.current = false }, 300)
       document.body.removeChild(indicator)
     }
     window.addEventListener('mousemove', onMove)
@@ -272,7 +282,59 @@ export function useColumnState(opts: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resizing])
 
+  const onHeaderPointerDown = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0) return
+    if ((e.target as HTMLElement).closest('[class*="resize-handle"]')) return
+    const visIds = visibleCols.map(c => c.id)
+    const curIdx = visIds.indexOf(id)
+    if (curIdx === -1) return
+    if (e.shiftKey) {
+      const lastId = [...selectedColsRef.current][selectedColsRef.current.size - 1] || id
+      const lastIdx = visIds.indexOf(lastId)
+      if (lastIdx !== -1) {
+        const from = Math.min(lastIdx, curIdx)
+        const to = Math.max(lastIdx, curIdx)
+        setSelectedCols(new Set(visIds.slice(from, to + 1)))
+      }
+      return
+    }
+    if (e.ctrlKey || e.metaKey) {
+      const next = new Set(selectedColsRef.current)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
+      setSelectedCols(next)
+      return
+    }
+    dragSelectRef.current = { startId: id, started: false }
+    const el = e.currentTarget as HTMLElement
+    el.setPointerCapture(e.pointerId)
+    const onMove = (ev: PointerEvent) => {
+      if (!dragSelectRef.current) return
+      const el2 = document.elementFromPoint(ev.clientX, ev.clientY)
+      if (!el2) return
+      const headerCell = (el2 as HTMLElement).closest('[class*="data-header-cell"]')
+      if (!headerCell) return
+      const targetId = headerCell.getAttribute('data-col-id')
+      if (!targetId || targetId === dragSelectRef.current.startId) return
+      dragSelectRef.current.started = true
+      const targetIdx = visIds.indexOf(targetId)
+      if (targetIdx === -1) return
+      const startIdx = visIds.indexOf(dragSelectRef.current.startId)
+      if (startIdx === -1) return
+      const from = Math.min(startIdx, targetIdx)
+      const to = Math.max(startIdx, targetIdx)
+      setSelectedCols(new Set(visIds.slice(from, to + 1)))
+    }
+    const onUp = () => {
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerup', onUp)
+      dragSelectRef.current = null
+    }
+    el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerup', onUp)
+  }
+
   const onDragStart = (e: React.DragEvent, id: string) => {
+    if (e.shiftKey || e.ctrlKey || e.metaKey) { e.preventDefault(); return }
     setDragCol(id)
     e.dataTransfer.effectAllowed = 'move'
   }
@@ -308,6 +370,7 @@ export function useColumnState(opts: {
     dragCol, dropTarget, onDragStart, onDragOver, onDrop, onDragEnd,
     ctxMenu, setCtxMenu, openColPicker,
     separators, sepHas, toggleSeparator,
-    resizing, onResizeStart,
+    resizing, justResizedRef, onResizeStart,
+    selectedCols, onHeaderPointerDown, dragSelectRef,
   }
 }

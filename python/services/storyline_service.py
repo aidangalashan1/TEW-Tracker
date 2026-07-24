@@ -34,12 +34,14 @@ def get_storylines_cross(fed_uid: int):
         workers = []
         for inv in involved_by_sl.get(sl_uid, []):
             w_row = store.workers.get(inv["WorkerUID"])
+            contract = next((c for c in store.contracts_by_worker.get(inv["WorkerUID"], []) if c.get("FedUID") == fed_uid), None)
             workers.append({
                 "uid": inv["WorkerUID"],
                 "name": w_row.get("Name", "") if w_row else "",
                 "picture": w_row.get("Picture", "") if w_row else "",
                 "major": bool(inv.get("MajorRole")),
                 "alignment": inv.get("Alignment", 0),
+                "face": bool(contract.get("Face")) if contract else True,
             })
         storylines.append({
             "uid": sl_uid,
@@ -185,12 +187,14 @@ def get_storyline_detail(storyline_uid: int, fed_uid: int) -> dict | None:
     for inv in store.storyline_involved:
         if inv["StorylineUID"] == storyline_uid:
             w_row = store.workers.get(inv["WorkerUID"])
+            contract = next((c for c in store.contracts_by_worker.get(inv["WorkerUID"], []) if c.get("FedUID") == fed_uid), None)
             workers.append({
                 "uid": inv["WorkerUID"],
                 "name": w_row.get("Name", "") if w_row else "",
                 "picture": w_row.get("Picture", "") if w_row else "",
                 "major": bool(inv.get("MajorRole")),
                 "alignment": inv.get("Alignment", 0),
+                "face": bool(contract.get("Face")) if contract else True,
             })
 
     return {

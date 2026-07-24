@@ -59,7 +59,7 @@ export function ProfileTab(props: ProfileTabProps) {
             ['Colour', announcerIcon],
             ['Referee', refereeIcon],
           ].map(([name, icon]) => {
-            const active = w.positions.includes(name as string)
+            const active = w.positions?.includes(name as string) ?? false
             return (
             <div key={name as string} className="flex-col items-center p-1 gap-1" style={{ opacity: active ? 1 : 0.3 }}>
               <img src={icon as string} alt="" className="w-24 h-24" style={{ filter: active ? 'brightness(0) invert(1)' : 'brightness(0) invert(0.4)' }} />
@@ -197,9 +197,9 @@ export function ProfileTab(props: ProfileTabProps) {
               {onViewForm && <span className="cursor-pointer flex" onClick={onViewForm} title="View full form history"><img src={rightIcon} alt="" style={{ width: 12, height: 12, filter: 'brightness(0) invert(0.6)' }} /></span>}
             </div>
             <div style={{ display: 'flex', gap: 6, fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.3px', marginBottom: 1, alignItems: 'center' }}>
-              <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Segments <span style={{ background: ratingColor(avgSeg), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-mono)' }}>{avgSeg}</span></span>
-                    <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Matches <span style={{ background: ratingColor(avgMatch), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-mono)' }}>{avgMatch}</span></span>
-                    <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Angles <span style={{ background: ratingColor(avgAngle), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-mono)' }}>{avgAngle}</span></span>
+              <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Segments <span style={{ background: ratingColor(avgSeg), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-family)' }}>{avgSeg}</span></span>
+                    <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Matches <span style={{ background: ratingColor(avgMatch), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-family)' }}>{avgMatch}</span></span>
+                    <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Angles <span style={{ background: ratingColor(avgAngle), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-family)' }}>{avgAngle}</span></span>
             </div>
             <svg width={w2} height={h2} className="block" style={{ overflow: 'visible' }}>
               <defs>
@@ -273,16 +273,16 @@ export function ProfileTab(props: ProfileTabProps) {
         )
       })()}
       </div>
-          <div className="self-stretch flex-shrink-0 mx-16 bg-text-muted" style={{ width: 1 }} />
+          {!w.retired && (w.positions?.includes('Wrestler') || w.positions?.includes('Occasional')) && <><div className="self-stretch flex-shrink-0 mx-16 bg-text-muted" style={{ width: 1 }} />
           <div style={{ minWidth: 90, padding: '0 8px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5, flexShrink: 0 }}>Win/Loss</div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, flex: 1 }}>
               <span style={{ background: '#22c55e', color: '#fff', borderRadius: 4, padding: '0 10px', fontFamily: 'var(--font-family)', fontSize: 36, fontWeight: 700, lineHeight: '48px' }}>{w.win_loss?.wins ?? 0}</span>
               <span style={{ color: 'var(--text-muted)', fontSize: 32, fontWeight: 700 }}>-</span>
               <span style={{ background: '#ef4444', color: '#fff', borderRadius: 4, padding: '0 10px', fontFamily: 'var(--font-family)', fontSize: 36, fontWeight: 700, lineHeight: '48px' }}>{w.win_loss?.losses ?? 0}</span>
-              {w.win_loss?.draws ? <span style={{ background: '#6b7280', color: '#fff', borderRadius: 3, padding: '0 4px', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, lineHeight: '20px' }}>{w.win_loss.draws}D</span> : null}
+              {w.win_loss?.draws ? <span style={{ background: '#6b7280', color: '#fff', borderRadius: 3, padding: '0 4px', fontFamily: 'var(--font-family)', fontSize: 12, fontWeight: 700, lineHeight: '20px' }}>{w.win_loss.draws}D</span> : null}
             </div>
-          </div>
+          </div></>}
           <div className="self-stretch flex-shrink-0 mx-16 bg-text-muted" style={{ width: 1 }} />
           <div style={{ flex: 1, overflowY: 'auto', paddingLeft: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Title History</div>
@@ -320,7 +320,7 @@ export function ProfileTab(props: ProfileTabProps) {
               }).map(([beltUid, data]) => (
                 <div key={beltUid} style={{ marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', minWidth: 28, textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{data.reigns.length}x</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', minWidth: 28, textAlign: 'right', fontFamily: 'var(--font-family)' }}>{data.reigns.length}x</span>
                     {data.picture && <img src={img('Belts/' + data.picture)} alt="" style={{ width: 60, height: 48, objectFit: 'contain' }} />}
                     <span style={{ fontSize: 12, fontWeight: 600, color: '#fff', cursor: 'pointer' }} onClick={() => setExpandedBelts(prev => { const n = new Set(prev); if (n.has(beltUid)) n.delete(beltUid); else n.add(beltUid); return n })}>{data.name}</span>
                     <span style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: 14, fontWeight: 700, userSelect: 'none' }} onClick={() => setExpandedBelts(prev => { const n = new Set(prev); if (n.has(beltUid)) n.delete(beltUid); else n.add(beltUid); return n })}>{expandedBelts.has(beltUid) ? '−' : '+'}</span>

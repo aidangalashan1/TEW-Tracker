@@ -66,7 +66,7 @@ export function Sidebar() {
           >
             <span className="nav-item-icon">📄</span>
             <span style={{ flex: 1 }}>{page.label}</span>
-            {page.id !== 'entity-module-worker-list' && (
+            {page.id !== 'entity-module-worker-list' && page.id !== 'booking' && (
               <button
                 className="nav-item-remove"
                 title="Remove page"

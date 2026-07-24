@@ -210,12 +210,14 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
     w_in_team = bool(w_partners)
 
     def _contract_bits(uid):
-        c = contracts_by_worker.get(uid, {})
-        return (
-            bool(c.get("Face")),
-            c.get("Perception") or 3,
-            c.get("Division") or 0,
-        )
+        w = scored.get(uid)
+        if w and w.contract:
+            return (
+                w.contract.face,
+                getattr(w.contract, 'perception', None) or 3,
+                0,
+            )
+        return (True, 3, 0)
 
     w_face, w_perception, w_division = _contract_bits(worker_uid)
     w_score = _worker_score(store, worker_uid)

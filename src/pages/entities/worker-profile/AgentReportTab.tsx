@@ -1,4 +1,4 @@
-import { pillarScores, relTier, proImpact, conSeverity, isElite, isWorldClass2, isWrestler, starLabel } from '../../../lib/scoring'
+import { pillarScores, relTier, proImpact, conSeverity, isElite, isWorldClass2, isWrestler } from '../../../lib/scoring'
 import { Stars } from '../../../components/Stars'
 import iPsych from '../../../assets/UI icons/scouting/psychology.png'
 import iReliable from '../../../assets/UI icons/scouting/reliable.png'
@@ -277,8 +277,8 @@ export function AgentReportTab(props: AgentReportTabProps) {
           </div>
         </div>
         <div className="border-default-top pt-1 text-secondary text-sm">
-          <span className="text-primary text-semibold">Recommended Usage: {starLabel(w, stars.current, false)}</span>
-          {stars.potential > stars.current ? <span>. Upside: <span className="text-primary text-semibold">{starLabel(w, stars.potential, true)}</span></span> : stars.potentialScore < stars.currentScore ? <span>. <span className="text-primary text-semibold">Passing the Torch</span></span> : '.'}
+          <span className="text-primary text-semibold">Recommended Usage: {w.usage_label}</span>
+          {stars.potential > stars.current ? <span>. Upside: <span className="text-primary text-semibold">{w.potential_usage_label}</span></span> : stars.potentialScore < stars.currentScore ? <span>. <span className="text-primary text-semibold">Passing the Torch</span></span> : '.'}
         </div>
       </>
     )
@@ -292,17 +292,15 @@ export function AgentReportTab(props: AgentReportTabProps) {
             <div className="items-center gap-6px">
               <span className="text-sm text-semibold text-muted">Current:</span>
               <Stars filled={stars.current} total={5} />
-              <span className="text-xs text-muted" style={{ fontVariantNumeric: 'tabular-nums' }}>({stars.currentScore})</span>
             </div>
             <div className="items-center gap-6px">
               <span className="text-sm text-semibold text-muted">Potential:</span>
               <Stars filled={stars.potential} total={5} />
-              <span className="text-xs text-muted" style={{ fontVariantNumeric: 'tabular-nums' }}>({stars.potentialScore})</span>
             </div>
           </div>
           <div>
-            <div className="text-lg text-bold text-primary">{starLabel(w, stars.current, false)}</div>
-            <div className="text-secondary text-md">Potential: {stars.potentialScore < stars.currentScore ? 'Passing the Torch' : starLabel(w, stars.potential, true)}</div>
+            <div className="text-lg text-bold text-primary">{w.usage_label}</div>
+            <div className="text-secondary text-md">{stars.potentialScore < stars.currentScore ? 'Passing the Torch' : `Potential: ${w.potential_usage_label}`}</div>
           </div>
         </div>
 
@@ -339,8 +337,8 @@ export function AgentReportTab(props: AgentReportTabProps) {
               const entries = [['primary', primary] as const, ['perf', perf] as const, ['pop', pop] as const]
                 .sort((a, b) => b[1] - a[1])
               const best = entries[0]; const worst = entries[2]
-              const currentLabel = starLabel(w, stars.current, false)
-              const potentialLabel = starLabel(w, stars.potential, true)
+              const currentLabel = w.usage_label || 'Unknown'
+              const potentialLabel = w.potential_usage_label || 'Unknown'
               const name = w.name; const age = w.age
               const seed = w.uid + age
               const parts: string[] = []
