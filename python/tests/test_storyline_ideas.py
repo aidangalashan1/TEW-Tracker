@@ -10,7 +10,7 @@ import pytest
 # storyline_ideas imports datastore, which imports pyodbc — absent on Linux CI.
 pytest.importorskip("pyodbc")
 
-from services.storyline_ideas import _past_story_delta  # noqa: E402
+from services.storyline_ideas import _past_story_delta, _rub_delta  # noqa: E402
 
 
 class TestPastStoryDelta:
@@ -25,3 +25,20 @@ class TestPastStoryDelta:
         assert _past_story_delta(36) == (12, "Overdue for a rematch")
         assert _past_story_delta(48)[0] == 25         # reaches the cap
         assert _past_story_delta(120)[0] == 25        # stays capped
+
+
+class TestRubDelta:
+    def test_no_rub_without_a_real_popularity_gap(self):
+        assert _rub_delta(50, 0, 45, 30) == 0         # gap 5 < 15
+
+    def test_no_rub_when_the_lesser_worker_cannot_grow(self):
+        assert _rub_delta(70, 0, 40, 5) == 0          # receiver growth 5 < 10
+
+    def test_scales_with_gap_and_receiver_growth(self):
+        assert _rub_delta(70, 0, 40, 30) == 30        # 0.4*30 + 0.6*30
+
+    def test_established_giver_adds_a_bonus(self):
+        assert _rub_delta(70, -10, 40, 30) == 33      # + 0.3*10 (current>potential)
+
+    def test_capped(self):
+        assert _rub_delta(90, -20, 20, 60) == 35      # would be 70, capped at 35

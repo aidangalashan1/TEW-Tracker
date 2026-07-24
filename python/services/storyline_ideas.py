@@ -43,6 +43,27 @@ def _past_story_delta(months_since_end: float) -> tuple[int, str | None]:
     return bonus, ("Overdue for a rematch" if bonus > 0 else None)
 
 
+# A "rub": pairing a lesser worker with a bigger star in a story to get the
+# lesser one over. Popularity supplies the rub; growth headroom (potential −
+# current) says who can still benefit from it, and a giver who has stopped
+# growing (current ≥ potential — popularity holding them at the top) can afford
+# to hand it out. Applied to feuds and alliances alike — a rub lands in either.
+_RUB_MIN_GAP = 15         # popularity-point gap between the two workers
+_RUB_MIN_GROWTH = 10      # receiver's potential − current (room to grow)
+_RUB_CAP = 35
+
+
+def _rub_delta(giver_pop: int, giver_growth: int, recv_pop: int, recv_growth: int) -> int:
+    """Score bonus for a rub flowing from a bigger star (giver) to a lesser,
+    higher-ceiling worker (receiver). 0 when there's no real gap or the
+    receiver has no room to grow."""
+    gap = giver_pop - recv_pop
+    if gap < _RUB_MIN_GAP or recv_growth < _RUB_MIN_GROWTH:
+        return 0
+    giver_maxed = max(0, -giver_growth)  # current > potential ⇒ established, ideal giver
+    return round(min(_RUB_CAP, 0.4 * gap + 0.6 * recv_growth + 0.3 * giver_maxed))
+
+
 def _worker_score(store, uid: int) -> int:
     skills = store.skills.get(uid, {})
     total = sum((skills.get(k) or 0) for k in _STAR_SKILLS)
@@ -146,6 +167,20 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
             involved_heat[wu] = max(involved_heat.get(wu, 0), active_heat[sl_uid])
 
     game_date = store.game_date_val
+
+    # Reuse the canonical popularity / ability-vs-potential scores (single source
+    # of truth in roster_service) rather than recomputing them here.
+    from services.roster_service import get_roster
+    scored = {w.uid: w for w in get_roster(fed_uid)}
+
+    def _pop_growth(uid):
+        w = scored.get(uid)
+        if not w:
+            return 0, 0
+        pop = w.pop.pct if w.pop else 0
+        return pop, (w.potential_score or 0) - (w.current_score or 0)
+
+    w_pop, w_growth = _pop_growth(worker_uid)
 
     def _contract_bits(uid):
         c = contracts_by_worker.get(uid, {})
@@ -275,6 +310,18 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
             if delta > 0 and reason:  # only surface the positive (revival) case
                 feud_reasons.append((delta, reason))
                 ally_reasons.append((delta, reason))
+
+        # ── the "rub": a bigger star elevating a lesser, higher-ceiling worker ──
+        c_pop, c_growth = _pop_growth(uid)
+        if c_pop >= w_pop:  # candidate is the bigger star → gives the selected worker a rub
+            rub, rub_reason = _rub_delta(c_pop, c_growth, w_pop, w_growth), "Rub from a bigger star"
+        else:               # selected worker is bigger → can elevate the candidate
+            rub, rub_reason = _rub_delta(w_pop, w_growth, c_pop, c_growth), "Chance to elevate them"
+        if rub > 0:
+            feud += rub
+            alliance += rub
+            feud_reasons.append((rub, rub_reason))
+            ally_reasons.append((rub, rub_reason))
 
         candidates.append({
             "worker_uid": uid,
