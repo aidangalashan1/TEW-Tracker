@@ -166,6 +166,7 @@ function StorylinesTab() {
   const [ideas, setIdeas] = useState<{ feuds: any[]; alliances: any[] }>({ feuds: [], alliances: [] })
   const [roster, setRoster] = useState<any[]>([])
   const [selectedWorker, setSelectedWorker] = useState<number | null>(null)
+  const [ideaSearch, setIdeaSearch] = useState('')
 
   const fedUid = fed?.uid
   useEffect(() => {
@@ -176,6 +177,7 @@ function StorylinesTab() {
 
   const openIdeas = () => {
     setSelectedWorker(null)
+    setIdeaSearch('')
     setIdeas({ feuds: [], alliances: [] })
     setIdeasOpen(true)
   }
@@ -193,6 +195,14 @@ function StorylinesTab() {
       return pa - pb
     })
   }, [roster, fed?.uid])
+
+  const pickerList = useMemo(() => {
+    const q = ideaSearch.trim().toLowerCase()
+    return q ? sortedRoster.filter((w: any) => w.name.toLowerCase().includes(q)) : sortedRoster
+  }, [sortedRoster, ideaSearch])
+
+  const targetWorker = roster.find((w: any) => w.uid === selectedWorker)
+  const hideImg = (e: any) => { e.target.style.visibility = 'hidden' }
 
   if (!data) return <div className="loading" style={{ padding: 24 }}>Loading storylines...</div>
 
@@ -252,41 +262,62 @@ function StorylinesTab() {
               <span className="modal-title">Storyline Ideas</span>
               <button className="modal-close" onClick={() => setIdeasOpen(false)}>×</button>
             </div>
-            <div className="modal-body" style={{ padding: 12, maxHeight: 400, overflowY: 'auto' }}>
+            <div className="modal-body" style={{ padding: 12, maxHeight: 460, overflowY: 'auto' }}>
               {!selectedWorker ? (
                 <>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>Select a worker to find potential feud partners:</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {sortedRoster.map((w: any) => (
-                      <div key={w.uid} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 6px', borderRadius: 4, cursor: 'pointer', color: '#fff', fontSize: 13 }}
-                        onClick={() => fetchIdeas(w.uid)}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                        {w.picture && <img src={img('People/' + w.picture)} alt="" style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: 4 }} onError={(e) => (e.target as HTMLElement).style.display = 'none'} />}
-                        {w.name}
+                  <input className="si-search" placeholder="Search workers…" value={ideaSearch} autoFocus
+                    onChange={e => setIdeaSearch(e.target.value)} />
+                  <div className="si-hint">Select a worker to generate feud &amp; alliance ideas.</div>
+                  <div className="si-picker">
+                    {pickerList.map((w: any) => (
+                      <div key={w.uid} className="si-picker-row" onClick={() => fetchIdeas(w.uid)}>
+                        {w.picture
+                          ? <img className="si-avatar" src={img('People/' + w.picture)} alt="" onError={hideImg} />
+                          : <div className="si-avatar" />}
+                        <span>{w.name}</span>
                       </div>
                     ))}
+                    {pickerList.length === 0 && <div className="si-empty">No workers match “{ideaSearch}”.</div>}
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-                    <span style={{ cursor: 'pointer', color: 'var(--accent)' }} onClick={() => setSelectedWorker(null)}>← Back</span> / Story ideas
-                  </div>
-                  {([['feud', 'Feud ideas', ideas.feuds], ['alliance', 'Alliance / tag ideas', ideas.alliances]] as const).map(([kind, label, list]) => (
-                    <div key={kind} style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-secondary)', margin: '4px 0 6px' }}>{label}</div>
-                      {list.length > 0 ? list.map((idea: any, i: number) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '6px 8px', borderRadius: 4, color: '#fff', background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
-                          {idea.picture && <img src={img('People/' + idea.picture)} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} onError={(e) => (e.target as HTMLElement).style.display = 'none'} />}
-                          <div>
-                            <div style={{ fontWeight: 600 }}>{idea.name}</div>
-                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{idea.reasons?.join(', ') || (kind === 'feud' ? 'Potential rivalry' : 'Potential ally')}</div>
-                          </div>
-                        </div>
-                      )) : <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No {kind} ideas for this worker.</div>}
+                  <button className="si-back" onClick={() => setSelectedWorker(null)}>← All workers</button>
+                  <div className="si-target">
+                    {targetWorker?.picture
+                      ? <img className="si-avatar" src={img('People/' + targetWorker.picture)} alt="" onError={hideImg} />
+                      : <div className="si-avatar" />}
+                    <div>
+                      <div className="si-target-name">{targetWorker?.name || 'Worker'}</div>
+                      <div className="si-target-sub">Feud &amp; alliance suggestions</div>
                     </div>
-                  ))}
+                  </div>
+                  {([['feud', 'Feuds', ideas.feuds], ['ally', 'Alliances / Tag', ideas.alliances]] as const).map(([kind, label, list]) => {
+                    const top = Math.max(1, ...list.map((idea: any) => idea.score || 0))
+                    return (
+                      <div key={kind} className={`si-section ${kind}`}>
+                        <div className="si-section-head">{label}<span className="si-section-count">{list.length}</span></div>
+                        {list.length > 0 ? list.map((idea: any, i: number) => (
+                          <div key={i} className="si-idea-row" title={`View ${idea.name}`}
+                            onClick={() => { navigateToEntity('worker', idea.worker_uid); setIdeasOpen(false) }}>
+                            {idea.picture
+                              ? <img className="si-avatar" src={img('People/' + idea.picture)} alt="" onError={hideImg} />
+                              : <div className="si-avatar" />}
+                            <div className="si-idea-main">
+                              <div className="si-idea-name">{idea.name}</div>
+                              <div className="si-chips">
+                                {(idea.reasons?.length ? idea.reasons : [kind === 'feud' ? 'Potential rivalry' : 'Potential ally'])
+                                  .map((r: string, ri: number) => <span key={ri} className="si-chip">{r}</span>)}
+                              </div>
+                            </div>
+                            <div className="si-strength" title={`Strength ${idea.score}`}>
+                              <span style={{ width: `${Math.round((idea.score || 0) / top * 100)}%` }} />
+                            </div>
+                          </div>
+                        )) : <div className="si-empty">No {kind === 'feud' ? 'feud' : 'alliance'} ideas for this worker.</div>}
+                      </div>
+                    )
+                  })}
                 </>
               )}
             </div>
