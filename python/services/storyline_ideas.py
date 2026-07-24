@@ -47,21 +47,38 @@ def _past_story_delta(months_since_end: float) -> tuple[int, str | None]:
 # lesser one over. Popularity supplies the rub; growth headroom (potential −
 # current) says who can still benefit from it, and a giver who has stopped
 # growing (current ≥ potential — popularity holding them at the top) can afford
-# to hand it out. Applied to feuds and alliances alike — a rub lands in either.
-_RUB_MIN_GAP = 15         # popularity-point gap between the two workers
+# to hand it out. The gap must be *relative*: a believable step up, not a
+# nobody rubbing shoulders with a main eventer. Applied to feuds and alliances.
+_RUB_MIN_GAP = 12         # below this the two are peers — no rub
+_RUB_IDEAL_GAP = 28       # a believable one-tier step up — peak plausibility
+_RUB_MAX_GAP = 60         # beyond this the pairing isn't credible in one story
 _RUB_MIN_GROWTH = 10      # receiver's potential − current (room to grow)
 _RUB_CAP = 35
 
 
+def _gap_plausibility(gap: int) -> float:
+    """How believable a rub across this popularity gap is — a triangular window:
+    zero at a peer-level gap, peaking at a one-tier step, then falling back to
+    zero for an implausible mismatch (a nobody would not credibly rival, or be
+    elevated by, a main eventer in a single story)."""
+    if gap <= _RUB_MIN_GAP or gap >= _RUB_MAX_GAP:
+        return 0.0
+    if gap <= _RUB_IDEAL_GAP:
+        return (gap - _RUB_MIN_GAP) / (_RUB_IDEAL_GAP - _RUB_MIN_GAP)
+    return (_RUB_MAX_GAP - gap) / (_RUB_MAX_GAP - _RUB_IDEAL_GAP)
+
+
 def _rub_delta(giver_pop: int, giver_growth: int, recv_pop: int, recv_growth: int) -> int:
     """Score bonus for a rub flowing from a bigger star (giver) to a lesser,
-    higher-ceiling worker (receiver). 0 when there's no real gap or the
-    receiver has no room to grow."""
-    gap = giver_pop - recv_pop
-    if gap < _RUB_MIN_GAP or recv_growth < _RUB_MIN_GROWTH:
+    higher-ceiling worker (receiver). Zero unless the receiver has room to grow
+    and the popularity gap is a believable step (see _gap_plausibility)."""
+    if recv_growth < _RUB_MIN_GROWTH:
+        return 0
+    plausibility = _gap_plausibility(giver_pop - recv_pop)
+    if plausibility <= 0:
         return 0
     giver_maxed = max(0, -giver_growth)  # current > potential ⇒ established, ideal giver
-    return round(min(_RUB_CAP, 0.4 * gap + 0.6 * recv_growth + 0.3 * giver_maxed))
+    return round(min(_RUB_CAP, plausibility * (0.8 * recv_growth + 0.4 * giver_maxed)))
 
 
 def _worker_score(store, uid: int) -> int:

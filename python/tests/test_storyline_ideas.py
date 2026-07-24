@@ -29,16 +29,25 @@ class TestPastStoryDelta:
 
 class TestRubDelta:
     def test_no_rub_without_a_real_popularity_gap(self):
-        assert _rub_delta(50, 0, 45, 30) == 0         # gap 5 < 15
+        assert _rub_delta(50, 0, 45, 30) == 0         # gap 5 — peers
 
     def test_no_rub_when_the_lesser_worker_cannot_grow(self):
-        assert _rub_delta(70, 0, 40, 5) == 0          # receiver growth 5 < 10
+        assert _rub_delta(68, 0, 40, 5) == 0          # receiver growth 5 < 10
 
-    def test_scales_with_gap_and_receiver_growth(self):
-        assert _rub_delta(70, 0, 40, 30) == 30        # 0.4*30 + 0.6*30
+    def test_no_rub_across_an_implausible_gap(self):
+        # a nobody would not credibly rival a main eventer in one story
+        assert _rub_delta(90, 0, 15, 40) == 0         # gap 75 > max
+
+    def test_peaks_at_a_one_tier_step(self):
+        assert _rub_delta(68, 0, 40, 30) == 24        # gap 28 (ideal): 0.8*30
+
+    def test_falls_off_for_a_wide_but_not_impossible_gap(self):
+        # gap 45 -> plausibility 15/32; a plausible-gap rub outscores it
+        assert _rub_delta(85, 0, 40, 30) == 11
+        assert _rub_delta(85, 0, 40, 30) < _rub_delta(68, 0, 40, 30)
 
     def test_established_giver_adds_a_bonus(self):
-        assert _rub_delta(70, -10, 40, 30) == 33      # + 0.3*10 (current>potential)
+        assert _rub_delta(68, -10, 40, 30) == 28      # + 0.4*10 (current>potential)
 
     def test_capped(self):
-        assert _rub_delta(90, -20, 20, 60) == 35      # would be 70, capped at 35
+        assert _rub_delta(68, -30, 40, 60) == 35      # 0.8*60 + 0.4*30 = 60, capped
