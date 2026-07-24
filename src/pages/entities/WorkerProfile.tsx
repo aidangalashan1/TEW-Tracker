@@ -548,7 +548,7 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
               </span>
             </div>
             </div>
-            <AgentReportTab w={w} stars={stars} img={img} focusedFed={focusedFed} playerFed={playerFed} AREAS={AREAS} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} ScoutIcon={ScoutIcon} compact />
+            <AgentReportTab w={w} stars={stars} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} ScoutIcon={ScoutIcon} compact />
           </div>
           </>
           )}
@@ -568,7 +568,7 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
       <ProfileTab w={w} stars={stars} img={img} focusedFed={focusedFed} playerFed={playerFed} allFeds={allFeds} gameInfo={gameInfo} navigateToEntity={navigateToEntity} onViewForm={() => setTab('form')} AREAS={AREAS} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} condMaleHead={condMaleHead} condMaleBody={condMaleBody} condMaleLegs={condMaleLegs} condMaleArmLeft={condMaleArmLeft} condMaleArmRight={condMaleArmRight} condFemHead={condFemHead} condFemBody={condFemBody} condFemLegs={condFemLegs} condFemArmLeft={condFemArmLeft} condFemArmRight={condFemArmRight} wrestlerIcon={wrestlerIcon} refereeIcon={refereeIcon} announcerIcon={announcerIcon} managerIcon={managerIcon} personalityIcon={personalityIcon} roadAgentIcon={roadAgentIcon} />
 
       ) : tab === 'agent-report' ? (
-      <AgentReportTab w={w} stars={stars} img={img} focusedFed={focusedFed} playerFed={playerFed} AREAS={AREAS} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} ScoutIcon={ScoutIcon} />
+      <AgentReportTab w={w} stars={stars} ATTR_MAP={ATTR_MAP} ATTR_TOOLTIP={ATTR_TOOLTIP} ScoutIcon={ScoutIcon} />
 
       ) : (
       <FormTab workerUid={workerUid} />

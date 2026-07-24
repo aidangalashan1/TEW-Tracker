@@ -994,6 +994,14 @@ def get_worker_detail(worker_uid: int, fed_uid: int = None) -> Worker | None:
 
     _set_company_data(w, store, game_date_val)
 
+    # Agent report (strengths / weaknesses / usage narrative / best role) —
+    # derived here so the profile tab only has to render it.
+    from services.agent_report_service import build_agent_report
+    player_fed = get_player_fed_uid()
+    report_fed = fed_uid if fed_uid else player_fed
+    fed_row = store.feds.get(report_fed) if report_fed else None
+    w.agent_report = build_agent_report(w, fed_row, player_fed)
+
     # Career win/loss from match log
     wl_rec = {"wins": 0, "losses": 0, "draws": 0}
     for mc in store.match_log_competitors:

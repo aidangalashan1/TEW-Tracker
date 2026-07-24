@@ -381,7 +381,7 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
                     data-col-id={cs.id}
                     onPointerDown={e => onHeaderPointerDown(e, cs.id)}
                     onContextMenu={e => { e.preventDefault(); setCtxMenu({ id: cs.id, x: e.clientX, y: e.clientY }) }}
-                    onClick={e => { if (justResizedRef.current || dragSelectRef.current?.started) return; if (!e.shiftKey && !e.ctrlKey && !e.metaKey) { def.sortKey && toggleSort(def.sortKey) } }}
+                    onClick={e => { if (justResizedRef.current || dragSelectRef.current?.started) return; if (!e.shiftKey && !e.ctrlKey && !e.metaKey) { if (def.sortKey) toggleSort(def.sortKey) } }}
                     className="data-table-cell data-header-cell"
                     style={{
                       flex: 'none', width: pw,
