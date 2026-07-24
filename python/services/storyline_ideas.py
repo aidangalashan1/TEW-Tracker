@@ -106,15 +106,24 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
 
     contracts_by_worker = {c["WorkerUID"]: c for c in store.contracts if c["WorkerUID"] in contract_uids}
 
-    # Workers currently tied up in an active, furthered storyline (+ how hot it is)
-    active_sl = {sl["UID"]: sl for sl in store.fed_storylines.get(fed_uid, [])
-                 if not sl.get("ToDelete") and sl.get("Furthered")}
+    # Storylines a worker is currently tied up in (+ heat on the UI's 0–100
+    # scale). "Active" matches the app's own definition (storyline_service):
+    # a non-deleted storyline that is furthered OR carries any heat. Requiring
+    # Furthered alone wrongly marked workers in live-but-un-furthered feuds as
+    # available. Heat is raw 0–1000 in the save, shown as 0–100 (round(/10)).
+    active_heat: dict[int, int] = {}
+    for sl in store.fed_storylines.get(fed_uid, []):
+        if sl.get("ToDelete"):
+            continue
+        heat = round((sl.get("Heat") or 0) / 10)
+        if sl.get("Furthered") or heat >= 1:
+            active_heat[sl["UID"]] = heat
     involved_heat: dict[int, int] = {}
     for inv in store.storyline_involved:
-        sl = active_sl.get(inv["StorylineUID"])
-        if sl:
-            heat = sl.get("Heat") or 0
-            involved_heat[inv["WorkerUID"]] = max(involved_heat.get(inv["WorkerUID"], 0), heat)
+        sl_uid = inv["StorylineUID"]
+        if sl_uid in active_heat:
+            wu = inv["WorkerUID"]
+            involved_heat[wu] = max(involved_heat.get(wu, 0), active_heat[sl_uid])
 
     def _contract_bits(uid):
         c = contracts_by_worker.get(uid, {})
