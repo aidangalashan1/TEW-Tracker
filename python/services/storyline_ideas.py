@@ -12,12 +12,35 @@ partner for two kinds of story and returns the best of each:
 Every signal traces to a literal column in the TEW save — nothing here invents
 narrative; it surfaces the relationships the game already tracks but buries.
 """
+from datetime import datetime
+
 from datastore import get_store
 
 # tblWorkerSkill columns for a rough star-power proxy (real column names —
 # the previous version read Brawling/Aerial/Microphone/Acting/StarQuality,
 # none of which exist, so the score was near-zero for everyone).
 _STAR_SKILLS = ("Brawl", "Technical", "Air", "Charisma", "Mic", "Act", "Star")
+
+# A storyline the two workers already shared makes a new one feel like a rehash,
+# so a recent shared past storyline (tblStorylinePast) is penalised. The penalty
+# eases to zero over ~2 years; past that it flips to a growing "nostalgia" bonus
+# as fans start wanting the old story revived (capped so it never dominates).
+_PAST_STORY_CROSSOVER_MONTHS = 24
+_PAST_STORY_PENALTY = 40
+_PAST_STORY_BONUS_CAP = 25
+_PAST_STORY_BONUS_FULL_MONTHS = 24  # months past the crossover to reach the cap
+
+
+def _past_story_delta(months_since_end: float) -> tuple[int, str | None]:
+    """Score delta (and reason) for a pair's most recent shared past storyline.
+    Negative while it still feels like a rehash, crossing to a capped nostalgia
+    bonus after ~2 years."""
+    if months_since_end < _PAST_STORY_CROSSOVER_MONTHS:
+        frac = 1 - months_since_end / _PAST_STORY_CROSSOVER_MONTHS
+        return -round(_PAST_STORY_PENALTY * frac), "Recently shared a storyline"
+    over = months_since_end - _PAST_STORY_CROSSOVER_MONTHS
+    bonus = min(_PAST_STORY_BONUS_CAP, round(_PAST_STORY_BONUS_CAP * over / _PAST_STORY_BONUS_FULL_MONTHS))
+    return bonus, ("Overdue for a rematch" if bonus > 0 else None)
 
 
 def _worker_score(store, uid: int) -> int:
@@ -107,23 +130,22 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
     contracts_by_worker = {c["WorkerUID"]: c for c in store.contracts if c["WorkerUID"] in contract_uids}
 
     # Storylines a worker is currently tied up in (+ heat on the UI's 0–100
-    # scale). "Active" matches the app's own definition (storyline_service):
-    # a non-deleted storyline that is furthered OR carries any heat. Requiring
-    # Furthered alone wrongly marked workers in live-but-un-furthered feuds as
-    # available. Heat is raw 0–1000 in the save, shown as 0–100 (round(/10)).
+    # scale; raw is 0–1000). Presence in tblStoryline already means active —
+    # a storyline that has concluded is moved to tblStorylinePast — so every
+    # non-deleted row counts, with no furthered/heat gate.
     active_heat: dict[int, int] = {}
     for sl in store.fed_storylines.get(fed_uid, []):
         if sl.get("ToDelete"):
             continue
-        heat = round((sl.get("Heat") or 0) / 10)
-        if sl.get("Furthered") or heat >= 1:
-            active_heat[sl["UID"]] = heat
+        active_heat[sl["UID"]] = round((sl.get("Heat") or 0) / 10)
     involved_heat: dict[int, int] = {}
     for inv in store.storyline_involved:
         sl_uid = inv["StorylineUID"]
         if sl_uid in active_heat:
             wu = inv["WorkerUID"]
             involved_heat[wu] = max(involved_heat.get(wu, 0), active_heat[sl_uid])
+
+    game_date = store.game_date_val
 
     def _contract_bits(uid):
         c = contracts_by_worker.get(uid, {})
@@ -242,6 +264,17 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
             alliance += 10
             feud_reasons.append((12, "In a cooling storyline"))
             ally_reasons.append((10, "In a cooling storyline"))
+
+        # ── shared storyline history (rehash penalty → nostalgia revival) ──
+        end = store.past_storyline_end_by_pair.get(frozenset((worker_uid, uid)))
+        if isinstance(end, datetime) and isinstance(game_date, datetime):
+            months = (game_date - end).days / 30.44
+            delta, reason = _past_story_delta(months)
+            feud += delta
+            alliance += delta
+            if delta > 0 and reason:  # only surface the positive (revival) case
+                feud_reasons.append((delta, reason))
+                ally_reasons.append((delta, reason))
 
         candidates.append({
             "worker_uid": uid,

@@ -64,6 +64,7 @@ class DataStore:
         "belt_prestige": (["belt_prestige"], "_load_belt_prestige"),
         "chemistry": (["chemistry"], "_load_chemistry"),
         "relations": (["relations", "relations_by_pair"], "_load_relations"),
+        "storyline_past": (["storyline_past", "past_storyline_end_by_pair"], "_load_storyline_past"),
         "cards": (["cards"], "_load_cards"),
         "tv_shows": (["tv_shows"], "_load_tv_shows"),
         "broadcaster_slots": (["broadcaster_slots"], "_load_broadcaster_slots"),
@@ -257,6 +258,27 @@ class DataStore:
             w1, w2 = r.get("Worker1"), r.get("Worker2")
             if w1 and w2:
                 self.relations_by_pair[frozenset((w1, w2))] = r
+
+    def _load_storyline_past(self, cur):
+        # Concluded storylines (moved here from tblStoryline when they end) and,
+        # per unordered worker pair, the most recent end-date they shared one —
+        # used to de-weight rehashes and later reward nostalgic revivals.
+        self.storyline_past = self._fetch_all(cur, "SELECT * FROM tblStorylinePast")
+        end_by_sl = {r["UID"]: r.get("StoryEndDate") for r in self.storyline_past}
+        members_by_sl: dict[int, list[int]] = {}
+        for r in self._fetch_all(cur, "SELECT * FROM tblStorylinePastInvolved"):
+            members_by_sl.setdefault(r["StorylineUID"], []).append(r["WorkerUID"])
+        self.past_storyline_end_by_pair = {}
+        for sl_uid, members in members_by_sl.items():
+            end = end_by_sl.get(sl_uid)
+            if end is None:
+                continue
+            for i in range(len(members)):
+                for j in range(i + 1, len(members)):
+                    key = frozenset((members[i], members[j]))
+                    prev = self.past_storyline_end_by_pair.get(key)
+                    if prev is None or end > prev:
+                        self.past_storyline_end_by_pair[key] = end
 
     def _load_cards(self, cur):
         self.cards = {r["UID"]: r for r in self._fetch_all(cur, "SELECT * FROM tblCard")}
