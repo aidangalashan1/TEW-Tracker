@@ -581,7 +581,7 @@ export const api = {
     detail: (uid: number, fed_uid?: number) =>
       request<any>(`/storylines/${uid}${fed_uid ? `?fed_uid=${fed_uid}` : ''}`),
     ideas: (fed_uid?: number, worker_uid?: number) =>
-      request<{ideas: any[]}>(`/storylines/ideas${fed_uid ? `?fed_uid=${fed_uid}` : ''}${worker_uid ? `&worker_uid=${worker_uid}` : ''}`),
+      request<{feuds: StorylineIdea[]; alliances: StorylineIdea[]}>(`/storylines/ideas${fed_uid ? `?fed_uid=${fed_uid}` : ''}${worker_uid ? `&worker_uid=${worker_uid}` : ''}`),
   },
   system: {
     shutdown: () => request<{ok: boolean}>('/system/shutdown', {method: 'POST'}),
@@ -591,6 +591,10 @@ export const api = {
 export interface StorylinesCrossData {
   storylines: StorylineCol[]
   shows: StorylineShowRow[]
+}
+
+export interface StorylineIdea {
+  worker_uid: number; name: string; picture: string; score: number; reasons: string[]
 }
 
 export interface StorylineCol {

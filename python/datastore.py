@@ -63,6 +63,7 @@ class DataStore:
         "worker_business": (["worker_business"], "_load_worker_business"),
         "belt_prestige": (["belt_prestige"], "_load_belt_prestige"),
         "chemistry": (["chemistry"], "_load_chemistry"),
+        "relations": (["relations", "relations_by_pair"], "_load_relations"),
         "cards": (["cards"], "_load_cards"),
         "tv_shows": (["tv_shows"], "_load_tv_shows"),
         "broadcaster_slots": (["broadcaster_slots"], "_load_broadcaster_slots"),
@@ -245,6 +246,17 @@ class DataStore:
 
     def _load_chemistry(self, cur):
         self.chemistry = self._fetch_all(cur, "SELECT * FROM tblChemistry")
+
+    def _load_relations(self, cur):
+        # Backstage relationships (tblRelation): P_Rel/R_Rel/F_Rel are positive
+        # bonds on a 0–8 scale (0 = none), plus Mentor/RomCheck flags. Indexed by
+        # unordered worker pair for O(1) lookup by the storyline-ideas engine.
+        self.relations = self._fetch_all(cur, "SELECT * FROM tblRelation")
+        self.relations_by_pair = {}
+        for r in self.relations:
+            w1, w2 = r.get("Worker1"), r.get("Worker2")
+            if w1 and w2:
+                self.relations_by_pair[frozenset((w1, w2))] = r
 
     def _load_cards(self, cur):
         self.cards = {r["UID"]: r for r in self._fetch_all(cur, "SELECT * FROM tblCard")}

@@ -19,7 +19,7 @@ def storyline_ideas(fed_uid: Optional[int] = Query(None), worker_uid: Optional[i
     from services.roster_service import get_player_fed_uid
     if fed_uid is None:
         fed_uid = get_player_fed_uid()
-    return {"ideas": get_storyline_ideas(fed_uid, worker_uid)}
+    return get_storyline_ideas(fed_uid, worker_uid)
 
 
 @router.get("/{storyline_uid}")

@@ -163,7 +163,7 @@ function StorylinesTab() {
   const fed = focusedFed || playerFed
   const [data, setData] = useState<any>(null)
   const [ideasOpen, setIdeasOpen] = useState(false)
-  const [ideas, setIdeas] = useState<any[]>([])
+  const [ideas, setIdeas] = useState<{ feuds: any[]; alliances: any[] }>({ feuds: [], alliances: [] })
   const [roster, setRoster] = useState<any[]>([])
   const [selectedWorker, setSelectedWorker] = useState<number | null>(null)
 
@@ -176,14 +176,14 @@ function StorylinesTab() {
 
   const openIdeas = () => {
     setSelectedWorker(null)
-    setIdeas([])
+    setIdeas({ feuds: [], alliances: [] })
     setIdeasOpen(true)
   }
 
   const fetchIdeas = (uid: number) => {
     setSelectedWorker(uid)
     if (!fed) return
-    api.storylines.ideas(fed.uid, uid).then(r => setIdeas(r.ideas || [])).catch(() => {})
+    api.storylines.ideas(fed.uid, uid).then(r => setIdeas({ feuds: r.feuds || [], alliances: r.alliances || [] })).catch(() => {})
   }
 
   const sortedRoster = useMemo(() => {
@@ -271,17 +271,22 @@ function StorylinesTab() {
               ) : (
                 <>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-                    <span style={{ cursor: 'pointer', color: 'var(--accent)' }} onClick={() => setSelectedWorker(null)}>← Back</span> / Feud ideas
+                    <span style={{ cursor: 'pointer', color: 'var(--accent)' }} onClick={() => setSelectedWorker(null)}>← Back</span> / Story ideas
                   </div>
-                  {ideas.length > 0 ? ideas.map((idea, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '6px 8px', borderRadius: 4, color: '#fff', background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
-                      {idea.picture && <img src={img('People/' + idea.picture)} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} onError={(e) => (e.target as HTMLElement).style.display = 'none'} />}
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{idea.name}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{idea.reasons?.join(', ') || 'Potential feud'}</div>
-                      </div>
+                  {([['feud', 'Feud ideas', ideas.feuds], ['alliance', 'Alliance / tag ideas', ideas.alliances]] as const).map(([kind, label, list]) => (
+                    <div key={kind} style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-secondary)', margin: '4px 0 6px' }}>{label}</div>
+                      {list.length > 0 ? list.map((idea: any, i: number) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '6px 8px', borderRadius: 4, color: '#fff', background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
+                          {idea.picture && <img src={img('People/' + idea.picture)} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} onError={(e) => (e.target as HTMLElement).style.display = 'none'} />}
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{idea.name}</div>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{idea.reasons?.join(', ') || (kind === 'feud' ? 'Potential rivalry' : 'Potential ally')}</div>
+                          </div>
+                        </div>
+                      )) : <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No {kind} ideas for this worker.</div>}
                     </div>
-                  )) : <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No ideas found for this worker.</div>}
+                  ))}
                 </>
               )}
             </div>
