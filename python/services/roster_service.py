@@ -379,6 +379,48 @@ def _set_company_data(w: Worker, store, game_date_val):
     _compute_star_scores(w)
 
 
+def _build_worker(uid: int, store, game_date_val, *,
+                  area_region_ids: list[int] = None, home_area: str = "") -> Worker:
+    """Create a Worker with skills, physical, age, overness/pop, business data,
+    bio, and computed scores/labels.  Shared by get_all_workers and get_roster.
+
+    *area_region_ids* — when provided, pop is averaged over that area (fed
+    home-area); otherwise pop is the global average of all 57 regions.
+    """
+    from datetime import datetime
+    w_row = store.workers.get(uid)
+    if not w_row:
+        return None
+    w = Worker.from_db_row(w_row)
+    try:
+        w.bio = store.worker_bio.get(uid, "")
+    except Exception:
+        w.bio = ""
+    w.skills = WorkerSkills.from_db_row(store.skills.get(uid, {})) if uid in store.skills else None
+    w.physical = WorkerPhysical.from_db_row(store.physical.get(uid, {})) if uid in store.physical else None
+    w.age = _compute_age(w_row.get("Birthday"), game_date_val)
+    bday_raw = w_row.get("Birthday")
+    if isinstance(bday_raw, datetime):
+        setattr(w, "Birthday", bday_raw.strftime("%Y-%m-%d"))
+    over_row = store.overness.get(uid)
+    if over_row:
+        if area_region_ids:
+            vals = [over_row.get(f"Over{i}", 0) for i in area_region_ids]
+            w.pop = RatingDisplay.from_raw(round(sum(vals) / len(vals)) if vals else 0)
+            w.home_area = home_area
+        else:
+            all_vals = [over_row.get(f"Over{i}", 0) for i in range(1, 58)]
+            w.pop = RatingDisplay.from_raw(round(sum(all_vals) / len(all_vals)))
+    biz = store.worker_business.get(uid)
+    if biz:
+        for k in ("Business", "Booking_Reputation", "Booking_Skill"):
+            v = biz.get(k)
+            if v is not None:
+                setattr(w, k, v)
+    _set_company_data(w, store, game_date_val)
+    return w
+
+
 def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list[dict], int]:
     """Return every non-retired, non-dead worker in the DB with skills,
     physical, overness/pop, and computed scores. No contract/fed scoping.
@@ -391,33 +433,15 @@ def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list[dict], int]:
     cache_key = f"all:{store.version}"
     if cache_key not in _response_cache:
         _fed_avg_cache.clear()
-        from datetime import datetime
         game_date_val = store.game_date_val
 
         all_uids = [uid for uid, w_row in store.workers.items() if not w_row.get("Retired") and not w_row.get("Dead")]
         _cache_progress.update(phase="Processing workers", total=len(all_uids), done=0)
         raw = []
         for i, uid in enumerate(all_uids):
-            w_row = store.workers[uid]
-            w = Worker.from_db_row(w_row)
-            w.bio = store.worker_bio.get(uid, "")
-            w.skills = WorkerSkills.from_db_row(store.skills.get(uid, {})) if uid in store.skills else None
-            w.physical = WorkerPhysical.from_db_row(store.physical.get(uid, {})) if uid in store.physical else None
-            w.age = _compute_age(w_row.get("Birthday"), game_date_val)
-            bday_raw = w_row.get("Birthday")
-            if isinstance(bday_raw, datetime):
-                setattr(w, "Birthday", bday_raw.strftime("%Y-%m-%d"))
-            over_row = store.overness.get(uid)
-            if over_row:
-                all_vals = [over_row.get(f"Over{i}", 0) for i in range(1, 58)]
-                w.pop = RatingDisplay.from_raw(round(sum(all_vals) / len(all_vals)))
-            biz = store.worker_business.get(uid)
-            if biz:
-                for k in ("Business", "Booking_Reputation", "Booking_Skill"):
-                    v = biz.get(k)
-                    if v is not None:
-                        setattr(w, k, v)
-            _set_company_data(w, store, game_date_val)
+            w = _build_worker(uid, store, game_date_val)
+            if w is None:
+                continue
             raw.append(w.model_dump())
             if i % 50 == 0:
                 _cache_progress["done"] = i + 1
@@ -538,19 +562,11 @@ def get_roster(fed_uid: int = None) -> list[dict]:
     _cache_progress["total"] = len(contracts)
     for ci, c in enumerate(contracts):
         uid = c["WorkerUID"]
-        w_row = store.workers.get(uid)
-        if w_row is None:
+        w = _build_worker(uid, store, game_date_val, area_region_ids=area_region_ids, home_area=home_area)
+        if w is None:
             continue
 
-        w = Worker.from_db_row(w_row)
-        w.skills = WorkerSkills.from_db_row(store.skills.get(uid, {})) if uid in store.skills else None
-        w.physical = WorkerPhysical.from_db_row(store.physical.get(uid, {})) if uid in store.physical else None
         w.contract = WorkerContract.from_db_row(c)
-        try:
-            w.bio = store.worker_bio.get(uid, "")
-        except Exception:
-            w.bio = ""
-
         cname = c.get("Name", "").strip()
         if cname:
             w.name = cname
@@ -561,11 +577,6 @@ def get_roster(fed_uid: int = None) -> list[dict]:
                 OvernessEntry(region=i, value=RatingDisplay.from_raw(over_row.get(f"Over{i}", 0)))
                 for i in range(1, 58)
             ]
-            if area_region_ids:
-                vals = [over_row.get(f"Over{i}", 0) for i in area_region_ids]
-                avg = round(sum(vals) / len(vals)) if vals else 0
-                w.pop = RatingDisplay.from_raw(avg)
-            w.home_area = home_area
             w.home_region = REGION_TO_AREA.get(w.based_in, "")
             raw_home = over_row.get(f"Over{w.based_in}", 0)
             w.home_region_pop = RatingDisplay.from_raw(raw_home)
@@ -586,18 +597,6 @@ def get_roster(fed_uid: int = None) -> list[dict]:
         if uid in store.champ_set:
             flags.append("champion")
         w.status = flags
-
-        w.age = _compute_age(w_row.get("Birthday"), game_date_val)
-        bday_raw = w_row.get("Birthday")
-        if isinstance(bday_raw, datetime):
-            setattr(w, "Birthday", bday_raw.strftime("%Y-%m-%d"))
-
-        biz = store.worker_business.get(uid)
-        if biz:
-            for k in ("Business", "Booking_Reputation", "Booking_Skill"):
-                v = biz.get(k)
-                if v is not None:
-                    setattr(w, k, v)
 
         # Storylines
         sl_uids_for_worker = store.storyline_workers.get(uid, [])
@@ -701,7 +700,6 @@ def get_roster(fed_uid: int = None) -> list[dict]:
             ]
 
         w.attributes = attrs_by_uid.get(uid, [])
-        _set_company_data(w, store, game_date_val)
         result.append(w)
         if ci % 20 == 0:
             _cache_progress["done"] = ci + 1

@@ -18,7 +18,6 @@ import roadAgentIcon from '../../../assets/UI icons/roadagent.png'
 import { REGION_NAMES, AREAS } from '../regions'
 import { ColumnDef } from './types'
 import { StatusBadge, MoneyDisplay, conditionHeart, condPctBar, AvgCell, Last5Cell, fmtDuration, fmtDurationHm } from './renderers'
-import { isWrestler } from '../../../lib/scoring'
 import { COLOR_MALE, COLOR_FACE, COLOR_HEEL } from '../../../lib/colors'
 import starIcon from '../../../assets/UI icons/star.png'
 
@@ -311,12 +310,12 @@ export function buildColumns(): ColumnDef[] {
     { id: 'current_ability', label: 'Ability', abbrev: 'Abil', width: 80, group: 'performance', filterGroup: 'stats', sortKey: 'current_ability', render: w => {
       const stars = w.current_stars || 0
       if (!stars) return null
-      return <StarDisplay stars={stars} isWrestler={isWrestler(w)} />
+      return <StarDisplay stars={stars} isWrestler={w.is_wrestler} />
     } },
     { id: 'potential_ability', label: 'Potential', abbrev: 'Pot', width: 80, group: 'performance', filterGroup: 'stats', sortKey: 'potential_ability', render: w => {
       const stars = w.potential_stars || 0
       if (!stars) return null
-      return <StarDisplay stars={stars} isWrestler={isWrestler(w)} />
+      return <StarDisplay stars={stars} isWrestler={w.is_wrestler} />
     } },
     { id: 'current_usage', label: 'Usage', abbrev: 'Use', width: 140, group: 'performance', filterGroup: 'stats', sortKey: 'current_usage', render: w => {
       if (!w.current_stars) return <span>—</span>

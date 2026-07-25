@@ -6,7 +6,6 @@ import useSWR from '../../../hooks/useApi'
 import { ConditionBody } from './ConditionBody'
 import { RatingBadge } from './RatingBadge'
 import { ratingColor } from '../../../lib/colors'
-import { calcPerformance } from '../../../lib/scoring'
 import { Tooltip } from '../../../components/Tooltip'
 import rightIcon from '../../../assets/UI icons/right.png'
 
@@ -95,7 +94,7 @@ export function ProfileTab(props: ProfileTabProps) {
           ].map(col => {
             const s = w.skills
             const vals = col.keys.map(k => Number((s as any)?.[k]?.pct ?? 0))
-            const groupVal = col.group === 'max' ? Math.max(...vals) : col.group === 'perf' ? calcPerformance(s) : vals.reduce((a, b) => a + b, 0) / vals.length
+            const groupVal = col.group === 'max' ? Math.max(...vals) : col.group === 'perf' ? w.perf_score : vals.reduce((a, b) => a + b, 0) / vals.length
             const pct = Math.round(groupVal)
             const labelMap: Record<string, string> = {
               brawl: 'Brawling', puroresu: 'Puroresu', hardcore: 'Hardcore', technical: 'Technical',

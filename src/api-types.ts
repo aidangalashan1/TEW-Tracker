@@ -195,6 +195,11 @@ export interface Worker {
   potential_usage_label: string;
   age_prefix: string;
   is_banged_up: boolean;
+  is_wrestler: boolean;
+  pillar_primary: number;
+  pillar_perf: number;
+  pillar_pop: number;
+  perf_score: number;
   contract_expiry_days: number;
   company_area_pop: number;
   roster_avg_primary: number;
