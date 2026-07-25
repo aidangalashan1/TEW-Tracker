@@ -6,6 +6,7 @@ import useSWR from '../../../hooks/useApi'
 import { ConditionBody } from './ConditionBody'
 import { RatingBadge } from './RatingBadge'
 import { ratingColor } from '../../../lib/colors'
+import { SKILL_LABELS } from '../../../lib/labels'
 import { Tooltip } from '../../../components/Tooltip'
 import rightIcon from '../../../assets/UI icons/right.png'
 
@@ -96,19 +97,10 @@ export function ProfileTab(props: ProfileTabProps) {
             const vals = col.keys.map(k => Number((s as any)?.[k]?.pct ?? 0))
             const groupVal = col.group === 'max' ? Math.max(...vals) : col.group === 'perf' ? w.perf_score : vals.reduce((a, b) => a + b, 0) / vals.length
             const pct = Math.round(groupVal)
-            const labelMap: Record<string, string> = {
-              brawl: 'Brawling', puroresu: 'Puroresu', hardcore: 'Hardcore', technical: 'Technical',
-              air: 'Aerial', psych: 'Psychology', experience: 'Experience', respect: 'Respect',
-              reputation: 'Reputation', charisma: 'Charisma', mic: 'Microphone', acting: 'Acting',
-              star: 'Star Quality', looks: 'Looks', menace: 'Menace', basics: 'Basics',
-              selling: 'Selling', consistency: 'Consistency', safety: 'Safety', stamina: 'Stamina',
-              athletic: 'Athleticism', power: 'Power', toughness: 'Toughness', injury: 'Injury Res.',
-              flash: 'Flashiness', announcing: 'Play by Play', colour: 'Colour', refereeing: 'Refereeing',
-            }
             const extraVals = (col.extra || []).map(k => { const v = (w as any)[k]; return v != null ? Math.round(v / 10) : null })
             const extraLabels: Record<string, string> = { Business: 'Business', Booking_Reputation: 'Booking Rep.', Booking_Skill: 'Booking Skill' }
             const allItems = [
-              ...col.keys.map((k, i) => ({ label: labelMap[k] || k, val: vals[i] })),
+              ...col.keys.map((k, i) => ({ label: SKILL_LABELS[k] || k, val: vals[i] })),
               ...(col.extra || []).map((k, i) => ({ label: extraLabels[k] || k, val: extraVals[i] })).filter(x => x.val != null),
             ] as { label: string; val: number }[]
             return (

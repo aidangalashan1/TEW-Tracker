@@ -1,5 +1,5 @@
 import type { Worker } from '../../api'
-import { PERCEPTION_LABELS } from '../../lib/labels'
+import { PERCEPTION_LABELS, SKILL_LABELS } from '../../lib/labels'
 
 export interface FilterRule {
   dimension: string
@@ -67,23 +67,23 @@ export function buildFilterDimensions(allContracts: string[], allBrands: number[
     // Stats
     { id: 'current_score', label: 'Current Ability', type: 'num', group: 'stats', getValue: w => w.current_score },
     { id: 'potential_score', label: 'Potential', type: 'num', group: 'stats', getValue: w => w.potential_score },
-    { id: 'brawl', label: 'Brawling', type: 'num', group: 'stats', getValue: w => w.skills?.brawl?.pct ?? 0 },
-    { id: 'tech', label: 'Technical', type: 'num', group: 'stats', getValue: w => w.skills?.technical?.pct ?? 0 },
-    { id: 'air', label: 'Aerial', type: 'num', group: 'stats', getValue: w => w.skills?.air?.pct ?? 0 },
-    { id: 'psych', label: 'Psychology', type: 'num', group: 'stats', getValue: w => w.skills?.psych?.pct ?? 0 },
-    { id: 'charisma', label: 'Charisma', type: 'num', group: 'stats', getValue: w => w.skills?.charisma?.pct ?? 0 },
-    { id: 'mic', label: 'Microphone', type: 'num', group: 'stats', getValue: w => w.skills?.mic?.pct ?? 0 },
-    { id: 'acting', label: 'Acting', type: 'num', group: 'stats', getValue: w => w.skills?.acting?.pct ?? 0 },
-    { id: 'star', label: 'Star Quality', type: 'num', group: 'stats', getValue: w => w.skills?.star?.pct ?? 0 },
-    { id: 'menace', label: 'Menace', type: 'num', group: 'stats', getValue: w => w.skills?.menace?.pct ?? 0 },
-    { id: 'stamina', label: 'Stamina', type: 'num', group: 'stats', getValue: w => w.skills?.stamina?.pct ?? 0 },
-    { id: 'flash', label: 'Flashiness', type: 'num', group: 'stats', getValue: w => w.skills?.flash?.pct ?? 0 },
-    { id: 'consistency', label: 'Consistency', type: 'num', group: 'stats', getValue: w => w.skills?.consistency?.pct ?? 0 },
-    { id: 'selling', label: 'Selling', type: 'num', group: 'stats', getValue: w => w.skills?.selling?.pct ?? 0 },
-    { id: 'basics', label: 'Basics', type: 'num', group: 'stats', getValue: w => w.skills?.basics?.pct ?? 0 },
-    { id: 'safety', label: 'Safety', type: 'num', group: 'stats', getValue: w => w.skills?.safety?.pct ?? 0 },
-    { id: 'respect', label: 'Respect', type: 'num', group: 'stats', getValue: w => w.skills?.respect?.pct ?? 0 },
-    { id: 'reputation', label: 'Reputation', type: 'num', group: 'stats', getValue: w => w.skills?.reputation?.pct ?? 0 },
+    { id: 'brawl', label: SKILL_LABELS.brawl, type: 'num', group: 'stats', getValue: w => w.skills?.brawl?.pct ?? 0 },
+    { id: 'tech', label: SKILL_LABELS.technical, type: 'num', group: 'stats', getValue: w => w.skills?.technical?.pct ?? 0 },
+    { id: 'air', label: SKILL_LABELS.air, type: 'num', group: 'stats', getValue: w => w.skills?.air?.pct ?? 0 },
+    { id: 'psych', label: SKILL_LABELS.psych, type: 'num', group: 'stats', getValue: w => w.skills?.psych?.pct ?? 0 },
+    { id: 'charisma', label: SKILL_LABELS.charisma, type: 'num', group: 'stats', getValue: w => w.skills?.charisma?.pct ?? 0 },
+    { id: 'mic', label: SKILL_LABELS.mic, type: 'num', group: 'stats', getValue: w => w.skills?.mic?.pct ?? 0 },
+    { id: 'acting', label: SKILL_LABELS.acting, type: 'num', group: 'stats', getValue: w => w.skills?.acting?.pct ?? 0 },
+    { id: 'star', label: SKILL_LABELS.star, type: 'num', group: 'stats', getValue: w => w.skills?.star?.pct ?? 0 },
+    { id: 'menace', label: SKILL_LABELS.menace, type: 'num', group: 'stats', getValue: w => w.skills?.menace?.pct ?? 0 },
+    { id: 'stamina', label: SKILL_LABELS.stamina, type: 'num', group: 'stats', getValue: w => w.skills?.stamina?.pct ?? 0 },
+    { id: 'flash', label: SKILL_LABELS.flash, type: 'num', group: 'stats', getValue: w => w.skills?.flash?.pct ?? 0 },
+    { id: 'consistency', label: SKILL_LABELS.consistency, type: 'num', group: 'stats', getValue: w => w.skills?.consistency?.pct ?? 0 },
+    { id: 'selling', label: SKILL_LABELS.selling, type: 'num', group: 'stats', getValue: w => w.skills?.selling?.pct ?? 0 },
+    { id: 'basics', label: SKILL_LABELS.basics, type: 'num', group: 'stats', getValue: w => w.skills?.basics?.pct ?? 0 },
+    { id: 'safety', label: SKILL_LABELS.safety, type: 'num', group: 'stats', getValue: w => w.skills?.safety?.pct ?? 0 },
+    { id: 'respect', label: SKILL_LABELS.respect, type: 'num', group: 'stats', getValue: w => w.skills?.respect?.pct ?? 0 },
+    { id: 'reputation', label: SKILL_LABELS.reputation, type: 'num', group: 'stats', getValue: w => w.skills?.reputation?.pct ?? 0 },
     // Popularity
     { id: 'pop', label: 'Popularity', type: 'num', group: 'popularity', getValue: w => w.pop?.pct ?? 0 },
   ]

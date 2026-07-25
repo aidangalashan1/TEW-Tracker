@@ -19,7 +19,7 @@ import { REGION_NAMES, AREAS } from '../regions'
 import { ColumnDef } from './types'
 import { StatusBadge, MoneyDisplay, conditionHeart, condPctBar, AvgCell, Last5Cell, fmtDuration, fmtDurationHm } from './renderers'
 import { COLOR_MALE, COLOR_FACE, COLOR_HEEL } from '../../../lib/colors'
-import { PERCEPTION_LABELS } from '../../../lib/labels'
+import { PERCEPTION_LABELS, SKILL_LABELS } from '../../../lib/labels'
 import starIcon from '../../../assets/UI icons/star.png'
 
 function StarDisplay({ stars, isWrestler: iw }: { stars: number; isWrestler: boolean }) {
@@ -269,31 +269,31 @@ export function buildColumns(): ColumnDef[] {
         return <RatingBadge rating={{ raw: avg * 10, pct: avg, grade: '' }} />
       }
     },
-    { id: 'brawl', label: 'Brawling', abbrev: 'Brawl', width: 55, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.brawl} /> : null, sortKey: 'brawl' },
-    { id: 'puro', label: 'Puroresu', abbrev: 'Puro', width: 48, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.puroresu} /> : null, sortKey: 'puroresu' },
-    { id: 'hard', label: 'Hardcore', abbrev: 'Hard', width: 48, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.hardcore} /> : null, sortKey: 'hardcore' },
-    { id: 'tech', label: 'Technical', abbrev: 'Tech', width: 50, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.technical} /> : null, sortKey: 'technical' },
-    { id: 'air', label: 'Aerial', abbrev: 'Air', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.air} /> : null, sortKey: 'air' },
-    { id: 'flash', label: 'Flashiness', abbrev: 'Flash', width: 48, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.flash} /> : null, sortKey: 'flash' },
-    { id: 'psych', label: 'Psychology', abbrev: 'Psych', width: 52, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.psych} /> : null, sortKey: 'psych' },
-    { id: 'exp', label: 'Experience', abbrev: 'Exp', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.experience} /> : null, sortKey: 'experience' },
-    { id: 'respect', label: 'Respect', abbrev: 'Resp', width: 44, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.respect} /> : null, sortKey: 'respect' },
-    { id: 'reputation', label: 'Reputation', abbrev: 'Rep', width: 40, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.reputation} /> : null, sortKey: 'reputation' },
-    { id: 'char', label: 'Charisma', abbrev: 'Char', width: 46, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.charisma} /> : null, sortKey: 'charisma' },
-    { id: 'mic', label: 'Microphone', abbrev: 'Mic', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.mic} /> : null, sortKey: 'mic' },
-    { id: 'acting', label: 'Acting', abbrev: 'Act', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.acting} /> : null, sortKey: 'acting' },
-    { id: 'star', label: 'Star Quality', abbrev: 'Star', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.star} /> : null, sortKey: 'star' },
-    { id: 'looks', label: 'Looks', abbrev: 'Look', width: 46, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.looks} /> : null, sortKey: 'looks' },
-    { id: 'menace', label: 'Menace', abbrev: 'Menc', width: 46, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.menace} /> : null, sortKey: 'menace' },
-    { id: 'basics', label: 'Basics', abbrev: 'Bas', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.basics} /> : null, sortKey: 'basics' },
-    { id: 'sell', label: 'Selling', abbrev: 'Sell', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.selling} /> : null, sortKey: 'selling' },
-    { id: 'cons', label: 'Consistency', abbrev: 'Cons', width: 46, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.consistency} /> : null, sortKey: 'consistency' },
-    { id: 'safe', label: 'Safety', abbrev: 'Safe', width: 44, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.safety} /> : null, sortKey: 'safety' },
-    { id: 'stam', label: 'Stamina', abbrev: 'Stam', width: 46, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.stamina} /> : null, sortKey: 'stamina' },
-    { id: 'ath', label: 'Athleticism', abbrev: 'Ath', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.athletic} /> : null, sortKey: 'athletic' },
-    { id: 'power', label: 'Power', abbrev: 'Pwr', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.power} /> : null, sortKey: 'power' },
-    { id: 'tough', label: 'Toughness', abbrev: 'Tough', width: 48, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.toughness} /> : null, sortKey: 'toughness' },
-    { id: 'inj', label: 'Injury Resistance', abbrev: 'Inj', width: 38, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.injury} /> : null, sortKey: 'injury' },
+    { id: 'brawl', label: SKILL_LABELS.brawl, abbrev: 'Brawl', width: 55, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.brawl} /> : null, sortKey: 'brawl' },
+    { id: 'puro', label: SKILL_LABELS.puroresu, abbrev: 'Puro', width: 48, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.puroresu} /> : null, sortKey: 'puroresu' },
+    { id: 'hard', label: SKILL_LABELS.hardcore, abbrev: 'Hard', width: 48, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.hardcore} /> : null, sortKey: 'hardcore' },
+    { id: 'tech', label: SKILL_LABELS.technical, abbrev: 'Tech', width: 50, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.technical} /> : null, sortKey: 'technical' },
+    { id: 'air', label: SKILL_LABELS.air, abbrev: 'Air', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.air} /> : null, sortKey: 'air' },
+    { id: 'flash', label: SKILL_LABELS.flash, abbrev: 'Flash', width: 48, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.flash} /> : null, sortKey: 'flash' },
+    { id: 'psych', label: SKILL_LABELS.psych, abbrev: 'Psych', width: 52, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.psych} /> : null, sortKey: 'psych' },
+    { id: 'exp', label: SKILL_LABELS.experience, abbrev: 'Exp', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.experience} /> : null, sortKey: 'experience' },
+    { id: 'respect', label: SKILL_LABELS.respect, abbrev: 'Resp', width: 44, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.respect} /> : null, sortKey: 'respect' },
+    { id: 'reputation', label: SKILL_LABELS.reputation, abbrev: 'Rep', width: 40, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.reputation} /> : null, sortKey: 'reputation' },
+    { id: 'char', label: SKILL_LABELS.charisma, abbrev: 'Char', width: 46, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.charisma} /> : null, sortKey: 'charisma' },
+    { id: 'mic', label: SKILL_LABELS.mic, abbrev: 'Mic', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.mic} /> : null, sortKey: 'mic' },
+    { id: 'acting', label: SKILL_LABELS.acting, abbrev: 'Act', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.acting} /> : null, sortKey: 'acting' },
+    { id: 'star', label: SKILL_LABELS.star, abbrev: 'Star', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.star} /> : null, sortKey: 'star' },
+    { id: 'looks', label: SKILL_LABELS.looks, abbrev: 'Look', width: 46, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.looks} /> : null, sortKey: 'looks' },
+    { id: 'menace', label: SKILL_LABELS.menace, abbrev: 'Menc', width: 46, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.menace} /> : null, sortKey: 'menace' },
+    { id: 'basics', label: SKILL_LABELS.basics, abbrev: 'Bas', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.basics} /> : null, sortKey: 'basics' },
+    { id: 'sell', label: SKILL_LABELS.selling, abbrev: 'Sell', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.selling} /> : null, sortKey: 'selling' },
+    { id: 'cons', label: SKILL_LABELS.consistency, abbrev: 'Cons', width: 46, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.consistency} /> : null, sortKey: 'consistency' },
+    { id: 'safe', label: SKILL_LABELS.safety, abbrev: 'Safe', width: 44, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.safety} /> : null, sortKey: 'safety' },
+    { id: 'stam', label: SKILL_LABELS.stamina, abbrev: 'Stam', width: 46, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.stamina} /> : null, sortKey: 'stamina' },
+    { id: 'ath', label: SKILL_LABELS.athletic, abbrev: 'Ath', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.athletic} /> : null, sortKey: 'athletic' },
+    { id: 'power', label: SKILL_LABELS.power, abbrev: 'Pwr', width: 42, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.power} /> : null, sortKey: 'power' },
+    { id: 'tough', label: SKILL_LABELS.toughness, abbrev: 'Tough', width: 48, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.toughness} /> : null, sortKey: 'toughness' },
+    { id: 'inj', label: SKILL_LABELS.injury, abbrev: 'Inj', width: 38, group: 'skills', filterGroup: 'stats', render: w => w.skills ? <RatingBadge rating={w.skills.injury} /> : null, sortKey: 'injury' },
     { id: 'business', label: 'Business', abbrev: 'Bus', width: 44, group: 'skills', filterGroup: 'stats', render: w => {
       const v = (w as any).Business
       return v != null ? <RatingBadge rating={{ raw: v, pct: Math.round(v / 10), grade: '' }} /> : null
