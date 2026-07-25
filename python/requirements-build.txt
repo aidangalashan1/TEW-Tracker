@@ -1,0 +1,6 @@
+# Build-only dependencies (packaging the desktop app), separate from the
+# runtime requirements.txt that gets bundled into the shipped backend.
+#
+# The npm scripts target Python 3.14 (`py -3.14`); set up that interpreter with:
+#   py -3.14 -m pip install -r python/requirements.txt -r python/requirements-build.txt
+pyinstaller==6.21.0
