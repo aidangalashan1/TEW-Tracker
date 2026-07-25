@@ -10,7 +10,8 @@ def cache_progress():
 @router.get("/all")
 def all_workers(page: int = Query(default=1), limit: int = Query(default=200)):
     workers, total = get_all_workers(page=page, limit=limit)
-    return {"count": len(workers), "total": total, "page": page, "limit": limit, "workers": workers}
+    return {"count": len(workers), "total": total, "page": page, "limit": limit,
+            "workers": [w.model_dump() for w in workers]}
 
 @router.get("")
 def roster(fed_uid: int = Query(default=None)):
@@ -20,7 +21,7 @@ def roster(fed_uid: int = Query(default=None)):
     return {
         "fed_uid": fed_uid,
         "count": len(workers),
-        "workers": workers,
+        "workers": [w.model_dump() for w in workers],
     }
 
 @router.get("/form")

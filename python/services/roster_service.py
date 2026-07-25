@@ -288,7 +288,7 @@ def _age_growth(age: int) -> float:
 
 
 _fed_avg_cache: dict[int, dict] = {}
-_response_cache: dict[str, list[dict]] = {}
+_response_cache: dict[str, list] = {}  # roster/all cache Worker objects; form caches dicts
 _cache_progress: dict[str, any] = {"phase": "", "total": 0, "done": 0}
 
 def get_cache_progress() -> dict:
@@ -421,11 +421,12 @@ def _build_worker(uid: int, store, game_date_val, *,
     return w
 
 
-def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list[dict], int]:
+def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list["Worker"], int]:
     """Return every non-retired, non-dead worker in the DB with skills,
     physical, overness/pop, and computed scores. No contract/fed scoping.
-    Returns (workers_dicts, total_count) with server-side pagination —
-    workers are pre-serialized so repeated calls serve from cache."""
+    Returns (workers, total_count) with server-side pagination; the full
+    assembled list is cached so repeated pages serve from memory. The router
+    serialises the returned page."""
     global _fed_avg_cache, _response_cache, _cache_progress
     store = get_store()
     if not store:
@@ -442,19 +443,19 @@ def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list[dict], int]:
             w = _build_worker(uid, store, game_date_val)
             if w is None:
                 continue
-            raw.append(w.model_dump())
+            raw.append(w)
             if i % 50 == 0:
                 _cache_progress["done"] = i + 1
         _cache_progress.update(phase="Complete", total=len(all_uids), done=len(all_uids))
         _response_cache[cache_key] = raw
 
-    all_serialized = _response_cache[cache_key]
-    total = len(all_serialized)
+    all_workers = _response_cache[cache_key]
+    total = len(all_workers)
     start = (page - 1) * limit
-    return all_serialized[start:start + limit], total
+    return all_workers[start:start + limit], total
 
 
-def get_roster(fed_uid: int = None) -> list[dict]:
+def get_roster(fed_uid: int = None) -> list["Worker"]:
     global _fed_avg_cache, _response_cache, _cache_progress
     store = get_store()
     if not store:
@@ -704,11 +705,9 @@ def get_roster(fed_uid: int = None) -> list[dict]:
         if ci % 20 == 0:
             _cache_progress["done"] = ci + 1
 
-    _cache_progress.update(phase="Finalizing...", total=len(contracts), done=len(contracts))
-    serialized = [w.model_dump() for w in result]
     _cache_progress.update(phase="Complete", total=len(contracts), done=len(contracts))
-    _response_cache[cache_key] = serialized
-    return serialized
+    _response_cache[cache_key] = result
+    return result
 
 
 def _get_worker_segments(store, worker_uid: int) -> list[dict]:
