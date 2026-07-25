@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import closeIcon from '../../assets/UI icons/close.png'
-import { PERCEPTION_LABELS } from './workerListFilters'
+import { PERCEPTION_LABELS } from '../../lib/labels'
 import { GROUP_ORDER, type SubgroupDef, type SubgroupFilter } from './workerListGrouping'
 
 /** The subgroup-creation/edit modal opened from "+ New" or a subgroup's edit

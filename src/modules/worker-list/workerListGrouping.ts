@@ -1,6 +1,6 @@
 import type { Worker } from '../../api'
 import { sortWorkers, type SortKey } from './workerListSort'
-import { PERCEPTION_LABELS } from './workerListFilters'
+import { PERCEPTION_LABELS } from '../../lib/labels'
 
 export interface SubgroupFilter {
   role?: string[]

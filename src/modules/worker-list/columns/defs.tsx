@@ -19,6 +19,7 @@ import { REGION_NAMES, AREAS } from '../regions'
 import { ColumnDef } from './types'
 import { StatusBadge, MoneyDisplay, conditionHeart, condPctBar, AvgCell, Last5Cell, fmtDuration, fmtDurationHm } from './renderers'
 import { COLOR_MALE, COLOR_FACE, COLOR_HEEL } from '../../../lib/colors'
+import { PERCEPTION_LABELS } from '../../../lib/labels'
 import starIcon from '../../../assets/UI icons/star.png'
 
 function StarDisplay({ stars, isWrestler: iw }: { stars: number; isWrestler: boolean }) {
@@ -74,9 +75,8 @@ export function buildColumns(): ColumnDef[] {
 
     { id: 'perception', label: 'Perception', abbrev: 'Prc', width: 90, group: 'info', filterGroup: 'creative', sortKey: 'perception', render: w => {
       const p = (w.contract as any)?.Perception ?? 0
-      const labels: Record<number, string> = { 0: 'No Perception', 1: 'Major Star', 2: 'Star', 3: 'Well Known', 4: 'Recognisable', 5: 'Unimportant' }
       const colors: Record<number, string> = { 1: '#2d7d46', 2: '#2c6b9e', 3: '#b8941e', 4: '#6b7280', 5: '#4b5563' }
-      return <span style={{ background: colors[p] || 'transparent', color: '#fff', borderRadius: 3, padding: '0 6px', fontFamily: 'var(--font-family)', fontSize: 11, fontWeight: 700, lineHeight: '20px', display: 'inline-block' }}>{labels[p] || 'Unknown'}</span>
+      return <span style={{ background: colors[p] || 'transparent', color: '#fff', borderRadius: 3, padding: '0 6px', fontFamily: 'var(--font-family)', fontSize: 11, fontWeight: 700, lineHeight: '20px', display: 'inline-block' }}>{PERCEPTION_LABELS[p] || 'Unknown'}</span>
     } },
     { id: 'role', label: 'Role', width: 60, group: 'info', filterGroup: 'creative', sortKey: 'role', render: w => {
       const roleIcons: Record<string, string> = {

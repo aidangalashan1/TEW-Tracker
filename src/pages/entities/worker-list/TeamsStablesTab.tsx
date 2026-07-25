@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../../../api'
 import { useApp } from '../../../context/AppContext'
+import { PERCEPTION_LABELS } from '../../../lib/labels'
 import type { Worker, TagTeam, Stable, Belt } from '../../../api-types'
 import faceIcon from '../../../assets/UI icons/face.png'
 import heelIcon from '../../../assets/UI icons/heel.png'
@@ -104,8 +105,7 @@ function getTeamGroupKey(members: Worker[], dim: string): string {
     const percs = members.map(w => (w.contract as any)?.Perception ?? 0)
     if (percs.length === 0) return 'Unknown'
     const avg = Math.round(percs.reduce((a: number, b: number) => a + b, 0) / percs.length)
-    const labels: Record<number, string> = { 0: 'No Perception', 1: 'Major Star', 2: 'Star', 3: 'Well Known', 4: 'Recognisable', 5: 'Unimportant' }
-    return labels[avg] || 'Unknown'
+    return PERCEPTION_LABELS[avg] || 'Unknown'
   }
   return ''
 }

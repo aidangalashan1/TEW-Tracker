@@ -1,8 +1,5 @@
 import type { Worker } from '../../api'
-
-export const PERCEPTION_LABELS: Record<number, string> = {
-  0: 'No Perception', 1: 'Major Star', 2: 'Star', 3: 'Well Known', 4: 'Recognisable', 5: 'Unimportant',
-}
+import { PERCEPTION_LABELS } from '../../lib/labels'
 
 export interface FilterRule {
   dimension: string
