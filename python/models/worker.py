@@ -1,53 +1,9 @@
-from pydantic import BaseModel, Field, ConfigDict
+"""The Worker aggregate and its component models (skills, contract,
+performance, tag/stable/chemistry/storyline sub-objects)."""
 from typing import Optional
-from datetime import datetime
-from regions import REGION_TO_AREA, REGION_NAMES
+from pydantic import BaseModel, Field, ConfigDict
 
-# ---------- Helper: preserve all DB columns ----------
-
-def row_kwargs(row: dict, **typed) -> dict:
-    """Return all row columns plus typed overrides, for use with extra='allow'."""
-    kwargs = dict(row)
-    kwargs.update(typed)
-    return kwargs
-
-# ---------- Rating conversion utilities ----------
-
-def scale_to_pct(value: int) -> int:
-    """Convert TEW 0-1000 scale to 0-100 percentage."""
-    return round(value / 10)
-
-def scale_to_grade(value: int) -> str:
-    """Convert TEW 0-1000 scale to letter grade (FM-style)."""
-    if value >= 950: return "A*"
-    if value >= 900: return "A"
-    if value >= 850: return "A-"
-    if value >= 800: return "B+"
-    if value >= 750: return "B"
-    if value >= 700: return "B-"
-    if value >= 650: return "C+"
-    if value >= 600: return "C"
-    if value >= 550: return "C-"
-    if value >= 500: return "D+"
-    if value >= 450: return "D"
-    if value >= 400: return "D-"
-    if value >= 350: return "E+"
-    if value >= 300: return "E"
-    if value >= 200: return "E-"
-    if value >= 100: return "F+"
-    return "F"
-
-class RatingDisplay(BaseModel):
-    raw: int = 0
-    pct: int = 0
-    grade: str = "F"
-
-    @classmethod
-    def from_raw(cls, value: int) -> "RatingDisplay":
-        return cls(raw=value, pct=scale_to_pct(value), grade=scale_to_grade(value))
-
-
-# ---------- Worker ----------
+from .base import RatingDisplay, WorkerPhysical, OvernessEntry, WinLoss, row_kwargs
 
 GENDER_MAP = {0: "Unchanged", 1: "Male", 2: "Male", 3: "Non-Binary", 4: "Male", 5: "Female", 6: "Trans", 7: "Non-Binary", 8: "Female"}
 STYLE_MAP = {
@@ -60,6 +16,7 @@ STYLE_MAP = {
 POSITION_PREFIXES = ["Position_Wrestler", "Position_Occasional", "Position_Referee",
                      "Position_Announcer", "Position_Colour", "Position_Manager",
                      "Position_Personality", "Position_Roadagent"]
+
 
 def get_positions(row: dict) -> list[str]:
     pos_names = ["Wrestler", "Occasional", "Referee", "Announcer", "Colour",
@@ -132,32 +89,6 @@ class WorkerSkills(BaseModel):
         ))
 
 
-def _decode_condition(raw) -> int:
-    if raw is None or raw == -1:
-        return 100
-    return max(0, raw // 10)
-
-class WorkerPhysical(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    fatigue: RatingDisplay = RatingDisplay()
-    ringrust: RatingDisplay = RatingDisplay()
-    condition1: int = 0
-    condition2: int = 0
-    condition3: int = 0
-    condition4: int = 0
-
-    @classmethod
-    def from_db_row(cls, row: dict) -> "WorkerPhysical":
-        return cls(**row_kwargs(row,
-            fatigue=RatingDisplay.from_raw(row.get("Fatigue", 0)),
-            ringrust=RatingDisplay.from_raw(row.get("Ringrust", 0)),
-            condition1=_decode_condition(row.get("Condition1")),
-            condition2=_decode_condition(row.get("Condition2")),
-            condition3=_decode_condition(row.get("Condition3")),
-            condition4=_decode_condition(row.get("Condition4")),
-        ))
-
-
 class WorkerContract(BaseModel):
     model_config = ConfigDict(extra='allow')
     uid: int
@@ -211,18 +142,6 @@ class WorkerContract(BaseModel):
         ))
 
 
-class OvernessEntry(BaseModel):
-    region: int
-    value: RatingDisplay = RatingDisplay()
-
-
-class WinLoss(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    wins: int = 0
-    losses: int = 0
-    draws: int = 0
-
-
 class StorylineAssignment(BaseModel):
     model_config = ConfigDict(extra='allow')
     storyline_uid: int = 0
@@ -265,33 +184,6 @@ class TagTeamInfo(BaseModel):
     partner_name: str = ""
     partner_uid: int = 0
     experience: int = 0
-
-
-class TagTeam(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    uid: int
-    name: str
-    fed_uid: int = 0
-    worker1: int = 0
-    worker2: int = 0
-    worker1_name: str = ""
-    worker2_name: str = ""
-    worker1_picture: str = ""
-    worker2_picture: str = ""
-    experience: int = 0
-    pop: int = 0
-    momentum: int = 0
-
-    @classmethod
-    def from_db_row(cls, row: dict) -> "TagTeam":
-        return cls(**row_kwargs(row,
-            uid=row.get("UID", 0),
-            name=row.get("Name", ""),
-            fed_uid=row.get("Fed", 0),
-            worker1=row.get("Worker1", 0),
-            worker2=row.get("Worker2", 0),
-            experience=row.get("Experience", 0),
-        ))
 
 
 class StableInfo(BaseModel):
@@ -390,163 +282,4 @@ class Worker(BaseModel):
             mask=bool(row.get("Mask", False)),
             career_goal=row.get("CareerGoal", 0),
             picture=row.get("Picture", ""),
-        ))
-
-
-# ---------- Federation ----------
-
-SIZE_MAP = {1: "Local", 2: "Small", 3: "Medium", 4: "Large", 5: "National",
-            6: "International", 7: "Global", 8: "Cult", 9: "Regional", 10: "Tiny", 11: "Failed"}
-
-class Federation(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    uid: int
-    name: str
-    initials: str
-    size: int
-    size_label: str = ""
-    money: int = 0
-    prestige: RatingDisplay = RatingDisplay()
-    influence: int = 0
-    momentum: RatingDisplay = RatingDisplay()
-    user_controlled: bool = False
-    based_in: int = 0
-    home_area: str = ""
-    ranking: int = 0
-    ranking_rating: int = 0
-    worker_count: int = 0
-    logo: str = ""
-
-    @classmethod
-    def from_db_row(cls, row: dict) -> "Federation":
-        s = row.get("Size", 1)
-        bi = row.get("Based_In", 0)
-        return cls(**row_kwargs(row,
-            uid=row.get("UID", 0),
-            name=row.get("Name", ""),
-            initials=row.get("Initials", ""),
-            size=s,
-            size_label=SIZE_MAP.get(s, f"Size {s}"),
-            money=row.get("Money", 0),
-            prestige=RatingDisplay.from_raw(row.get("Prestige", 0)),
-            influence=row.get("Influence", 0),
-            momentum=RatingDisplay.from_raw(row.get("Momentum", 0)),
-            user_controlled=bool(row.get("User_Controlled", False)),
-            based_in=bi,
-            home_area=REGION_TO_AREA.get(bi, ""),
-            ranking=row.get("Ranking", 0),
-            ranking_rating=row.get("RankingRating", 0),
-            logo=row.get("Logo", ""),
-        ))
-
-
-class Stable(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    uid: int
-    name: str
-    fed_uid: int = 0
-    active: bool = True
-    members: list[dict] = []
-
-    @classmethod
-    def from_db_row(cls, row: dict) -> "Stable":
-        return cls(**row_kwargs(row,
-            uid=row.get("UID", 0),
-            name=row.get("Name", ""),
-            fed_uid=row.get("Fed", 0),
-            active=bool(row.get("Active", True)),
-        ))
-
-
-# ---------- Belt ----------
-
-BELT_STYLE_MAP = {1: "Singles", 2: "Tag Team", 3: "Trios"}
-BELT_LEVEL_MAP = {1: "Primary", 2: "Secondary", 3: "Tertiary", 4: "Floating"}
-
-class Belt(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    uid: int
-    name: str
-    fed_uid: int
-    style: str = "Singles"
-    level: str = "World"
-    prestige: RatingDisplay = RatingDisplay()
-    active: bool = True
-    holder1: int = 0
-    holder2: int = 0
-    holder3: int = 0
-    brand: int = 0
-    defences: int = 0
-    belt_level: int = 0
-    picture: str = ""
-    bio: str = ""
-    belt_captured: str = ""
-
-    @classmethod
-    def from_db_row(cls, row: dict) -> "Belt":
-        return cls(**row_kwargs(row,
-            uid=row.get("UID", 0),
-            name=row.get("Name", ""),
-            fed_uid=row.get("Fed", 0),
-            style=BELT_STYLE_MAP.get(row.get("Style", 1), "Singles"),
-            level=BELT_LEVEL_MAP.get(row.get("BeltLevel", 1), "Primary"),
-            prestige=RatingDisplay.from_raw(row.get("Prestige", 0)),
-            active=bool(row.get("Active", True)),
-            holder1=row.get("Holder1", 0),
-            holder2=row.get("Holder2", 0),
-            holder3=row.get("Holder3", 0),
-            brand=row.get("Brand", 0),
-            defences=row.get("Defences", 0),
-            belt_level=row.get("BeltLevel", 1),
-            picture=row.get("Picture", ""),
-            bio=row.get("Profile") or row.get("Bio") or row.get("Description") or "",
-            belt_captured=str(row.get("BeltCaptured")) if row.get("BeltCaptured") else "",
-        ))
-
-
-# ---------- Game Info ----------
-
-class GameInfo(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    current_date: Optional[str] = None
-    start_date: Optional[str] = None
-    turn: int = 0
-    player_fed_uid: int = 0
-    player_worker_uid: int = 0
-    stage: int = 0
-
-
-# ---------- Narrative ----------
-
-class Narrative(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    uid: int
-    name: str
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    importance: int = 0
-
-
-# ---------- Storyline ----------
-
-class Storyline(BaseModel):
-    model_config = ConfigDict(extra='allow')
-    uid: int
-    fed_uid: int
-    name: str
-    heat: RatingDisplay = RatingDisplay()
-    start_date: Optional[str] = None
-    furthered: bool = False
-    analysis: bool = False
-
-    @classmethod
-    def from_db_row(cls, row: dict) -> "Storyline":
-        return cls(**row_kwargs(row,
-            uid=row.get("UID", 0),
-            fed_uid=row.get("FedUID", 0),
-            name=row.get("Name", ""),
-            heat=RatingDisplay.from_raw(row.get("Heat", 0)),
-            start_date=str(row.get("StoryStartDate")) if row.get("StoryStartDate") else None,
-            furthered=bool(row.get("Furthered", False)),
-            analysis=bool(row.get("Analysis", False)),
         ))
