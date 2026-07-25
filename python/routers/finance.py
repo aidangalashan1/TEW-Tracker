@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/finance", tags=["finance"])
 
 
 def _resolve_fed_uid(fed_uid: Optional[int]) -> int:
-    from services.roster_service import get_player_fed_uid
+    from services.company_service import get_player_fed_uid
     return fed_uid if fed_uid is not None else get_player_fed_uid()
 
 

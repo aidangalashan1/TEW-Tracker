@@ -1,4 +1,4 @@
-"""Characterization tests for the pure aggregation helpers in roster_service.
+"""Characterization tests for the pure aggregation helpers in worker_service.
 
 These guard the rating aggregation and age math that feed worker profiles.
 The module imports the datastore (which imports pyodbc), so the whole module is
@@ -10,9 +10,9 @@ from types import SimpleNamespace
 
 import pytest
 
-pytest.importorskip("pyodbc", reason="roster_service imports the pyodbc-backed datastore")
+pytest.importorskip("pyodbc", reason="worker_service imports the pyodbc-backed datastore")
 
-from services.roster_service import (  # noqa: E402  (import after importorskip)
+from services.worker_service import (  # noqa: E402  (import after importorskip)
     _avg_rating,
     _best_rating,
     _worst_rating,

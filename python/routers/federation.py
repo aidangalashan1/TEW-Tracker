@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 from services.fed_service import get_fed, get_all_feds, get_belts, get_storylines, get_fed_finances, get_belt_history
-from services.roster_service import get_player_fed_uid
+from services.company_service import get_player_fed_uid
 
 router = APIRouter(prefix="/api/fed", tags=["federation"])
 

@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from models import Worker
 from morale_types import NEGATIVE_MORALE
 from services.label_service import detect_style, usage_label, is_banged_up, age_prefix
+from services.company_service import get_player_fed_uid, get_fed_home_area, _compute_fed_averages, clear_fed_avg_cache
 
 MATCH_TYPE_NAMES = {
     0: "Angle", 1: "Singles", 2: "Tag", 3: "Trios",
@@ -56,22 +57,6 @@ def _compute_age(bday, game_date_val: datetime) -> int:
     except:
         pass
     return 0
-
-
-def get_player_fed_uid() -> int:
-    store = get_store()
-    if not store:
-        return 0
-    controlled = [uid for uid, f in store.feds.items() if f.get("User_Controlled") == 1]
-    return controlled[0] if controlled else 0
-
-
-def get_fed_home_area(fed_uid: int) -> str:
-    store = get_store()
-    if not store:
-        return ""
-    row = store.feds.get(fed_uid)
-    return REGION_TO_AREA.get(row["Based_In"], "") if row else ""
 
 
 def _compute_star_scores(w: Worker):
@@ -287,79 +272,11 @@ def _age_growth(age: int) -> float:
     return -8
 
 
-_fed_avg_cache: dict[int, dict] = {}
 _response_cache: dict[str, list] = {}  # roster/all cache Worker objects; form caches dicts
 _cache_progress: dict[str, any] = {"phase": "", "total": 0, "done": 0}
 
 def get_cache_progress() -> dict:
     return dict(_cache_progress)
-
-
-def _compute_fed_averages(fed_uid: int, store, game_date_val) -> dict:
-    key = fed_uid
-    if key in _fed_avg_cache:
-        return _fed_avg_cache[key]
-    result = {
-        "company_area_pop": 0,
-        "roster_avg_primary": 0, "roster_avg_ent": 0, "roster_avg_psych": 0,
-        "roster_avg_fund": 0, "roster_avg_stamina": 0, "roster_avg_pop": 0,
-    }
-    if not game_date_val:
-        _fed_avg_cache[key] = result
-        return result
-    fed_row = store.feds.get(fed_uid)
-    if not fed_row:
-        _fed_avg_cache[key] = result
-        return result
-    based_in = fed_row.get("Based_In", 0)
-    from_area = next((a for a, rs in AREAS.items() if based_in in rs), None)
-    if from_area:
-        area_regions = AREAS.get(from_area, [])
-        over_row = store.fed_over.get(fed_uid)
-        if over_row and area_regions:
-            vals = [over_row.get(f"Over{i}", 0) for i in area_regions if 1 <= i <= 57]
-            if vals:
-                result["company_area_pop"] = round(sum(vals) / len(vals) / 10)
-    roster_ids = [cr["WorkerUID"] for cr in store.contracts_by_fed.get(fed_uid, []) if cr.get("Position_Wrestler") or cr.get("Position_Occasional")]
-    if roster_ids:
-        skill_vals = [store.skills.get(uid) for uid in roster_ids if uid in store.skills]
-        if skill_vals:
-            def r10(v): return round((v or 0) / 10)
-            b_avg = r10(sum(s.get("Brawl", 0) or 0 for s in skill_vals) / len(skill_vals))
-            p_avg = r10(sum(s.get("Puroresu", 0) or 0 for s in skill_vals) / len(skill_vals))
-            h_avg = r10(sum(s.get("Hardcore", 0) or 0 for s in skill_vals) / len(skill_vals))
-            t_avg = r10(sum(s.get("Technical", 0) or 0 for s in skill_vals) / len(skill_vals))
-            a_avg = r10(sum(s.get("Air", 0) or 0 for s in skill_vals) / len(skill_vals))
-            ring = sorted([b_avg, p_avg, h_avg, t_avg, a_avg], reverse=True)
-            result["roster_avg_primary"] = round(ring[0] * 0.50 + ring[1] * 0.25 + ring[2] * 0.15 + ring[3] * 0.07 + ring[4] * 0.03)
-            result["roster_avg_psych"] = r10(sum(s.get("Psych", 0) or 0 for s in skill_vals) / len(skill_vals))
-            ba = r10(sum(s.get("Basics", 0) or 0 for s in skill_vals) / len(skill_vals))
-            se = r10(sum(s.get("Sell", 0) or 0 for s in skill_vals) / len(skill_vals))
-            co = r10(sum(s.get("Consistency", 0) or 0 for s in skill_vals) / len(skill_vals))
-            sa = r10(sum(s.get("Safety", 0) or 0 for s in skill_vals) / len(skill_vals))
-            result["roster_avg_fund"] = round((ba + se + co + sa) / 4)
-            result["roster_avg_stamina"] = r10(sum(s.get("Stamina", 0) or 0 for s in skill_vals) / len(skill_vals))
-            c_list = [
-                r10(sum(s.get("Charisma", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                r10(sum(s.get("Mic", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                r10(sum(s.get("Act", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                r10(sum(s.get("Star", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                r10(sum(s.get("Looks", 0) or 0 for s in skill_vals) / len(skill_vals)),
-                r10(sum(s.get("Menace", 0) or 0 for s in skill_vals) / len(skill_vals)),
-            ]
-            c_sorted = sorted(c_list, reverse=True)
-            result["roster_avg_ent"] = round(sum(c_list[:5]) / 5) if c_list[5] < c_sorted[2] else round(sum(c_list) / 6)
-        if from_area and area_regions:
-            pop_vals = []
-            for uid in roster_ids:
-                ov = store.overness.get(uid)
-                if ov:
-                    vals = [ov.get(f"Over{r}", 0) or 0 for r in area_regions]
-                    pop_vals.append(sum(vals) / len(vals))
-            if pop_vals:
-                result["roster_avg_pop"] = round(sum(pop_vals) / len(pop_vals) / 10)
-    _fed_avg_cache[key] = result
-    return result
 
 
 def _set_company_data(w: Worker, store, game_date_val):
@@ -427,13 +344,13 @@ def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list["Worker"], in
     Returns (workers, total_count) with server-side pagination; the full
     assembled list is cached so repeated pages serve from memory. The router
     serialises the returned page."""
-    global _fed_avg_cache, _response_cache, _cache_progress
+    global _response_cache, _cache_progress
     store = get_store()
     if not store:
         return [], 0
     cache_key = f"all:{store.version}"
     if cache_key not in _response_cache:
-        _fed_avg_cache.clear()
+        clear_fed_avg_cache()
         game_date_val = store.game_date_val
 
         all_uids = [uid for uid, w_row in store.workers.items() if not w_row.get("Retired") and not w_row.get("Dead")]
@@ -456,7 +373,7 @@ def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list["Worker"], in
 
 
 def get_roster(fed_uid: int = None) -> list["Worker"]:
-    global _fed_avg_cache, _response_cache, _cache_progress
+    global _response_cache, _cache_progress
     store = get_store()
     if not store:
         return []
@@ -467,7 +384,7 @@ def get_roster(fed_uid: int = None) -> list["Worker"]:
     cache_key = f"roster:{fed_uid}:{store.version}"
     if cache_key in _response_cache:
         return _response_cache[cache_key]
-    _fed_avg_cache.clear()
+    clear_fed_avg_cache()
     _cache_progress.update(phase="Processing workers", total=0, done=0)
 
     home_area = get_fed_home_area(fed_uid)

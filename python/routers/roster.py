@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query
-from services.roster_service import get_roster, get_all_workers, get_worker_detail, get_worker_form, get_roster_form, get_player_fed_uid, get_cache_progress
+from services.worker_service import get_roster, get_all_workers, get_worker_detail, get_worker_form, get_roster_form, get_cache_progress
+from services.company_service import get_player_fed_uid
 
 router = APIRouter(prefix="/api/roster", tags=["roster"])
 

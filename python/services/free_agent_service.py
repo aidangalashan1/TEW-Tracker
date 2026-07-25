@@ -7,7 +7,8 @@ from datetime import datetime
 from datastore import get_store
 from models import Worker, WorkerSkills, WorkerPhysical, RatingDisplay, OvernessEntry
 from regions import REGION_TO_AREA, AREAS
-from services.roster_service import _compute_age, _get_worker_segments, _summarize_segments, get_player_fed_uid
+from services.worker_service import _compute_age, _get_worker_segments, _summarize_segments
+from services.company_service import get_player_fed_uid
 
 
 def get_free_agents(fed_uid: int = None) -> list[Worker]:

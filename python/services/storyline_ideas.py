@@ -190,8 +190,8 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
     game_date = store.game_date_val
 
     # Reuse the canonical popularity / ability-vs-potential scores (single source
-    # of truth in roster_service) rather than recomputing them here.
-    from services.roster_service import get_roster
+    # of truth in worker_service) rather than recomputing them here.
+    from services.worker_service import get_roster
     scored = {w.uid: w for w in get_roster(fed_uid)}
 
     def _pop_growth(uid):
