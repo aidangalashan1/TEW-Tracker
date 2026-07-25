@@ -192,14 +192,14 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
     # Reuse the canonical popularity / ability-vs-potential scores (single source
     # of truth in roster_service) rather than recomputing them here.
     from services.roster_service import get_roster
-    scored = {w.uid: w for w in get_roster(fed_uid)}
+    scored = {w["uid"]: w for w in get_roster(fed_uid)}  # get_roster returns dicts (model_dump)
 
     def _pop_growth(uid):
         w = scored.get(uid)
         if not w:
             return 0, 0
-        pop = w.pop.pct if w.pop else 0
-        return pop, (w.potential_score or 0) - (w.current_score or 0)
+        pop = (w.get("pop") or {}).get("pct", 0)
+        return pop, (w.get("potential_score") or 0) - (w.get("current_score") or 0)
 
     w_pop, w_growth = _pop_growth(worker_uid)
 
@@ -211,10 +211,11 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
 
     def _contract_bits(uid):
         w = scored.get(uid)
-        if w and w.contract:
+        c = w.get("contract") if w else None
+        if c:
             return (
-                w.contract.face,
-                getattr(w.contract, 'perception', None) or 3,
+                c.get("face", True),
+                c.get("perception") or 3,
                 0,
             )
         return (True, 3, 0)
