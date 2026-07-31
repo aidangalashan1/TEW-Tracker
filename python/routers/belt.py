@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from datastore import get_store
+from errors import ApiError
 from models import Belt
 
 router = APIRouter(prefix="/api/belt", tags=["belt"])
@@ -9,10 +10,10 @@ router = APIRouter(prefix="/api/belt", tags=["belt"])
 def belt_detail(belt_uid: int):
     store = get_store()
     if not store:
-        return {"error": "No data"}, 500
+        raise ApiError("No data loaded", code="no_data", status=500)
     row = store.belts.get(belt_uid)
     if not row:
-        return {"error": "Belt not found"}, 404
+        raise ApiError("Belt not found", code="not_found", status=404)
     data = Belt.from_db_row(row).model_dump()
     prestige_row = getattr(store, 'belt_prestige', {}).get(belt_uid)
     if prestige_row:

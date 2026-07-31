@@ -2,81 +2,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../../api'
 import { useApp } from '../../../context/AppContext'
 import type { Worker, Belt, BeltHistoryGroup } from '../../../api-types'
-import faceIcon from '../../../assets/UI icons/face.png'
-import heelIcon from '../../../assets/UI icons/heel.png'
-import starIcon from '../../../assets/UI icons/star.png'
-import { COLOR_FACE, COLOR_HEEL } from '../../../lib/colors'
+import { fmtFlexibleDateOrdinal, daysBetweenFlexible } from '../../../lib/dates'
+import { MemberCard } from './MemberCard'
 
-function parseDate(s: string): Date | null {
-  const dmy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-  if (dmy) return new Date(parseInt(dmy[3]), parseInt(dmy[2]) - 1, parseInt(dmy[1]))
-  const dmy2 = s.match(/^(\d{2})\/(\d{2})\/(\d{2})$/)
-  if (dmy2) return new Date(2000 + parseInt(dmy2[3]), parseInt(dmy2[2]) - 1, parseInt(dmy2[1]))
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (iso) return new Date(parseInt(iso[1]), parseInt(iso[2]) - 1, parseInt(iso[3]))
-  return null
-}
-
-function daysBetween(from: string, to: string): number {
-  const a = parseDate(from)
-  const b = parseDate(to)
-  if (!a || !b) return 0
-  return Math.round((b.getTime() - a.getTime()) / 86400000)
-}
-
-function fmtDate(dd: string): string {
-  const dt = parseDate(dd)
-  if (!dt) return dd
-  const d = dt.getDate(), m = dt.getMonth() + 1, y = dt.getFullYear()
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const suffix = d >= 11 && d <= 13 ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][d % 10]
-  return `${d}${suffix} ${months[m - 1]} ${y}`
-}
-
-function HolderCard({ worker }: { worker: Worker }) {
-  const { img, navigateToEntity } = useApp()
-  const isFace = worker.contract?.face
-  const picUrl = (worker.contract?.picture || worker.picture)
-    ? img('People/' + (worker.contract?.picture || worker.picture))
-    : ''
-  return (
-    <div className="flex flex-col items-center gap-1 cursor-pointer" style={{ width: 120 }} onClick={() => navigateToEntity('worker', worker.uid)}>
-      {picUrl ? (
-        <img src={picUrl} alt="" style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8 }} />
-      ) : (
-        <div style={{ width: 100, height: 100, background: 'var(--bg-tertiary)', borderRadius: 8 }} />
-      )}
-      <span className="text-xs text-semibold text-center" style={{ lineHeight: 1.2 }}>{worker.name}</span>
-      {isFace != null && (
-        <div className="flex items-center gap-1">
-          <span className="inline-block" style={{ width: 12, height: 12, backgroundColor: isFace ? COLOR_FACE : COLOR_HEEL, mask: `url(${isFace ? faceIcon : heelIcon}) center/contain no-repeat`, WebkitMask: `url(${isFace ? faceIcon : heelIcon}) center/contain no-repeat` }} />
-          <span className="text-xs" style={{ color: isFace ? COLOR_FACE : COLOR_HEEL }}>{isFace ? 'Face' : 'Heel'}</span>
-        </div>
-      )}
-      {worker.current_stars > 0 && (() => {
-        const iw = !worker.retired && (worker.positions.includes('Wrestler') || worker.positions.includes('Occasional'))
-        const cls = iw ? 'filter-star-gold' : 'filter-star-silver'
-        return (
-          <span className="inline-flex items-center" style={{ gap: 1 }}>
-            {Array.from({ length: 5 }, (_, i) => {
-              const remainder = worker.current_stars - i
-              if (remainder >= 1) return <img key={i} src={starIcon} alt="" className={`w-14 h-14 ${cls}`} />
-              if (remainder >= 0.5) return (
-                <span key={i} className="relative inline-block" style={{ width: 14, height: 14 }}>
-                  <img src={starIcon} alt="" className="w-14 h-14 absolute inset-0 filter-dark-30" />
-                  <span className="absolute inset-0 overflow-hidden flex items-center" style={{ width: '50%' }}>
-                    <img src={starIcon} alt="" className={`w-14 h-14 ${cls}`} />
-                  </span>
-                </span>
-              )
-              return <img key={i} src={starIcon} alt="" className="w-14 h-14 filter-dark-30" />
-            })}
-          </span>
-        )
-      })()}
-    </div>
-  )
-}
+const fmtDate = fmtFlexibleDateOrdinal
+const daysBetween = daysBetweenFlexible
 
 function HistoryCard({ group }: { group: BeltHistoryGroup }) {
   const { img } = useApp()
@@ -114,7 +44,7 @@ function HistoryCard({ group }: { group: BeltHistoryGroup }) {
 
 /** Champions tab on the Worker List page. */
 export function ChampionsTab({ fedUid, workers }: { fedUid: number; workers: Worker[] }) {
-  const { img, navigateToEntity } = useApp()
+  const { img, navigateToEntity, storeVersion } = useApp()
   const [belts, setBelts] = useState<Belt[] | null>(null)
   const [history, setHistory] = useState<BeltHistoryGroup[] | null>(null)
   const [activeOnly, setActiveOnly] = useState(true)
@@ -124,7 +54,7 @@ export function ChampionsTab({ fedUid, workers }: { fedUid: number; workers: Wor
     setHistory(null)
     api.fed.belts(fedUid).then(r => setBelts(r.belts)).catch(() => setBelts([]))
     api.fed.beltHistory(fedUid).then(r => setHistory(r.history)).catch(() => setHistory([]))
-  }, [fedUid])
+  }, [fedUid, storeVersion])
 
   const workerMap = useMemo(() => new Map(workers.map(w => [w.uid, w])), [workers])
 
@@ -180,8 +110,8 @@ export function ChampionsTab({ fedUid, workers }: { fedUid: number; workers: Wor
                     <span className="text-sm text-muted">Vacant</span>
                   ) : (
                     <div className="flex items-center justify-center gap-3 flex-wrap">
-                      <HolderCard worker={holder1!} />
-                      {isMultiHolder && holder2 && <HolderCard worker={holder2} />}
+                      <MemberCard worker={holder1!} />
+                      {isMultiHolder && holder2 && <MemberCard worker={holder2} />}
                     </div>
                   )}
                 </div>

@@ -14,14 +14,45 @@ export function fmtShortDate(d: string): string {
   return parseGameDate(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+const ORDINAL_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function fmtOrdinal(d: Date): string {
+  const day = d.getDate()
+  // 11th/12th/13th are the exception to the day%10 pattern (not 11st/12nd/13rd).
+  const suffix = day >= 11 && day <= 13 ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][day % 10]
+  return `${day}${suffix} ${ORDINAL_MONTHS[d.getMonth()]} ${d.getFullYear()}`
+}
+
 export function fmtDateOrdinal(s: string | undefined | null): string {
   if (!s) return ''
   const d = new Date(s)
   if (isNaN(d.getTime())) return s || ''
-  const day = d.getDate()
-  const suffix = day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  return `${day}${suffix} ${months[d.getMonth()]} ${d.getFullYear()}`
+  return fmtOrdinal(d)
+}
+
+/** TEW belt-history dates arrive as DD/MM/YYYY, DD/MM/YY, or an ISO
+ *  YYYY-MM-DD prefix — distinct from the save's own YYYY-MM-DD game-date
+ *  format that parseGameDate/fmtDateOrdinal above expect. */
+export function parseFlexibleDate(s: string): Date | null {
+  const dmy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (dmy) return new Date(parseInt(dmy[3]), parseInt(dmy[2]) - 1, parseInt(dmy[1]))
+  const dmy2 = s.match(/^(\d{2})\/(\d{2})\/(\d{2})$/)
+  if (dmy2) return new Date(2000 + parseInt(dmy2[3]), parseInt(dmy2[2]) - 1, parseInt(dmy2[1]))
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (iso) return new Date(parseInt(iso[1]), parseInt(iso[2]) - 1, parseInt(iso[3]))
+  return null
+}
+
+export function fmtFlexibleDateOrdinal(s: string): string {
+  const d = parseFlexibleDate(s)
+  return d ? fmtOrdinal(d) : s
+}
+
+export function daysBetweenFlexible(from: string, to: string): number {
+  const a = parseFlexibleDate(from)
+  const b = parseFlexibleDate(to)
+  if (!a || !b) return 0
+  return Math.round((b.getTime() - a.getTime()) / 86400000)
 }
 
 export function isToday(d: string, today: string): boolean {

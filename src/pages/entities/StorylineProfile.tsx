@@ -5,6 +5,8 @@ import useSWR from '../../hooks/useApi'
 import { api } from '../../api'
 import { CardEditor } from '../../components/CardEditor'
 import plusIcon from '../../assets/UI icons/plus.png'
+import { fmtDateOrdinal } from '../../lib/dates'
+import { ratingColor } from '../../lib/colors'
 
 export function StorylineProfile({ storylineUid }: { storylineUid: number }) {
   const { img, focusedFed, playerFed, navigateToEntity } = useApp()
@@ -87,15 +89,7 @@ export function StorylineProfile({ storylineUid }: { storylineUid: number }) {
     return result
   }, [cardDetails, sl])
 
-  const fmtDate = (d: string) => {
-    if (!d) return ''
-    const dt = new Date(d)
-    if (isNaN(dt.getTime())) return d
-    const day = dt.getDate()
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const suffix = day >= 11 && day <= 13 ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][day % 10]
-    return `${day}${suffix} ${months[dt.getMonth()]} ${dt.getFullYear()}`
-  }
+  const fmtDate = fmtDateOrdinal
 
   if (error) return <div className="loading" style={{ color: 'var(--accent)' }}>Error loading storyline</div>
   if (!sl) return <div className="loading">Loading...</div>
@@ -108,7 +102,7 @@ export function StorylineProfile({ storylineUid }: { storylineUid: number }) {
           {sl.furthered && <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>Furthered</span>}
         </div>
         {sl.heat > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: sl.heat > 79 ? '#60a5fa' : sl.heat > 69 ? '#22c55e' : sl.heat > 59 ? '#f59e0b' : sl.heat > 39 ? '#f97316' : sl.heat > 19 ? '#ef4444' : '#6b7280', color: '#fff', borderRadius: 6, width: 80, height: 80, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: ratingColor(sl.heat), color: '#fff', borderRadius: 6, width: 80, height: 80, flexShrink: 0 }}>
             <span style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-family)' }}>{sl.heat}</span>
           </div>
         )}
@@ -158,7 +152,7 @@ export function StorylineProfile({ storylineUid }: { storylineUid: number }) {
                     <div key={i} style={{ fontSize: 12, padding: '3px 0', paddingLeft: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 700, color: '#fff', background: 'var(--bg-secondary)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border-color)' }}>
                         <span style={{ flex: 1 }}>{seg.text}</span>
-                        {seg.rating != null && <span style={{ background: seg.rating > 79 ? '#60a5fa' : seg.rating > 69 ? '#22c55e' : seg.rating > 59 ? '#f59e0b' : seg.rating > 39 ? '#f97316' : seg.rating > 19 ? '#ef4444' : '#6b7280', color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}>{seg.rating}</span>}
+                        {seg.rating != null && <span style={{ background: ratingColor(seg.rating), color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}>{seg.rating}</span>}
                       </div>
                     </div>
                   ))}

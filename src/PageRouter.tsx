@@ -16,7 +16,7 @@ import { PastShowProfile } from './pages/entities/PastShowProfile'
 import { StorylineProfile } from './pages/entities/StorylineProfile'
 
 export function PageRouter() {
-  const { currentPage, db, error, pages, cacheLoading, cacheProgress } = useApp()
+  const { currentPage, db, error, pages } = useApp()
 
   if (!db.connected && !db.loading) return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="Welcome"><WelcomePage /></ErrorBoundary>
 
@@ -62,22 +62,5 @@ export function PageRouter() {
       ? <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label={`Page:${pages[0].id}`}><DynamicPage pageId={pages[0].id} /></ErrorBoundary>
       : <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="Page:roster"><DynamicPage pageId="roster" /></ErrorBoundary>
 
-  return (
-    <>
-      {content}
-      {cacheLoading && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(26,26,46,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <div style={{ color: '#fff', fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Loading Data</div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>
-            {cacheProgress.total > 0 ? `Processing workers ${cacheProgress.done}/${cacheProgress.total}...` : 'Building worker cache...'}
-          </div>
-          {cacheProgress.total > 0 && (
-            <div style={{ width: 320, height: 8, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
-              <div style={{ width: `${Math.round(cacheProgress.done / cacheProgress.total * 100)}%`, height: '100%', background: 'var(--accent)', borderRadius: 4, transition: 'width 0.3s ease' }} />
-            </div>
-          )}
-        </div>
-      )}
-    </>
-  )
+  return content
 }

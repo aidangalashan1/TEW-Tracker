@@ -1,35 +1,14 @@
 """Player's personal scouting shortlist. Held entirely in a local JSON file
 next to the save (mirrors planned_storylines.py's persistence) — never writes
 to the read-only game database."""
-import os
-import json
 from datetime import datetime, timezone
 from fastapi import APIRouter
 from pydantic import BaseModel
 from datastore import get_store
 from storage import shortlist_path
+from json_store import read_json_list, write_json
 
 router = APIRouter(prefix="/api/shortlist", tags=["shortlist"])
-
-
-def _path() -> str:
-    return shortlist_path()
-
-
-def _read() -> list[dict]:
-    p = _path()
-    if not os.path.isfile(p):
-        return []
-    try:
-        with open(p, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
-
-
-def _write(entries: list[dict]) -> None:
-    with open(_path(), "w", encoding="utf-8") as f:
-        json.dump(entries, f, indent=2)
 
 
 def _enrich(entries: list[dict]) -> list[dict]:
@@ -60,34 +39,34 @@ class NotesBody(BaseModel):
 
 @router.get("")
 def list_shortlist():
-    return {"entries": _enrich(_read())}
+    return {"entries": _enrich(read_json_list(shortlist_path()))}
 
 
 @router.post("")
 def add_to_shortlist(body: AddBody):
-    entries = _read()
+    entries = read_json_list(shortlist_path())
     if not any(e["worker_uid"] == body.worker_uid for e in entries):
         entries.append({
             "worker_uid": body.worker_uid,
             "notes": body.notes,
             "added": datetime.now(timezone.utc).isoformat(),
         })
-        _write(entries)
+        write_json(shortlist_path(), entries)
     return {"ok": True, "entries": _enrich(entries)}
 
 
 @router.patch("/{worker_uid}")
 def update_notes(worker_uid: int, body: NotesBody):
-    entries = _read()
+    entries = read_json_list(shortlist_path())
     for e in entries:
         if e["worker_uid"] == worker_uid:
             e["notes"] = body.notes
-    _write(entries)
+    write_json(shortlist_path(), entries)
     return {"ok": True, "entries": _enrich(entries)}
 
 
 @router.delete("/{worker_uid}")
 def remove_from_shortlist(worker_uid: int):
-    entries = [e for e in _read() if e["worker_uid"] != worker_uid]
-    _write(entries)
+    entries = [e for e in read_json_list(shortlist_path()) if e["worker_uid"] != worker_uid]
+    write_json(shortlist_path(), entries)
     return {"ok": True, "entries": _enrich(entries)}

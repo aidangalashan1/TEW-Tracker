@@ -1,5 +1,6 @@
 from datastore import get_store
 from models import Stable
+from services.worker_lookup import resolve_worker_names_pics
 
 
 def get_stables(fed_uid: int) -> list[Stable]:
@@ -21,16 +22,7 @@ def get_stables(fed_uid: int) -> list[Stable]:
                 members.append((muid, role))
         member_map[ri] = members
 
-    worker_names = {}
-    worker_pics = {}
-    for uid in all_uids:
-        w = store.workers.get(uid)
-        if w:
-            worker_names[uid] = w.get("Name", "") or ""
-            worker_pics[uid] = w.get("Picture", "") or ""
-        for cr in store.contracts_by_worker.get(uid, []):
-            if cr.get("FedUID") == fed_uid and cr.get("Picture"):
-                worker_pics[uid] = cr["Picture"]
+    worker_names, worker_pics = resolve_worker_names_pics(store, all_uids, fed_uid)
 
     result = []
     for ri, r in enumerate(rows):

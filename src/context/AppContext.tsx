@@ -16,9 +16,8 @@ interface AppState {
   focusedFed: Federation | null
   setFocusedFed: (fed: Federation) => void
   loading: boolean
-  cacheLoading: boolean
-  cacheProgress: { phase: string; total: number; done: number }
   error: string | null
+  storeVersion: number
   ratingFormat: RatingFormat
   setRatingFormat: (f: RatingFormat) => void
   currentPage: string
@@ -98,8 +97,7 @@ function AppInner({ children }: { children: React.ReactNode }) {
     setFocusedFed: data.setFocusedFed,
     loading: data.loading,
     error: data.error,
-    cacheLoading: data.cacheLoading,
-    cacheProgress: data.cacheProgress,
+    storeVersion: data.storeVersion,
     ratingFormat: ui.ratingFormat,
     setRatingFormat: ui.setRatingFormat,
     currentPage: nav.currentPage,

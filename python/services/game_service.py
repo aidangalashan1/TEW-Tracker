@@ -1,5 +1,6 @@
 from datastore import get_store
 from models import GameInfo
+from services.company_service import get_player_fed_uid
 
 
 def get_game_info() -> GameInfo:
@@ -15,7 +16,5 @@ def get_game_info() -> GameInfo:
     )
     if store.player_info:
         gi.player_worker_uid = store.player_info.get("Player", 0)
-    controlled = [uid for uid, f in store.feds.items() if f.get("User_Controlled") == 1]
-    if controlled:
-        gi.player_fed_uid = controlled[0]
+    gi.player_fed_uid = get_player_fed_uid()
     return gi

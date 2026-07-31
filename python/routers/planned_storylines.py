@@ -1,17 +1,13 @@
 import os
-import json
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from storage import storylines_dir
+from json_store import read_json, write_json, scan_json_dir
 
 router = APIRouter(prefix="/api/storylines/planned", tags=["storylines"])
-
-
-def _dir() -> str:
-    return storylines_dir()
 
 
 def _path(sid: str) -> str:
@@ -19,16 +15,11 @@ def _path(sid: str) -> str:
 
 
 def _read(sid: str) -> dict:
-    p = _path(sid)
-    if not os.path.isfile(p):
-        raise HTTPException(404, "Planned storyline not found")
-    with open(p, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return read_json(_path(sid), "Planned storyline not found")
 
 
 def _write(sid: str, data: dict):
-    with open(_path(sid), "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    write_json(_path(sid), data)
 
 
 class CreateBody(BaseModel):
@@ -44,15 +35,7 @@ class UpdateBody(BaseModel):
 
 @router.get("")
 def list_storylines():
-    items = []
-    for fname in sorted(os.listdir(_dir())):
-        if fname.endswith(".json"):
-            try:
-                with open(os.path.join(_dir(), fname), "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                items.append(data)
-            except Exception:
-                pass
+    items = [data for _stem, data in scan_json_dir(storylines_dir())]
     return {"storylines": items}
 
 

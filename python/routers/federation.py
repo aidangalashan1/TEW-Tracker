@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query
-from services.fed_service import get_fed, get_all_feds, get_belts, get_storylines, get_fed_finances, get_belt_history
+from errors import ApiError
+from services.fed_service import get_fed, get_belts, get_storylines, get_fed_finances, get_belt_history
 from services.company_service import get_player_fed_uid
 
 router = APIRouter(prefix="/api/fed", tags=["federation"])
@@ -14,15 +15,11 @@ def player_fed():
     fed = get_fed(uid)
     return fed.model_dump() if fed else None
 
-@router.get("/list")
-def all_feds():
-    return {"feds": [f.model_dump() for f in get_all_feds()]}
-
 @router.get("/{fed_uid}")
 def fed_detail(fed_uid: int):
     fed = get_fed(fed_uid)
     if fed is None:
-        return {"error": "Federation not found"}, 404
+        raise ApiError("Federation not found", code="not_found", status=404)
     return fed.model_dump()
 
 @router.get("/{fed_uid}/belts")
@@ -43,9 +40,13 @@ def belt_history_route(fed_uid: int, limit: int = 5):
 
 @router.get("/{fed_uid}/overview")
 def overview(fed_uid: int):
+    from datastore import get_store
+    store = get_store()
+    if store:
+        store.preload_groups("feds", "contracts", "belts", "storylines", "finance")
     fed = get_fed(fed_uid)
     if fed is None:
-        return {"error": "Federation not found"}, 404
+        raise ApiError("Federation not found", code="not_found", status=404)
     return {
         "fed": fed.model_dump(),
         "belts": [b.model_dump() for b in get_belts(fed_uid)],

@@ -2,6 +2,7 @@ import { useApp } from '../../context/AppContext'
 import useSWR from '../../hooks/useApi'
 import { api } from '../../api'
 import { ratingColor } from '../../lib/colors'
+import { fmtFlexibleDateOrdinal, daysBetweenFlexible } from '../../lib/dates'
 
 export function BeltProfile({ beltUid }: { beltUid: number }) {
   const { img, navigateToEntity, allFeds, gameInfo } = useApp()
@@ -52,29 +53,8 @@ export function BeltProfile({ beltUid }: { beltUid: number }) {
   const currentReign = entries.find(e => (!e.lost || e.lost === 'None') && e.holders.some(h => h.uid && champUids.has(h.uid)))
   const pastReigns = entries.filter(e => e !== currentReign && e.holders.some(h => h.uid && champUids.has(h.uid)))
 
-  function parseDate(s: string): Date | null {
-    const dmy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-    if (dmy) return new Date(parseInt(dmy[3]), parseInt(dmy[2]) - 1, parseInt(dmy[1]))
-    const dmy2 = s.match(/^(\d{2})\/(\d{2})\/(\d{2})$/)
-    if (dmy2) return new Date(2000 + parseInt(dmy2[3]), parseInt(dmy2[2]) - 1, parseInt(dmy2[1]))
-    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
-    if (iso) return new Date(parseInt(iso[1]), parseInt(iso[2]) - 1, parseInt(iso[3]))
-    return null
-  }
-
-  function fmtDate(dd: string): string {
-    const dt = parseDate(dd)
-    if (!dt) return dd
-    const d = dt.getDate(), m = dt.getMonth() + 1, y = dt.getFullYear()
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const suffix = d >= 11 && d <= 13 ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][d % 10]
-    return `${d}${suffix} ${months[m - 1]} ${y}`
-  }
-  function daysBetween(from: string, to: string): number {
-    const a = parseDate(from); const b = parseDate(to)
-    if (!a || !b) return 0
-    return Math.round((b.getTime() - a.getTime()) / 86400000)
-  }
+  const fmtDate = fmtFlexibleDateOrdinal
+  const daysBetween = daysBetweenFlexible
   function daysSince(from: string): number {
     const gameDate = gameInfo?.current_date
     if (!gameDate) return 0

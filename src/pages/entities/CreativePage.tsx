@@ -4,19 +4,11 @@ import { useApp } from '../../context/AppContext'
 import { api, type PastShow } from '../../api'
 import plusIcon from '../../assets/UI icons/plus.png'
 import { CardEditor } from '../../components/CardEditor'
-
-function fmtDate(d: string): string {
-  if (!d) return ''
-  const dt = new Date(d)
-  if (isNaN(dt.getTime())) return d
-  const day = dt.getDate()
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const suffix = day >= 11 && day <= 13 ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][day % 10]
-  return `${day}${suffix} ${months[dt.getMonth()]} ${dt.getFullYear()}`
-}
+import { fmtDateOrdinal as fmtDate } from '../../lib/dates'
+import { ratingColor } from '../../lib/colors'
 
 function ScheduleTab() {
-  const { focusedFed, playerFed, navigateToEntity, img } = useApp()
+  const { focusedFed, playerFed, navigateToEntity, img, storeVersion } = useApp()
   const fed = focusedFed || playerFed
   const [data, setData] = useState<any>(null)
   const [planShow, setPlanShow] = useState<any>(null)
@@ -25,7 +17,7 @@ function ScheduleTab() {
   useEffect(() => {
     if (fedUid == null) return
     api.schedule.list(fedUid).then(setData).catch(() => {})
-  }, [fedUid])
+  }, [fedUid, storeVersion])
 
   const grouped = useMemo(() => {
     if (!data?.upcoming) return []
@@ -94,7 +86,7 @@ function ScheduleTab() {
 }
 
 function ShowHistoryTab() {
-  const { focusedFed, playerFed, navigateToEntity, img } = useApp()
+  const { focusedFed, playerFed, navigateToEntity, img, storeVersion } = useApp()
   const fed = focusedFed || playerFed
   const [shows, setShows] = useState<PastShow[]>([])
 
@@ -102,7 +94,7 @@ function ShowHistoryTab() {
   useEffect(() => {
     if (fedUid == null) return
     api.show_history.list(fedUid, 100).then(r => setShows(r.shows)).catch(() => {})
-  }, [fedUid])
+  }, [fedUid, storeVersion])
 
   const grouped = useMemo(() => {
     const groups: { month: string; items: PastShow[] }[] = []
@@ -147,7 +139,7 @@ function ShowHistoryTab() {
                   })()}
                   {show.name}
                 </div>
-                {show.overall_rating > 0 && <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-family)', background: show.overall_rating > 79 ? '#60a5fa' : show.overall_rating > 69 ? '#22c55e' : show.overall_rating > 59 ? '#f59e0b' : show.overall_rating > 39 ? '#f97316' : show.overall_rating > 19 ? '#ef4444' : '#6b7280', color: '#fff', borderRadius: 4, padding: '2px 8px' }}>{Math.round(show.overall_rating)}</span>}
+                {show.overall_rating > 0 && <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-family)', background: ratingColor(show.overall_rating), color: '#fff', borderRadius: 4, padding: '2px 8px' }}>{Math.round(show.overall_rating)}</span>}
 
               </div>
             ))}
@@ -159,7 +151,7 @@ function ShowHistoryTab() {
 }
 
 function StorylinesTab() {
-  const { focusedFed, playerFed, img, navigateToEntity } = useApp()
+  const { focusedFed, playerFed, img, navigateToEntity, storeVersion } = useApp()
   const fed = focusedFed || playerFed
   const [data, setData] = useState<any>(null)
   const [ideasOpen, setIdeasOpen] = useState(false)
@@ -173,7 +165,7 @@ function StorylinesTab() {
     if (fedUid == null) return
     api.storylines.cross(fedUid).then(setData).catch(() => {})
     api.roster.list(fedUid).then(r => setRoster(r.workers || [])).catch(() => {})
-  }, [fedUid])
+  }, [fedUid, storeVersion])
 
   const openIdeas = () => {
     setSelectedWorker(null)
@@ -213,7 +205,7 @@ function StorylinesTab() {
         <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{sl.name}</div>
         {sl.furthered && <span style={{ fontSize: 10, color: '#22c55e', fontWeight: 600 }}>FURTHERED</span>}
         {sl.heat > 0 && (
-          <span style={{ background: sl.heat > 79 ? '#60a5fa' : sl.heat > 69 ? '#22c55e' : sl.heat > 59 ? '#f59e0b' : sl.heat > 39 ? '#f97316' : sl.heat > 19 ? '#ef4444' : '#6b7280', color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 11, lineHeight: '18px' }}>{sl.heat}</span>
+          <span style={{ background: ratingColor(sl.heat), color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 11, lineHeight: '18px' }}>{sl.heat}</span>
         )}
       </div>
       {sl.description && <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 6 }}>{sl.description}</div>}

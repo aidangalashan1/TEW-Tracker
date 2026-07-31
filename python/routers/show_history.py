@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query
 from typing import Optional
+from errors import ApiError
 from services.show_history_service import get_past_shows, get_past_show_detail
 
 router = APIRouter(prefix="/api/show_history", tags=["show_history"])
@@ -17,5 +18,5 @@ def list_past_shows(fed_uid: Optional[int] = Query(None), limit: int = Query(50)
 def past_show_detail(past_card_uid: int):
     detail = get_past_show_detail(past_card_uid)
     if detail is None:
-        return {"error": "Show not found"}, 404
+        raise ApiError("Show not found", code="not_found", status=404)
     return detail

@@ -30,9 +30,8 @@ interface DataState {
   focusedFed: Federation | null
   setFocusedFed: (fed: Federation) => void
   loading: boolean
-  cacheLoading: boolean
-  cacheProgress: { phase: string; total: number; done: number }
   error: string | null
+  storeVersion: number
   refresh: () => Promise<void>
   db: DbState
   connectToDb: (path: string) => Promise<void>
@@ -73,9 +72,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [allFeds, setAllFeds] = useState<Federation[]>([])
   const [focusedFed, setFocusedFed] = useState<Federation | null>(null)
   const [loading, setLoading] = useState(true)
-  const [cacheLoading, setCacheLoading] = useState(false)
-  const [cacheProgress, setCacheProgress] = useState({ phase: '', total: 0, done: 0 })
   const [error, setError] = useState<string | null>(null)
+  // Backend store version — bumps on every reconnect and every autosave reload
+  // (the watcher swaps the DataStore). Pages that cache built responses across
+  // remounts (e.g. Worker Search) key their cache off this so a stale in-memory
+  // cache doesn't survive a game save.
+  const [storeVersion, setStoreVersion] = useState(0)
   const [db, setDb] = useState<DbState>({connected: false, path: '', loading: true})
   const [images, setImages] = useState<ImageState>({configured: false, path: ''})
   const [recentDbs, setRecentDbs] = useState<RecentDb[]>(loadRecents)
@@ -111,15 +113,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true)
       setError(null)
-      const [info, fed, fedsRes] = await Promise.all([
+      const [info, fed, fedsRes, versionRes] = await Promise.all([
         api.game.info(),
         api.fed.player(),
         api.fed.all().catch(() => ({ feds: [] as Federation[] })),
+        api.game.version().catch(() => ({ version: 0 })),
       ])
       if (id !== loadIdRef.current) return null
       setGameInfo(info)
       setPlayerFed(fed)
       setAllFeds(fedsRes.feds)
+      setStoreVersion(versionRes.version)
       // No player-controlled fed (a "watcher" save) is a valid state, not an
       // error — fall back to the world's first fed so pages that need a
       // fedUid (roster, etc.) have something real to show instead of going
@@ -134,27 +138,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const buildCache = useCallback(async () => {
-    setCacheLoading(true)
-    setCacheProgress({ phase: 'Starting...', total: 0, done: 0 })
-    try {
-      await api.roster.all(1, 1)
-    } catch {}
-    setCacheLoading(false)
-    setCacheProgress({ phase: '', total: 0, done: 0 })
-  }, [])
-
-  useEffect(() => {
-    if (!cacheLoading) return
-    const id = setInterval(async () => {
-      try {
-        const p = await api.roster.cacheProgress()
-        setCacheProgress(p)
-      } catch {}
-    }, 300)
-    return () => clearInterval(id)
-  }, [cacheLoading])
-
   const connectToDb = useCallback(async (path: string) => {
     setDb(prev => ({ ...prev, loading: true }))
     try {
@@ -168,12 +151,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         gameDate: data?.info?.current_date ?? undefined,
         imagePath: imgStatus.path || undefined,
       })
-      buildCache()
+      // No explicit cache-warm call here: the backend warms its own worker
+      // caches (Worker Search's "all workers" list, the player's roster)
+      // automatically in the background the instant init_store() runs inside
+      // api.db.connect() above — see datastore.register_warm_hook /
+      // worker_service.warm_cache. Blocking the whole UI on a redundant
+      // foreground rebuild of the same cache was pure downside.
     } catch (e: any) {
       setDb(prev => ({ ...prev, loading: false }))
       throw e
     }
-  }, [load, addRecent, buildCache])
+  }, [load, addRecent])
 
   const setImagePath = useCallback(async (path: string) => {
     await api.images.setPath(path)
@@ -305,14 +293,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const value: DataState = useMemo(() => ({
     gameInfo, playerFed, allFeds, focusedFed, setFocusedFed,
-    loading, cacheLoading, cacheProgress, error, refresh,
+    loading, error, storeVersion, refresh,
     db, connectToDb, disconnectFromDb,
     recentDbs, addRecent, images, setImagePath, img,
     pages, addPage, addPageRaw, removePage, removePageRaw, reorderPages,
     resetDefaultView, syncWorkspace,
   }), [
     gameInfo, playerFed, allFeds, focusedFed,
-    loading, cacheLoading, cacheProgress, error, refresh,
+    loading, error, storeVersion, refresh,
     db, connectToDb, disconnectFromDb,
     recentDbs, addRecent, images, setImagePath, img,
     pages, addPage, addPageRaw, removePage, removePageRaw, reorderPages,

@@ -6,15 +6,11 @@ import useSWR from '../../hooks/useApi'
 import { CardEditor } from '../../components/CardEditor'
 import plusIcon from '../../assets/UI icons/plus.png'
 import closeIcon from '../../assets/UI icons/close.png'
+import { fmtDateOrdinal } from '../../lib/dates'
+import { ratingColor } from '../../lib/colors'
 
 function fmtDate(d: string): string {
-  if (!d) return '?'
-  const dt = new Date(d)
-  if (isNaN(dt.getTime())) return d.split(' ')[0] || '?'
-  const day = dt.getDate()
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const suffix = day >= 11 && day <= 13 ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][day % 10]
-  return `${day}${suffix} ${months[dt.getMonth()]} ${dt.getFullYear()}`
+  return d ? fmtDateOrdinal(d) : '?'
 }
 
 export function ShowEpisodeProfile({ entityId }: { entityId: string }) {
@@ -180,12 +176,12 @@ export function ShowEpisodeProfile({ entityId }: { entityId: string }) {
               <div key={ep.uid} style={{ flex: 1, background: 'var(--bg-secondary)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#fff', marginBottom: 4 }}>
                   {fmtDate(ep.date)}
-                  {ep.overall_rating > 0 && <span style={{ background: ep.overall_rating > 79 ? '#60a5fa' : ep.overall_rating > 69 ? '#22c55e' : ep.overall_rating > 59 ? '#f59e0b' : ep.overall_rating > 39 ? '#f97316' : ep.overall_rating > 19 ? '#ef4444' : '#6b7280', color: '#fff', borderRadius: 3, padding: '0 4px', fontWeight: 700, fontSize: 10, lineHeight: '16px', marginLeft: 6, display: 'inline-block' }}>{ep.overall_rating}</span>}
+                  {ep.overall_rating > 0 && <span style={{ background: ratingColor(ep.overall_rating), color: '#fff', borderRadius: 3, padding: '0 4px', fontWeight: 700, fontSize: 10, lineHeight: '16px', marginLeft: 6, display: 'inline-block' }}>{ep.overall_rating}</span>}
                 </div>
                 {ep.matches && [...ep.matches].reverse().map((m: any) => (
                   <div key={m.uid} style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: 'var(--bg-secondary)', padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ flex: 1, fontSize: 10, fontWeight: 400 }}>{m.log_entry || m.label || 'No description'}</span>
-                    {m.rating > 0 && <span style={{ background: m.rating > 79 ? '#60a5fa' : m.rating > 69 ? '#22c55e' : m.rating > 59 ? '#f59e0b' : m.rating > 39 ? '#f97316' : m.rating > 19 ? '#ef4444' : '#6b7280', color: '#fff', borderRadius: 3, padding: '0 4px', fontWeight: 700, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}>{m.rating}</span>}
+                    {m.rating > 0 && <span style={{ background: ratingColor(m.rating), color: '#fff', borderRadius: 3, padding: '0 4px', fontWeight: 700, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}>{m.rating}</span>}
                   </div>
                 ))}
                 {(!ep.matches || ep.matches.length === 0) && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No segments</div>}

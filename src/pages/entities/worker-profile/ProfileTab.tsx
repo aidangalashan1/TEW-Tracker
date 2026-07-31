@@ -6,6 +6,7 @@ import useSWR from '../../../hooks/useApi'
 import { ConditionBody } from './ConditionBody'
 import { RatingBadge } from './RatingBadge'
 import { ratingColor } from '../../../lib/colors'
+import { fmtDateOrdinal } from '../../../lib/dates'
 import { SKILL_LABELS } from '../../../lib/labels'
 import { Tooltip } from '../../../components/Tooltip'
 import rightIcon from '../../../assets/UI icons/right.png'
@@ -42,8 +43,73 @@ export function ProfileTab(props: ProfileTabProps) {
     }
     return m
   }, [fedBelts])
-  const formSegments = workerForm?.segments ?? []
-  const recentSegments = formSegments.slice(0, 10).reverse()
+
+  const skillColumns = useMemo(() => {
+    const extraLabels: Record<string, string> = { Business: 'Business', Booking_Reputation: 'Booking Rep.', Booking_Skill: 'Booking Skill' }
+    const defs = [
+      { label: 'Primary', keys: ['brawl', 'puroresu', 'hardcore', 'technical', 'air', 'flash'], group: 'max' as const },
+      { label: 'Mental', keys: ['psych', 'experience', 'respect', 'reputation'], group: 'avg' as const },
+      { label: 'Performance', keys: ['charisma', 'mic', 'acting', 'star', 'looks', 'menace'], group: 'perf' as const },
+      { label: 'Fundamental', keys: ['basics', 'selling', 'consistency', 'safety'], group: 'avg' as const },
+      { label: 'Physical', keys: ['stamina', 'athletic', 'power', 'toughness', 'injury'], group: 'avg' as const },
+      { label: 'Other', keys: ['announcing', 'colour', 'refereeing'], extra: ['Business', 'Booking_Reputation', 'Booking_Skill'], group: 'avg' as const },
+    ]
+    const s = w.skills
+    return defs.map(col => {
+      const vals = col.keys.map(k => Number((s as any)?.[k]?.pct ?? 0))
+      const groupVal = col.group === 'max' ? Math.max(...vals) : col.group === 'perf' ? w.perf_score : vals.reduce((a, b) => a + b, 0) / vals.length
+      const pct = Math.round(groupVal)
+      const extra = (col as any).extra as string[] | undefined
+      const extraVals = (extra || []).map(k => { const v = (w as any)[k]; return v != null ? Math.round(v / 10) : null })
+      const allItems = [
+        ...col.keys.map((k, i) => ({ label: SKILL_LABELS[k] || k, val: vals[i] })),
+        ...(extra || []).map((k, i) => ({ label: extraLabels[k] || k, val: extraVals[i] })).filter(x => x.val != null),
+      ] as { label: string; val: number }[]
+      return { label: col.label, pct, allItems }
+    })
+  }, [w])
+
+  const areaGroups = useMemo(() => {
+    const areaFlagMap: Record<string, string> = {
+      'USA': 'us', 'Canada': 'ca', 'Mexico': 'mx', 'British Isles': 'gb',
+      'Japan': 'jp', 'Europe': 'eu', 'Oceania': 'au', 'India': 'in',
+    }
+    return Object.entries(AREAS).map(([area, regionIds]) => {
+      const vals = regionIds.map(rid => Number(w.overness?.[rid - 1]?.value?.pct ?? 0))
+      const avg = vals.reduce((a, b) => a + b, 0) / vals.length
+      const pct = Math.round(avg)
+      const flagCode = areaFlagMap[area]
+      const areaFlagUrl = flagCode ? new URL(`../../../assets/flag-icons-main/flags/4x3/${flagCode}.svg`, import.meta.url).href : ''
+      const regions = regionIds.map(rid => ({ rid, v: Number(w.overness?.[rid - 1]?.value?.pct ?? 0) }))
+      return { area, pct, areaFlagUrl, regions }
+    })
+  }, [w, AREAS])
+
+  const formChart = useMemo(() => {
+    const segments = workerForm?.segments ?? []
+    const ordered = segments.slice(0, 10).reverse()
+    if (ordered.length === 0) return null
+    const allRatings = ordered.map((s: any) => s.rating ?? 0)
+    const maxR = Math.max(...allRatings, 1)
+    const minR = Math.min(...allRatings)
+    const axisMin = Math.floor(minR / 100) * 100
+    const axisMax = Math.ceil(maxR / 100) * 100
+    const range = (axisMax - axisMin) || 100
+    const pad = 20, h2 = 200, w2 = 350
+    const plotW = w2
+    const pts = ordered.map((s: any, i: number) => ({
+      x: pad + i * ((plotW - pad - 4) / Math.max(ordered.length - 1, 1)),
+      y: h2 - 5 - ((s.rating - axisMin) / range) * (h2 - 14), s
+    }))
+    const lineD = pts.map((p, i: number) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(0)},${p.y.toFixed(0)}`).join(' ')
+    const steps = Math.round((axisMax - axisMin) / 10) + 1
+    const gridlines = Array.from({ length: steps }, (_, i) => axisMin + i * 100)
+    const perf = w.performance
+    const avgSeg = perf?.avg_segment_rating?.pct ?? 0
+    const avgMatch = perf?.avg_match_rating?.pct ?? 0
+    const avgAngle = perf?.avg_angle_rating?.pct ?? 0
+    return { pad, h2, w2, plotW, pts, lineD, gridlines, axisMin, range, avgSeg, avgMatch, avgAngle }
+  }, [workerForm, w.performance])
 
   return (
     <div className="flex-1 flex px-5 pt-3 pb-5" style={{ overflow: 'hidden' }}>
@@ -85,102 +151,50 @@ export function ProfileTab(props: ProfileTabProps) {
 
       <div className="flex-1 flex flex-col min-w-0 gap-3">
         <div className="flex min-w-0 overflow-auto gap-3">
-          {[
-            { label: 'Primary', keys: ['brawl', 'puroresu', 'hardcore', 'technical', 'air', 'flash'], group: 'max' },
-            { label: 'Mental', keys: ['psych', 'experience', 'respect', 'reputation'], group: 'avg' },
-            { label: 'Performance', keys: ['charisma', 'mic', 'acting', 'star', 'looks', 'menace'], group: 'perf' },
-            { label: 'Fundamental', keys: ['basics', 'selling', 'consistency', 'safety'], group: 'avg' },
-            { label: 'Physical', keys: ['stamina', 'athletic', 'power', 'toughness', 'injury'], group: 'avg' },
-            { label: 'Other', keys: ['announcing', 'colour', 'refereeing'], extra: ['Business', 'Booking_Reputation', 'Booking_Skill'], group: 'avg' },
-          ].map(col => {
-            const s = w.skills
-            const vals = col.keys.map(k => Number((s as any)?.[k]?.pct ?? 0))
-            const groupVal = col.group === 'max' ? Math.max(...vals) : col.group === 'perf' ? w.perf_score : vals.reduce((a, b) => a + b, 0) / vals.length
-            const pct = Math.round(groupVal)
-            const extraVals = (col.extra || []).map(k => { const v = (w as any)[k]; return v != null ? Math.round(v / 10) : null })
-            const extraLabels: Record<string, string> = { Business: 'Business', Booking_Reputation: 'Booking Rep.', Booking_Skill: 'Booking Skill' }
-            const allItems = [
-              ...col.keys.map((k, i) => ({ label: SKILL_LABELS[k] || k, val: vals[i] })),
-              ...(col.extra || []).map((k, i) => ({ label: extraLabels[k] || k, val: extraVals[i] })).filter(x => x.val != null),
-            ] as { label: string; val: number }[]
-            return (
-              <div key={col.label} className="flex-1 min-w-0">
-                <div className="flex-between mb-1">
-                  <span className="section-label" style={{ color: '#fff' }}>{col.label}</span>
-                  <RatingBadge val={pct} />
-                </div>
-                {allItems.map((item, i) => (
-                  <div key={item.label} className="flex-between px-1" style={{ padding: '3px 4px', fontSize: 12, background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
-                    <span style={{ color: 'var(--text-primary)', minWidth: 30, textAlign: 'right' }}>{item.val}</span>
-                  </div>
-                ))}
+          {skillColumns.map(col => (
+            <div key={col.label} className="flex-1 min-w-0">
+              <div className="flex-between mb-1">
+                <span className="section-label" style={{ color: '#fff' }}>{col.label}</span>
+                <RatingBadge val={col.pct} />
               </div>
-            )
-          })}
+              {col.allItems.map((item, i) => (
+                <div key={item.label} className="flex-between px-1" style={{ padding: '3px 4px', fontSize: 12, background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
+                  <span style={{ color: 'var(--text-primary)', minWidth: 30, textAlign: 'right' }}>{item.val}</span>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
 
         <div className="w-full h-px flex-shrink-0 bg-text-muted" />
 
         <div className="flex min-w-0 overflow-auto gap-3">
-          {Object.entries(AREAS).map(([area, regionIds]) => {
-            const vals = regionIds.map(rid => Number(w.overness?.[rid - 1]?.value?.pct ?? 0))
-            const avg = vals.reduce((a, b) => a + b, 0) / vals.length
-            const pct = Math.round(avg)
-            const areaFlagMap: Record<string, string> = {
-              'USA': 'us', 'Canada': 'ca', 'Mexico': 'mx', 'British Isles': 'gb',
-              'Japan': 'jp', 'Europe': 'eu', 'Oceania': 'au', 'India': 'in',
-            }
-            const flagCode = areaFlagMap[area]
-            const areaFlagUrl = flagCode ? new URL(`../../../assets/flag-icons-main/flags/4x3/${flagCode}.svg`, import.meta.url).href : ''
-            return (
-              <div key={area} className="flex-1 min-w-0">
-                <div className="flex-between mb-1">
-                  <span className="section-label items-center gap-1" style={{ color: '#fff' }}>
-                    {areaFlagUrl && <img src={areaFlagUrl} alt="" className="object-cover" style={{ width: 18, height: 14, borderRadius: 2 }} />}
-                    {area}
-                  </span>
-                  <RatingBadge val={pct} />
-                </div>
-                {regionIds.map((rid, i) => {
-                  const v = Number(w.overness?.[rid - 1]?.value?.pct ?? 0)
-                  return (
-                    <div key={rid} className="flex-between px-1" style={{ padding: '3px 4px', fontSize: 12, background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>{REGION_NAMES[rid] || `Region ${rid}`}</span>
-                      <span style={{ color: 'var(--text-primary)', minWidth: 30, textAlign: 'right' }}>{v}</span>
-                    </div>
-                  )
-                })}
+          {areaGroups.map(g => (
+            <div key={g.area} className="flex-1 min-w-0">
+              <div className="flex-between mb-1">
+                <span className="section-label items-center gap-1" style={{ color: '#fff' }}>
+                  {g.areaFlagUrl && <img src={g.areaFlagUrl} alt="" className="object-cover" style={{ width: 18, height: 14, borderRadius: 2 }} />}
+                  {g.area}
+                </span>
+                <RatingBadge val={g.pct} />
               </div>
-            )
-          })}
+              {g.regions.map((r, i) => (
+                <div key={r.rid} className="flex-between px-1" style={{ padding: '3px 4px', fontSize: 12, background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>{REGION_NAMES[r.rid] || `Region ${r.rid}`}</span>
+                  <span style={{ color: 'var(--text-primary)', minWidth: 30, textAlign: 'right' }}>{r.v}</span>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
 
         <div className="w-full h-px flex-shrink-0 bg-text-muted" />
 
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {recentSegments.length > 0 && (() => {
-        const ordered = [...recentSegments]
-        const allRatings = ordered.map((s: any) => s.rating ?? 0)
-        const maxR = Math.max(...allRatings, 1)
-        const minR = Math.min(...allRatings)
-        const axisMin = Math.floor(minR / 100) * 100
-        const axisMax = Math.ceil(maxR / 100) * 100
-        const range = (axisMax - axisMin) || 100
-        const pad = 20, h2 = 200, w2 = 350
-        const plotW = w2
-        const pts = ordered.map((s: any, i: number) => ({
-          x: pad + i * ((plotW - pad - 4) / Math.max(ordered.length - 1, 1)),
-          y: h2 - 5 - ((s.rating - axisMin) / range) * (h2 - 14), s
-        }))
-        const lineD = pts.map((p, i: number) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(0)},${p.y.toFixed(0)}`).join(' ')
-        const steps = Math.round((axisMax - axisMin) / 10) + 1
-        const gridlines = Array.from({ length: steps }, (_, i) => axisMin + i * 100)
-        const perf = w.performance
-        const avgSeg = perf?.avg_segment_rating?.pct ?? 0
-        const avgMatch = perf?.avg_match_rating?.pct ?? 0
-        const avgAngle = perf?.avg_angle_rating?.pct ?? 0
+        {formChart && (() => {
+        const { pad, h2, w2, plotW, pts, lineD, gridlines, axisMin, range, avgSeg, avgMatch, avgAngle } = formChart
         return (
           <div className="flex-shrink-0" style={{ padding: '0 20px' }}>
             <div className="flex items-center gap-1" style={{ marginBottom: 2 }}>
@@ -287,15 +301,7 @@ export function ProfileTab(props: ProfileTabProps) {
                   byBelt.set(r.belt_uid, { name: r.belt_name, picture: r.belt_picture, reigns: [r] })
                 }
               }
-              const fmtDate = (d: string) => {
-                if (!d) return '?'
-                const dt = new Date(d)
-                if (isNaN(dt.getTime())) return d.split(' ')[0] || '?'
-                const day = dt.getDate()
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                const suffix = day >= 11 && day <= 13 ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][day % 10]
-                return `${day}${suffix} ${months[dt.getMonth()]} ${dt.getFullYear()}`
-              }
+              const fmtDate = (d: string) => d ? fmtDateOrdinal(d) : '?'
               const daysBetween = (a: string, b: string) => {
                 if (!a) return 0
                 const end = b || gameInfo?.current_date || ''

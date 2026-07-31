@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { getModule } from '../../modules/registry'
-import { api } from '../../api'
 import { useApp } from '../../context/AppContext'
+import { useModuleConfig } from '../../hooks/useModuleConfig'
 
 export function ModulePage({ moduleId }: { moduleId: string }) {
   const { focusedFed, playerFed } = useApp()
@@ -9,41 +9,7 @@ export function ModulePage({ moduleId }: { moduleId: string }) {
   const def = getModule(moduleId)
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [config, setConfig] = useState<Record<string, any>>({})
-  const workspaceRef = useRef<{ pages: any[]; layouts: Record<string, any> } | null>(null)
-
-  useEffect(() => {
-    api.workspace.get().then(ws => {
-      workspaceRef.current = ws
-      for (const pageId of Object.keys(ws.layouts)) {
-        const page = ws.layouts[pageId]
-        const item = (page.items || []).find((it: any) => it.moduleId === moduleId)
-        if (item?.config) {
-          setConfig(item.config)
-          return
-        }
-      }
-    }).catch(() => {})
-  }, [moduleId])
-
-  const handleConfigChange = useCallback((cfg: Record<string, any>) => {
-    setConfig(prev => {
-      const next = { ...prev, ...cfg }
-      const ws = workspaceRef.current
-      if (ws) {
-        for (const pageId of Object.keys(ws.layouts)) {
-          const page = ws.layouts[pageId]
-          const item = (page.items || []).find((it: any) => it.moduleId === moduleId)
-          if (item) {
-            item.config = { ...(item.config || {}), ...cfg }
-            break
-          }
-        }
-        api.workspace.save(ws.pages, ws.layouts).catch(() => {})
-      }
-      return next
-    })
-  }, [moduleId])
+  const { config, handleConfigChange } = useModuleConfig(moduleId)
 
   const fedUid = fed?.uid
   useEffect(() => {

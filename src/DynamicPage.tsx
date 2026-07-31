@@ -9,7 +9,7 @@ import { getModule } from './modules/registry'
 const _fedCache = new Map<string, Map<string, any>>()
 
 export function DynamicPage({ pageId }: { pageId: string }) {
-  const { focusedFed, playerFed } = useApp()
+  const { focusedFed, playerFed, storeVersion } = useApp()
   const fed = focusedFed || playerFed
   const [layout, setLayout] = useState<LayoutItemData[]>(() => {
     const loaded = loadLayout(pageId).items
@@ -50,8 +50,11 @@ export function DynamicPage({ pageId }: { pageId: string }) {
   const fedUid = fed?.uid
   useEffect(() => {
     if (fedUid == null) return
-    const fedKey = `fed_${fedUid}`
-    // Invalidate cache on fed change
+    // Keyed on fed AND store version — a game-save reload must invalidate
+    // this cache too, or a module (e.g. Finance) can keep showing pre-save
+    // data indefinitely after navigating away and back. See storeVersion in
+    // AppContext / the same fix applied to WorkerSearchPage.
+    const fedKey = `fed_${fedUid}_v${storeVersion}`
     if (!_fedCache.has(fedKey)) {
       _fedCache.clear()
       _fedCache.set(fedKey, new Map())
@@ -75,7 +78,7 @@ export function DynamicPage({ pageId }: { pageId: string }) {
       results.forEach(r => { if (r) next[r.moduleId] = r.data })
       setModuleData(next)
     })
-  }, [fedUid, moduleSetKey])
+  }, [fedUid, moduleSetKey, storeVersion])
 
   return <LayoutEngine layout={layout} data={moduleData} onLayoutChange={handleLayoutChange} />
 }

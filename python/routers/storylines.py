@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query
 from typing import Optional
+from errors import ApiError
 from services.storyline_service import get_storylines_cross, get_storyline_detail
 from services.storyline_ideas import get_storyline_ideas
 
@@ -29,5 +30,5 @@ def storyline_detail(storyline_uid: int, fed_uid: Optional[int] = Query(None)):
         fed_uid = get_player_fed_uid()
     detail = get_storyline_detail(storyline_uid, fed_uid)
     if detail is None:
-        return {"error": "Storyline not found"}, 404
+        raise ApiError("Storyline not found", code="not_found", status=404)
     return detail

@@ -1,12 +1,38 @@
 import os
 import threading
 from datetime import datetime
+from typing import Callable
 import pyodbc
 
 _MDB_PASSWORD = "20YearsOfTEW"
 
 _store = None
 _lock = threading.Lock()
+
+# Callbacks invoked (each on its own background thread) after every successful
+# store load/reload — let independent areas (worker lists, schedule, ...) each
+# pre-build/pre-load whatever expensive per-request work they own, so a page
+# that asks for it right after a connect or an autosave reload is already
+# warm. Hooks rather than direct imports keep this module free of any
+# dependency on services/. A list (not a single slot) because more than one
+# area wants to warm itself independently — each stays ignorant of the others.
+_warm_hooks: list["Callable[[], None]"] = []
+
+
+def register_warm_hook(fn: "Callable[[], None]") -> None:
+    _warm_hooks.append(fn)
+
+
+def _trigger_warm() -> None:
+    for hook in list(_warm_hooks):
+        def _run(hook=hook):
+            try:
+                hook()
+            except Exception as e:
+                print(f"[DataStore] Warm-cache hook failed: {e}")
+
+        threading.Thread(target=_run, daemon=True, name="datastore-warmcache").start()
+
 
 # Watcher lifecycle lives at module level (one thread per process) so that
 # reloads build a brand-new DataStore and atomically swap the `_store`
@@ -26,7 +52,9 @@ class DataStore:
     load on first access via __getattr__, so a request only pays for the tables
     it touches (a light endpoint no longer drags in the big match-log/morale
     tables). Each group opens its own short-lived connection and closes it
-    immediately after that group's query completes (serialised by _load_lock)
+    immediately after that group's query completes (a per-group lock ensures a
+    given group only loads once even under concurrent access — see
+    preload_groups() for loading several groups concurrently on purpose)
     — TEW itself needs to write to this same file, and holding a connection
     open for a store's whole lifetime (as this used to do) is a well-known
     cause of save failures for whichever process actually needs to write.
@@ -62,7 +90,7 @@ class DataStore:
         "worker_bio": (["worker_bio"], "_load_worker_bio"),
         "worker_business": (["worker_business"], "_load_worker_business"),
         "belt_prestige": (["belt_prestige"], "_load_belt_prestige"),
-        "chemistry": (["chemistry"], "_load_chemistry"),
+        "chemistry": (["chemistry", "chemistry_by_pair"], "_load_chemistry"),
         "relations": (["relations", "relations_by_pair"], "_load_relations"),
         "storyline_past": (["storyline_past", "past_storyline_end_by_pair"], "_load_storyline_past"),
         "cards": (["cards"], "_load_cards"),
@@ -83,7 +111,11 @@ class DataStore:
         self.mdb_path = mdb_path
         self.version = version
         self._loaded: set[str] = set()
-        self._load_lock = threading.Lock()
+        # One lock per group (not a single store-wide lock) — a group still
+        # only ever loads once even under concurrent access, but independent
+        # groups can now load concurrently on separate threads/connections
+        # instead of queueing behind each other. See preload_groups().
+        self._group_locks: dict[str, threading.Lock] = {g: threading.Lock() for g in DataStore._GROUPS}
 
     # ── lazy dispatch ──
     def __getattr__(self, name: str):
@@ -98,10 +130,31 @@ class DataStore:
         except KeyError:
             raise AttributeError(name)
 
+    def preload_groups(self, *groups: str) -> None:
+        """Load several groups concurrently instead of one at a time. Each
+        group still opens and closes its own short-lived connection exactly
+        as _ensure() always has — nothing holds the file open any longer than
+        before, the loads just overlap in time. Access/Jet handles concurrent
+        short-lived read connections fine (the file watcher already relies on
+        this running alongside request-driven reads), and pyodbc's connect/
+        query calls release the GIL, so this cuts wall-clock time for N groups
+        to roughly the slowest single group instead of the sum of all of them.
+        Safe to call with a superset of what's actually needed — groups
+        already loaded (by an earlier call, on this same store instance) are
+        skipped."""
+        needed = [g for g in groups if g not in self._loaded]
+        if not needed:
+            return
+        threads = [threading.Thread(target=self._ensure, args=(g,), name=f"datastore-preload-{g}") for g in needed]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
     def _ensure(self, group: str) -> None:
         if group in self._loaded:
             return
-        with self._load_lock:
+        with self._group_locks[group]:
             if group in self._loaded:
                 return
             conn = self._temp_conn()
@@ -247,6 +300,11 @@ class DataStore:
 
     def _load_chemistry(self, cur):
         self.chemistry = self._fetch_all(cur, "SELECT * FROM tblChemistry")
+        self.chemistry_by_pair: dict[frozenset, dict] = {}
+        for r in self.chemistry:
+            p1, p2 = r.get("Person1"), r.get("Person2")
+            if p1 and p2:
+                self.chemistry_by_pair[frozenset((p1, p2))] = r
 
     def _load_relations(self, cur):
         # Backstage relationships (tblRelation): P_Rel/R_Rel/F_Rel are positive
@@ -362,6 +420,7 @@ def _reload_snapshot(path: str) -> None:
         _store = new_store
         _version = new_version
     _last_mtime = os.path.getmtime(path)
+    _trigger_warm()
 
 
 SETTLE_RETRIES = 3
@@ -436,6 +495,7 @@ def init_store(mdb_path: str) -> DataStore:
         except OSError:
             _last_mtime = None
     _ensure_watcher()
+    _trigger_warm()
     return _store
 
 

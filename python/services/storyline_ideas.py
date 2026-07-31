@@ -90,12 +90,12 @@ def _worker_score(store, uid: int) -> int:
 def _chem_between(store, a: int, b: int) -> int:
     """Signed chemistry for the player fed between two workers (0 if none).
     Honors Player==1 and skips IgnoreChem (pairings muted in-game)."""
-    for cr in store.chemistry:
-        if cr.get("Player") != 1 or cr.get("IgnoreChem"):
-            continue
-        if {cr.get("Person1"), cr.get("Person2")} == {a, b}:
-            return cr.get("Chem") or 0
-    return 0
+    cr = store.chemistry_by_pair.get(frozenset((a, b)))
+    if not cr:
+        return 0
+    if cr.get("Player") != 1 or cr.get("IgnoreChem"):
+        return 0
+    return cr.get("Chem") or 0
 
 
 def _shared_matches(store, a: int, b: int) -> tuple[int, int]:
@@ -192,14 +192,14 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
     # Reuse the canonical popularity / ability-vs-potential scores (single source
     # of truth in worker_service) rather than recomputing them here.
     from services.worker_service import get_roster
-    scored = {w.uid: w for w in get_roster(fed_uid)}
+    scored = {w["uid"]: w for w in get_roster(fed_uid)}
 
     def _pop_growth(uid):
         w = scored.get(uid)
         if not w:
             return 0, 0
-        pop = w.pop.pct if w.pop else 0
-        return pop, (w.potential_score or 0) - (w.current_score or 0)
+        pop = (w.get("pop") or {}).get("pct", 0)
+        return pop, (w.get("potential_score", 0) or 0) - (w.get("current_score", 0) or 0)
 
     w_pop, w_growth = _pop_growth(worker_uid)
 
@@ -211,12 +211,9 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
 
     def _contract_bits(uid):
         w = scored.get(uid)
-        if w and w.contract:
-            return (
-                w.contract.face,
-                getattr(w.contract, 'perception', None) or 3,
-                0,
-            )
+        c = w.get("contract") if w else None
+        if c:
+            return (c.get("face", True), c.get("perception", 3) or 3, 0)
         return (True, 3, 0)
 
     w_face, w_perception, w_division = _contract_bits(worker_uid)

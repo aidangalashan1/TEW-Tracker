@@ -424,6 +424,19 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
     potentialScore: w?.potential_score || 0,
   }), [w])
 
+  const radarVals = useMemo(() => {
+    const s = w?.skills
+    if (!s || w?.non_wrestler) return null
+    return [
+      Math.max(Number(s.brawl?.pct ?? 0), Number(s.puroresu?.pct ?? 0), Number(s.hardcore?.pct ?? 0), Number(s.technical?.pct ?? 0), Number(s.air?.pct ?? 0)),
+      [s.psych?.pct, s.experience?.pct, s.respect?.pct, s.reputation?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 4,
+      [s.charisma?.pct, s.mic?.pct, s.acting?.pct, s.flash?.pct, s.star?.pct, s.looks?.pct, s.menace?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 7,
+      [s.basics?.pct, s.selling?.pct, s.consistency?.pct, s.safety?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 4,
+      [s.stamina?.pct, s.athletic?.pct, s.power?.pct, s.toughness?.pct, s.injury?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 5,
+      w?.pop?.pct ?? 0,
+    ].map(v => Math.round(v ?? 0))
+  }, [w])
+
   if (error) return <div className="loading" style={{ color: 'var(--accent)' }}>Error loading worker</div>
   if (!w) return <div className="loading">Loading...</div>
 
@@ -481,19 +494,7 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
                   <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{GENDER_LABELS[rawGender] || w.gender}</span>
                 </div>
               </div>
-              {(() => {
-                const s = w.skills
-                if (!s || w.non_wrestler) return null
-                const radarVals = [
-                  Math.max(Number(s.brawl?.pct ?? 0), Number(s.puroresu?.pct ?? 0), Number(s.hardcore?.pct ?? 0), Number(s.technical?.pct ?? 0), Number(s.air?.pct ?? 0)),
-                  [s.psych?.pct, s.experience?.pct, s.respect?.pct, s.reputation?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 4,
-                  [s.charisma?.pct, s.mic?.pct, s.acting?.pct, s.flash?.pct, s.star?.pct, s.looks?.pct, s.menace?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 7,
-                  [s.basics?.pct, s.selling?.pct, s.consistency?.pct, s.safety?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 4,
-                  [s.stamina?.pct, s.athletic?.pct, s.power?.pct, s.toughness?.pct, s.injury?.pct].reduce((a, b) => (a ?? 0) + (b ?? 0), 0) / 5,
-                  w.pop?.pct ?? 0,
-                ].map(v => Math.round(v ?? 0))
-                return <RadarChart values={radarVals} labels={['Primary', 'Mental', 'Perf.', 'Fund.', 'Phys.', 'Pop']} tooltipLabels={['Primary', 'Mental', 'Performance', 'Fundamental', 'Physical', 'Popularity']} size={120} />
-              })()}
+              {radarVals && <RadarChart values={radarVals} labels={['Primary', 'Mental', 'Perf.', 'Fund.', 'Phys.', 'Pop']} tooltipLabels={['Primary', 'Mental', 'Performance', 'Fundamental', 'Physical', 'Popularity']} size={120} />}
               {(() => {
                 const fedIds: number[] = (w as any).all_fed_ids || []
                 if (c?.fed_uid && !fedIds.includes(c.fed_uid)) fedIds.push(c.fed_uid)

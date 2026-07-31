@@ -1,14 +1,41 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { api } from '../../api'
+import { useApp } from '../../context/AppContext'
 import { WorkerListColumnTable } from '../../modules/worker-list/WorkerListTable'
+import filterIcon from '../../assets/UI icons/filter.png'
 
-const PAGE_SIZE = 200
+// Cached across remounts (e.g. navigating away and back) so re-opening the
+// page is instant. Stamped with the backend store version so a stale cache
+// from before a game save can't linger — see storeVersion in AppContext.
+let _cachedWorkers: { version: number; workers: any[] } | null = null
+
+function loadFilters(): { excludeCompany: boolean; excludeUnavailable: boolean } {
+  try {
+    const raw = localStorage.getItem('tew-search-filters')
+    if (raw) return JSON.parse(raw)
+  } catch {}
+  return { excludeCompany: false, excludeUnavailable: false }
+}
+
+function saveFilters(f: { excludeCompany: boolean; excludeUnavailable: boolean }) {
+  localStorage.setItem('tew-search-filters', JSON.stringify(f))
+}
+
+function cacheIsFresh(storeVersion: number): boolean {
+  return !!_cachedWorkers && _cachedWorkers.version === storeVersion
+}
 
 export function WorkerSearchPage() {
-  const [data, setData] = useState<any>(null)
+  const { playerFed, storeVersion } = useApp()
+  const [data, setData] = useState<any>(() =>
+    cacheIsFresh(storeVersion) ? { workers: _cachedWorkers!.workers, total: _cachedWorkers!.workers.length } : null
+  )
   const [config, setConfig] = useState<Record<string, any>>({})
-  const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(() => !cacheIsFresh(storeVersion))
+  const [showFilters, setShowFilters] = useState(false)
+  const [excludeCompany, setExcludeCompany] = useState(() => loadFilters().excludeCompany)
+  const [excludeUnavailable, setExcludeUnavailable] = useState(() => loadFilters().excludeUnavailable)
+  const filterRef = useRef<HTMLDivElement>(null)
   const workspaceRef = useRef<{ pages: any[]; layouts: Record<string, any> } | null>(null)
 
   useEffect(() => {
@@ -45,32 +72,74 @@ export function WorkerSearchPage() {
   }, [])
 
   useEffect(() => {
+    // storeVersion bumps on reconnect and on every autosave reload, so this
+    // re-fetches whenever the cached list would otherwise go stale — not just
+    // on first mount. The backend itself pre-warms this exact request in the
+    // background on every reload (see worker_service.warm_cache), so by the
+    // time storeVersion actually changes here the request below is normally
+    // an instant cache hit rather than a fresh multi-second build.
+    if (cacheIsFresh(storeVersion)) return
     setLoading(true)
-    api.roster.all(page, PAGE_SIZE).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
-  }, [page])
+    api.roster.all(1, 99999).then(d => {
+      _cachedWorkers = { version: storeVersion, workers: d.workers }
+      setData(d)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [storeVersion])
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setShowFilters(false)
+    }
+    if (showFilters) document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [showFilters])
+
+  useEffect(() => { saveFilters({ excludeCompany, excludeUnavailable }) }, [excludeCompany, excludeUnavailable])
+
+  const playerFedUid = playerFed?.uid ?? 0
+
+  const filtered = useMemo(() => {
+    const workers = data?.workers ?? []
+    let list = workers
+    if (excludeCompany && playerFedUid) list = list.filter((w: any) => w.player_fed_uid !== playerFedUid)
+    if (excludeUnavailable) list = list.filter((w: any) =>
+      w.contract_status !== 'exclusive_written' || (w.contract_expiry_days > 0 && w.contract_expiry_days <= 30)
+    )
+    return list
+  }, [data, excludeCompany, excludeUnavailable, playerFedUid])
+
+  const hasActiveFilters = excludeCompany || excludeUnavailable
 
   if (loading) return <div className="loading" style={{ padding: 24 }}>Loading...</div>
   if (!data?.workers) return <div className="text-muted" style={{ padding: 24 }}>No workers found</div>
 
-  const totalPages = Math.ceil((data.total || 0) / PAGE_SIZE)
-
   return (
-    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <div className="flex items-center gap-3 px-4 py-2 flex-shrink-0" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
-        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-          {data.total} workers · Page {page} of {totalPages}
-        </span>
-        <button className="manage-view-btn text-xs px-2 py-0" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
-        <button className="manage-view-btn text-xs px-2 py-0" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
-        <span className="flex items-center gap-1" style={{ fontSize: 12 }}>
-          <span style={{ color: 'var(--text-muted)' }}>Jump to:</span>
-          <input type="number" min={1} max={totalPages} defaultValue={page}
-            onKeyDown={e => { if (e.key === 'Enter') { const v = parseInt((e.target as HTMLInputElement).value); if (v >= 1 && v <= totalPages) setPage(v) } }}
-            style={{ width: 50, padding: '1px 4px', fontSize: 12, background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', borderRadius: 3, color: '#fff' }} />
-        </span>
+    <div style={{ height: '100%', overflow: 'hidden' }}>
+      <div className="flex items-center gap-2 px-4 py-2 flex-shrink-0" style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{filtered.length} workers</span>
+        <div className="relative" ref={filterRef}>
+          <button className="manage-view-btn text-xs flex items-center gap-1" onClick={() => setShowFilters(p => !p)} style={hasActiveFilters ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}>
+            <img src={filterIcon} alt="" style={{ width: 12, height: 12 }} /> Filters{hasActiveFilters ? ' (1)' : ''}
+          </button>
+          {showFilters && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 6, padding: 8, zIndex: 50, minWidth: 260, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+              <label className="flex items-center gap-2 cursor-pointer" style={{ padding: '4px 0', fontSize: 12, userSelect: 'none' }}
+                onClick={() => setExcludeCompany(p => !p)}>
+                <div className={`toggle-track ${excludeCompany ? 'active' : ''}`}><div className="toggle-thumb" /></div>
+                Exclude {playerFed?.name || 'your company'} workers
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer" style={{ padding: '4px 0', fontSize: 12, userSelect: 'none' }}
+                onClick={() => setExcludeUnavailable(p => !p)}>
+                <div className={`toggle-track ${excludeUnavailable ? 'active' : ''}`}><div className="toggle-thumb" /></div>
+                Exclude unavailable workers
+              </label>
+            </div>
+          )}
+        </div>
       </div>
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        <WorkerListColumnTable workers={data.workers} config={config} onConfigChange={handleConfigChange} key={page} />
+      <div style={{ height: 'calc(100% - 37px)' }}>
+        <WorkerListColumnTable workers={filtered} config={config} onConfigChange={handleConfigChange} key={String(hasActiveFilters)} />
       </div>
     </div>
   )

@@ -18,6 +18,11 @@ def get_free_agents(fed_uid: int = None) -> list[Worker]:
     store = get_store()
     if not store:
         return []
+    store.preload_groups(
+        "workers", "worker_bio", "skills", "physical", "overness",
+        "worker_business", "feds", "contracts", "injured", "away",
+        "belts", "match_log",
+    )
     if fed_uid is None:
         fed_uid = get_player_fed_uid()
 

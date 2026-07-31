@@ -13,7 +13,7 @@ Inc_/Exp_ column is the category total and its _sub columns are components.
 tblFinanceHistory holds the same lines per past period (Howlong = periods ago,
 FinalMoney = balance at period end) — empty until the game accrues history.
 """
-from datastore import get_store
+from datastore import get_store, register_warm_hook
 from models import get_positions
 
 INCOME_LINES = [
@@ -256,3 +256,17 @@ def get_finance_standing(fed_uid: int, limit: int = 10) -> dict:
         peers.append(_peer(rank, fed_uid, player_income))
 
     return {"rank": rank, "total": total, "metric": "revenue", "peers": peers}
+
+
+def _warm_finance() -> None:
+    """Registered as a datastore warm hook (see worker_service.warm_cache /
+    routers.schedule._warm_schedule for the same pattern). workers/contracts/
+    feds — the other groups these getters touch — are already covered by the
+    worker warm-up; this only needs to additionally warm the finance-specific
+    tables so the Finance module is instant once background warming settles."""
+    store = get_store()
+    if store:
+        store.preload_groups("finance", "finance_history")
+
+
+register_warm_hook(_warm_finance)

@@ -14,11 +14,15 @@ def clear_fed_avg_cache():
     _fed_avg_cache.clear()
 
 
-def get_player_fed_uid() -> int:
+def get_controlled_fed_uids() -> list[int]:
     store = get_store()
     if not store:
-        return 0
-    controlled = [uid for uid, f in store.feds.items() if f.get("User_Controlled") == 1]
+        return []
+    return [uid for uid, f in store.feds.items() if f.get("User_Controlled") == 1]
+
+
+def get_player_fed_uid() -> int:
+    controlled = get_controlled_fed_uids()
     return controlled[0] if controlled else 0
 
 

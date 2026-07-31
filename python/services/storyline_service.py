@@ -14,6 +14,33 @@ def tew_showday_to_date(today: date, tew_showday: int) -> date:
     return d
 
 
+def _storyline_involved_workers(store, invs: list[dict], fed_uid: int) -> list[dict]:
+    workers = []
+    for inv in invs:
+        w_row = store.workers.get(inv["WorkerUID"])
+        contract = next((c for c in store.contracts_by_worker.get(inv["WorkerUID"], []) if c.get("FedUID") == fed_uid), None)
+        workers.append({
+            "uid": inv["WorkerUID"],
+            "name": w_row.get("Name", "") if w_row else "",
+            "picture": w_row.get("Picture", "") if w_row else "",
+            "major": bool(inv.get("MajorRole")),
+            "alignment": inv.get("Alignment", 0),
+            "face": bool(contract.get("Face")) if contract else True,
+        })
+    return workers
+
+
+def _storyline_summary(sl: dict, workers: list[dict]) -> dict:
+    return {
+        "uid": sl["UID"],
+        "name": sl.get("Name", ""),
+        "heat": round((sl.get("Heat") or 0) / 10),
+        "description": sl.get("Description", ""),
+        "furthered": bool(sl.get("Furthered")),
+        "workers": workers,
+    }
+
+
 def get_storylines_cross(fed_uid: int):
     store = get_store()
     if not store:
@@ -31,26 +58,8 @@ def get_storylines_cross(fed_uid: int):
     for sl in active_sls:
         sl_uid = sl["UID"]
         sl_uids.add(sl_uid)
-        workers = []
-        for inv in involved_by_sl.get(sl_uid, []):
-            w_row = store.workers.get(inv["WorkerUID"])
-            contract = next((c for c in store.contracts_by_worker.get(inv["WorkerUID"], []) if c.get("FedUID") == fed_uid), None)
-            workers.append({
-                "uid": inv["WorkerUID"],
-                "name": w_row.get("Name", "") if w_row else "",
-                "picture": w_row.get("Picture", "") if w_row else "",
-                "major": bool(inv.get("MajorRole")),
-                "alignment": inv.get("Alignment", 0),
-                "face": bool(contract.get("Face")) if contract else True,
-            })
-        storylines.append({
-            "uid": sl_uid,
-            "name": sl.get("Name", ""),
-            "heat": round((sl.get("Heat") or 0) / 10),
-            "description": sl.get("Description", ""),
-            "furthered": bool(sl.get("Furthered")),
-            "workers": workers,
-        })
+        workers = _storyline_involved_workers(store, involved_by_sl.get(sl_uid, []), fed_uid)
+        storylines.append(_storyline_summary(sl, workers))
 
     # Worker -> storyline mapping
     worker_sls: dict[int, list[int]] = {}
@@ -133,9 +142,7 @@ def get_storylines_cross(fed_uid: int):
     for ml in store.match_log:
         match_logs_by_card.setdefault(ml["CardUID"], []).append(ml)
 
-    competitors_by_match = {}
-    for mc in store.match_log_competitors:
-        competitors_by_match.setdefault(mc["MatchLogUID"], []).append(mc)
+    competitors_by_match = store.match_log_competitors_by_ml
 
     for pc in past_cards:
         card_date = pc.get("PastCardWhen")
@@ -183,25 +190,6 @@ def get_storyline_detail(storyline_uid: int, fed_uid: int) -> dict | None:
     if not sl:
         return None
 
-    workers = []
-    for inv in store.storyline_involved:
-        if inv["StorylineUID"] == storyline_uid:
-            w_row = store.workers.get(inv["WorkerUID"])
-            contract = next((c for c in store.contracts_by_worker.get(inv["WorkerUID"], []) if c.get("FedUID") == fed_uid), None)
-            workers.append({
-                "uid": inv["WorkerUID"],
-                "name": w_row.get("Name", "") if w_row else "",
-                "picture": w_row.get("Picture", "") if w_row else "",
-                "major": bool(inv.get("MajorRole")),
-                "alignment": inv.get("Alignment", 0),
-                "face": bool(contract.get("Face")) if contract else True,
-            })
-
-    return {
-        "uid": sl["UID"],
-        "name": sl.get("Name", ""),
-        "heat": round((sl.get("Heat") or 0) / 10),
-        "description": sl.get("Description", ""),
-        "furthered": bool(sl.get("Furthered")),
-        "workers": workers,
-    }
+    invs = [inv for inv in store.storyline_involved if inv["StorylineUID"] == storyline_uid]
+    workers = _storyline_involved_workers(store, invs, fed_uid)
+    return _storyline_summary(sl, workers)

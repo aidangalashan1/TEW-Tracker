@@ -1,4 +1,4 @@
-from datastore import get_store
+from datastore import get_store, register_warm_hook
 from models import (
     Worker, WorkerSkills, WorkerPhysical, WorkerContract,
     OvernessEntry, RatingDisplay, WinLoss, StorylineAssignment,
@@ -16,6 +16,19 @@ MATCH_TYPE_NAMES = {
     6: "3-Way", 7: "4-Way", 8: "5-Way",
     10: "Tag 3-Way", 12: "2 on 1 Handicap",
 }
+
+# Datastore groups these builders touch, passed to store.preload_groups() so
+# the ~10-20 short-lived connections load concurrently instead of one at a
+# time (see DataStore.preload_groups — this is a wall-clock optimization
+# only: preload_groups() is a superset hint, and any group not listed here
+# still lazy-loads correctly, just sequentially, on first access via the
+# normal __getattr__ path — so an out-of-date list can't cause a bug, only a
+# missed speedup).
+_CORE_WORKER_GROUPS = ("workers", "worker_bio", "skills", "physical", "overness",
+                       "worker_business", "feds", "fed_over", "contracts", "game_info")
+_ROSTER_EXTRA_GROUPS = ("attributes", "belts", "storylines", "match_log",
+                        "match_types", "chemistry", "away", "injured", "goals",
+                        "past_cards", "morale", "teams", "stables")
 
 
 def _get_match_type_name(match_type: int, store) -> str:
@@ -57,6 +70,14 @@ def _compute_age(bday, game_date_val: datetime) -> int:
     except:
         pass
     return 0
+
+
+def _lightweight_dump(w: Worker) -> dict:
+    """Serialize a Worker for list views, excluding bulky fields the table
+    never renders (overness per region, belt_history, moves). Cuts JSON
+    payload size by ~70% for large rosters."""
+    d = w.model_dump(exclude={"overness", "belt_history", "moves", "storylines"})
+    return d
 
 
 def _compute_star_scores(w: Worker):
@@ -272,18 +293,25 @@ def _age_growth(age: int) -> float:
     return -8
 
 
-_response_cache: dict[str, list] = {}  # roster/all cache Worker objects; form caches dicts
-_cache_progress: dict[str, any] = {"phase": "", "total": 0, "done": 0}
-
-def get_cache_progress() -> dict:
-    return dict(_cache_progress)
+_response_cache: dict[str, list] = {}  # keys: "all:{version}", "roster:{fed_uid}:{version}"
 
 
-def _set_company_data(w: Worker, store, game_date_val):
-    fed_uid = getattr(getattr(w, 'contract', None), 'fed_uid', None)
+def _evict_stale_cache(current_version: int) -> None:
+    """Drop cached responses from older store versions. Every reload adds new
+    "all:{version}" / "roster:{fed}:{version}" entries; without this the dict
+    would grow unboundedly over a long session with many game saves — more so
+    now that the warm hook (see warm_cache below) rebuilds it on every reload,
+    not just when a user happens to visit a page that needs it."""
+    suffix = f":{current_version}"
+    for k in [k for k in _response_cache if not k.endswith(suffix)]:
+        del _response_cache[k]
+
+
+def _set_company_data(w: Worker, store, game_date_val, fed_uid: int = None):
+    if fed_uid is None:
+        fed_uid = getattr(getattr(w, 'contract', None), 'fed_uid', None)
     if not fed_uid:
-        controlled = [uid for uid, f in store.feds.items() if f.get("User_Controlled") == 1]
-        fed_uid = controlled[0] if controlled else None
+        fed_uid = get_player_fed_uid() or None
     if fed_uid and game_date_val:
         avg = _compute_fed_averages(fed_uid, store, game_date_val)
         w.company_area_pop = avg["company_area_pop"]
@@ -297,12 +325,17 @@ def _set_company_data(w: Worker, store, game_date_val):
 
 
 def _build_worker(uid: int, store, game_date_val, *,
-                  area_region_ids: list[int] = None, home_area: str = "") -> Worker:
+                  area_region_ids: list[int] = None, home_area: str = "",
+                  company_fed_uid: int = None) -> Worker:
     """Create a Worker with skills, physical, age, overness/pop, business data,
     bio, and computed scores/labels.  Shared by get_all_workers and get_roster.
 
     *area_region_ids* — when provided, pop is averaged over that area (fed
     home-area); otherwise pop is the global average of all 57 regions.
+
+    *company_fed_uid* — when provided, company_area_pop is based on this fed's
+    home area rather than the worker's contract fed (needed for all-workers view
+    where we compare against the player's home market).
     """
     from datetime import datetime
     w_row = store.workers.get(uid)
@@ -328,52 +361,84 @@ def _build_worker(uid: int, store, game_date_val, *,
         else:
             all_vals = [over_row.get(f"Over{i}", 0) for i in range(1, 58)]
             w.pop = RatingDisplay.from_raw(round(sum(all_vals) / len(all_vals)))
+        # Highest pop in any top-level region (for International label)
+        area_max = 0
+        for area_rids in AREAS.values():
+            avals = [over_row.get(f"Over{i}", 0) for i in area_rids if 1 <= i <= 57]
+            if avals:
+                aavg = round(sum(avals) / len(avals))
+                if aavg > area_max:
+                    area_max = aavg
+        w.pillar_max_region_pop = area_max
+        # Worker's own pop in the player's fed home area
+        if company_fed_uid:
+            fed_row = store.feds.get(company_fed_uid)
+            if fed_row:
+                based_in = fed_row.get("Based_In", 0)
+                for area_name, area_rids in AREAS.items():
+                    if based_in in area_rids:
+                        local_vals = [over_row.get(f"Over{i}", 0) for i in area_rids if 1 <= i <= 57]
+                        w.pillar_local_pop = round(sum(local_vals) / len(local_vals)) if local_vals else 0
+                        break
     biz = store.worker_business.get(uid)
     if biz:
         for k in ("Business", "Booking_Reputation", "Booking_Skill"):
             v = biz.get(k)
             if v is not None:
                 setattr(w, k, v)
-    _set_company_data(w, store, game_date_val)
+    _set_company_data(w, store, game_date_val, fed_uid=company_fed_uid)
     return w
 
 
-def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list["Worker"], int]:
+def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list[dict], int]:
     """Return every non-retired, non-dead worker in the DB with skills,
     physical, overness/pop, and computed scores. No contract/fed scoping.
-    Returns (workers, total_count) with server-side pagination; the full
-    assembled list is cached so repeated pages serve from memory. The router
-    serialises the returned page."""
-    global _response_cache, _cache_progress
+    Returns (pre-serialized dicts, total_count) with server-side pagination."""
+    global _response_cache
     store = get_store()
     if not store:
         return [], 0
+    _evict_stale_cache(store.version)
     cache_key = f"all:{store.version}"
     if cache_key not in _response_cache:
         clear_fed_avg_cache()
+        store.preload_groups(*_CORE_WORKER_GROUPS)
         game_date_val = store.game_date_val
 
         all_uids = [uid for uid, w_row in store.workers.items() if not w_row.get("Retired") and not w_row.get("Dead")]
-        _cache_progress.update(phase="Processing workers", total=len(all_uids), done=0)
+        player_fed_uid = get_player_fed_uid()
         raw = []
-        for i, uid in enumerate(all_uids):
-            w = _build_worker(uid, store, game_date_val)
+        for uid in all_uids:
+            w = _build_worker(uid, store, game_date_val, company_fed_uid=player_fed_uid)
             if w is None:
                 continue
+            # Contract status for filtering
+            contracts = store.contracts_by_worker.get(uid, [])
+            w.contract_status = "none"
+            w.contract_expiry_days = 0
+            w.player_fed_uid = 0
+            for cr in contracts:
+                if cr.get("ExclusiveContract") and cr.get("WrittenContract"):
+                    w.contract_status = "exclusive_written"
+                    w.contract_expiry_days = cr.get("Daysleft", 0) or 0
+                    w.player_fed_uid = cr.get("FedUID", 0)
+                    break
+                elif cr.get("WrittenContract") and w.contract_status == "none":
+                    w.contract_status = "written"
+                    w.contract_expiry_days = cr.get("Daysleft", 0) or 0
+                    w.player_fed_uid = cr.get("FedUID", 0)
             raw.append(w)
-            if i % 50 == 0:
-                _cache_progress["done"] = i + 1
-        _cache_progress.update(phase="Complete", total=len(all_uids), done=len(all_uids))
-        _response_cache[cache_key] = raw
+        serialized = [_lightweight_dump(w) for w in raw]
+        _response_cache[cache_key] = serialized
 
-    all_workers = _response_cache[cache_key]
-    total = len(all_workers)
+    all_dicts = _response_cache[cache_key]
+    total = len(all_dicts)
     start = (page - 1) * limit
-    return all_workers[start:start + limit], total
+    return all_dicts[start:start + limit], total
 
 
-def get_roster(fed_uid: int = None) -> list["Worker"]:
-    global _response_cache, _cache_progress
+def get_roster(fed_uid: int = None) -> list[dict]:
+    global _response_cache
     store = get_store()
     if not store:
         return []
@@ -381,11 +446,12 @@ def get_roster(fed_uid: int = None) -> list["Worker"]:
     if fed_uid is None:
         fed_uid = get_player_fed_uid()
 
+    _evict_stale_cache(store.version)
     cache_key = f"roster:{fed_uid}:{store.version}"
     if cache_key in _response_cache:
         return _response_cache[cache_key]
     clear_fed_avg_cache()
-    _cache_progress.update(phase="Processing workers", total=0, done=0)
+    store.preload_groups(*_CORE_WORKER_GROUPS, *_ROSTER_EXTRA_GROUPS)
 
     home_area = get_fed_home_area(fed_uid)
     area_region_ids = AREAS.get(home_area, [])
@@ -477,8 +543,7 @@ def get_roster(fed_uid: int = None) -> list["Worker"]:
 
     # ── Assemble workers ──
     result = []
-    _cache_progress["total"] = len(contracts)
-    for ci, c in enumerate(contracts):
+    for c in contracts:
         uid = c["WorkerUID"]
         w = _build_worker(uid, store, game_date_val, area_region_ids=area_region_ids, home_area=home_area)
         if w is None:
@@ -619,12 +684,31 @@ def get_roster(fed_uid: int = None) -> list["Worker"]:
 
         w.attributes = attrs_by_uid.get(uid, [])
         result.append(w)
-        if ci % 20 == 0:
-            _cache_progress["done"] = ci + 1
 
-    _cache_progress.update(phase="Complete", total=len(contracts), done=len(contracts))
-    _response_cache[cache_key] = result
-    return result
+    serialized = [_lightweight_dump(w) for w in result]
+    _response_cache[cache_key] = serialized
+    return serialized
+
+
+def warm_cache() -> None:
+    """Pre-build and cache the worker-search "all workers" list and the
+    player's roster, off the request path. Registered below as datastore's
+    warm hook, so both an initial connect and an automatic reload after a
+    game save are already warm by the time a page asks for them — instead of
+    whoever opens Worker Search (or Roster) next paying the full build cost."""
+    if not get_store():
+        return
+    try:
+        get_all_workers(1, 1)
+    except Exception as e:
+        print(f"[worker_service] Warm-cache (all workers) failed: {e}")
+    try:
+        get_roster()
+    except Exception as e:
+        print(f"[worker_service] Warm-cache (roster) failed: {e}")
+
+
+register_warm_hook(warm_cache)
 
 
 def _get_worker_segments(store, worker_uid: int) -> list[dict]:
@@ -822,8 +906,7 @@ def get_worker_detail(worker_uid: int, fed_uid: int = None) -> Worker | None:
             for i in range(1, 58)
         ]
         if fed_uid is None:
-            controlled = [uid for uid, f in store.feds.items() if f.get("User_Controlled") == 1]
-            fed_uid = controlled[0] if controlled else None
+            fed_uid = get_player_fed_uid() or None
         if fed_uid:
             fed_row = store.feds.get(fed_uid)
             if fed_row:

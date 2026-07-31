@@ -64,7 +64,7 @@ function groupFeds(feds: Federation[], playerFed: Federation | null): [string, F
 }
 
 export function TopBar() {
-  const { currentPage, pages, closeEntity, playerFed, focusedFed, allFeds, setFocusedFed, navigateToEntity, img, goBack, goForward, canGoBack, canGoForward } = useApp()
+  const { currentPage, pages, closeEntity, playerFed, focusedFed, allFeds, setFocusedFed, navigateToEntity, img, goBack, goForward, canGoBack, canGoForward, storeVersion } = useApp()
   const [logoErr, setLogoErr] = useState(false)
   const [fedOpen, setFedOpen] = useState(false)
   const [fedPos, setFedPos] = useState<{ top: number; left: number; width: number } | null>(null)
@@ -82,7 +82,7 @@ export function TopBar() {
     if (isBeltEntity && beltUid) {
       api.belt.detail(beltUid).then(b => setBeltName(b.name)).catch(() => {})
     }
-  }, [isBeltEntity, beltUid])
+  }, [isBeltEntity, beltUid, storeVersion])
 
   // Past show entity: fetch name
   const isPastShowEntity = entityType === 'pastshow'
@@ -92,7 +92,7 @@ export function TopBar() {
     if (isPastShowEntity && pastShowUid) {
       api.show_history.detail(pastShowUid).then(s => setPastShowName(s.name)).catch(() => {})
     }
-  }, [isPastShowEntity, pastShowUid])
+  }, [isPastShowEntity, pastShowUid, storeVersion])
 
   // TV episode entity: fetch show name from tvUid encoded in entityId (format: "tvUid@date")
   const isTvEpisodeEntity = entityType === 'tvepisode'
@@ -102,7 +102,7 @@ export function TopBar() {
     if (isTvEpisodeEntity && tvEpisodeTvUid) {
       api.schedule.tvDetail(tvEpisodeTvUid).then(s => setTvEpisodeName(s.name)).catch(() => {})
     }
-  }, [isTvEpisodeEntity, tvEpisodeTvUid])
+  }, [isTvEpisodeEntity, tvEpisodeTvUid, storeVersion])
 
   let pageName = pageNames[currentPage] || pages.find(p => p.id === currentPage)?.label || currentPage
   if (entityType === 'module') {
@@ -131,7 +131,7 @@ export function TopBar() {
     if (isWorkerEntity && workerUid) {
       api.roster.detail(workerUid).then(w => setWorkerName(w.name)).catch(() => {})
     }
-  }, [isWorkerEntity, workerUid])
+  }, [isWorkerEntity, workerUid, storeVersion])
   useEffect(() => {
     const fed = focusedFed || playerFed
     if (!fed) return
@@ -147,7 +147,7 @@ export function TopBar() {
       setRosterList(list)
       setPerceptionOrder(list.map(w => w.uid))
     }).catch(() => {})
-  }, [focusedFed, playerFed])
+  }, [focusedFed, playerFed, storeVersion])
   useEffect(() => {
     if (!rosterOpen) return
     const handler = (e: MouseEvent) => {

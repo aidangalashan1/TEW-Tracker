@@ -60,6 +60,10 @@ def resolve_image(relative_path: str) -> str | None:
     normalized = os.path.normpath(relative_path)
     if normalized.startswith("..") or normalized.startswith(os.sep):
         return None
+    # Reject Windows absolute paths (e.g. C:\Windows\win.ini) which
+    # os.path.join would silently discard the base for.
+    if os.path.splitdrive(normalized)[0]:
+        return None
     full = os.path.join(_image_root, normalized)
     if not os.path.isfile(full):
         return None

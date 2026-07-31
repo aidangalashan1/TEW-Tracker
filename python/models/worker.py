@@ -236,6 +236,7 @@ class Worker(BaseModel):
     injury_count: int = 0
     contract_status: str = "none"
     contract_expiry_days: int = 0
+    player_fed_uid: int = 0
     company_area_pop: int = 0
     roster_avg_primary: int = 0
     roster_avg_ent: int = 0
@@ -256,6 +257,8 @@ class Worker(BaseModel):
     pillar_primary: int = 0
     pillar_perf: int = 0
     pillar_pop: int = 0
+    pillar_max_region_pop: int = 0
+    pillar_local_pop: int = 0
     perf_score: int = 0
     belt_history: list[dict] = []
     moves: list[dict] = []

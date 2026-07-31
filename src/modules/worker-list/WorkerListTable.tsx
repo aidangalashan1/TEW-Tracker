@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Worker } from '../../api'
 import { useApp } from '../../context/AppContext'
 import { defaultColumns, defaultColumnState, renderCell } from './columns'
@@ -116,6 +117,38 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
     () => computeGroups(filtered, { groupBy, subgroups, activeSubgroups, advancedRoleFilters, sorts }),
     [groupBy, filtered, advancedRoleFilters, subgroups, activeSubgroups, sorts]
   )
+
+  // Flatten the grouped-or-flat worker list into one indexable array so a
+  // single virtualizer can render both shapes uniformly — with thousands of
+  // workers (Worker Search), mounting every row unconditionally produced
+  // 100k+ DOM nodes and took 10+ seconds; only rows near the viewport are
+  // rendered now, with the rest accounted for by the virtualizer's spacer.
+  type RowVItem = { kind: 'row'; worker: Worker; rowIdx: number; secondary?: boolean }
+  type HeaderVItem = { kind: 'header'; groupKey: string; count: number }
+  const vItems = useMemo<(RowVItem | HeaderVItem)[]>(() => {
+    if (groups) {
+      const out: (RowVItem | HeaderVItem)[] = []
+      for (const [key, groupWorkers] of groups) {
+        out.push({ kind: 'header', groupKey: key, count: groupWorkers.length })
+        groupWorkers.forEach((entry: any, i: number) => {
+          out.push({ kind: 'row', worker: entry.worker ?? entry, rowIdx: i, secondary: entry.secondary })
+        })
+      }
+      return out
+    }
+    const sorted = sorts.length > 0 ? sortWorkers(filtered, sorts) : filtered
+    return sorted.map((w, rowIdx) => ({ kind: 'row', worker: w, rowIdx }))
+  }, [groups, filtered, sorts])
+
+  const rowVirtualizer = useVirtualizer({
+    count: vItems.length,
+    getScrollElement: () => tableRef.current,
+    // Rows have no fixed CSS height (implicit from the ~32px-wide thumbnail +
+    // text padding); estimate is just a starting point — measureElement
+    // (wired below) corrects actual sizes after each row renders.
+    estimateSize: () => 36,
+    overscan: 12,
+  })
 
   const hasActiveFilters = positionFilter !== 'all'
 
@@ -427,60 +460,62 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
               )
             })}
           </div>
-          {(() => {
-            const renderRow = (w: Worker, rowIdx: number, secondary?: boolean) => (
-              <div key={w.uid} className="worker-list-row flex border-bottom-row"
-                style={{ background: rowIdx % 2 === 1 ? 'rgba(255,255,255,0.02)' : undefined, opacity: secondary ? 0.4 : undefined }}
-                onContextMenu={e => { e.preventDefault(); setRowCtx({ uid: w.uid, x: e.clientX, y: e.clientY }) }}>
-                {colState.map((cs, idx) => {
-                  const def = colMap.get(cs.id)!
-                  const pw = Number(cs.width) || 32
-                  const cellContent = def.render(w)
-                  return (
-                    <div key={cs.id} className="data-table-cell text-md" style={{
-                      flex: 'none', width: pw,
-                      boxShadow: separators[cs.id]?.left && separators[cs.id]?.right
-                        ? 'inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent)'
-                        : separators[cs.id]?.left ? 'inset 2px 0 0 var(--accent)'
-                        : separators[cs.id]?.right ? 'inset -2px 0 0 var(--accent)'
-                        : undefined,
-                      padding: cs.id === 'img' ? 0 : (cs.id === 'status' ? 0 : '4px 6px'),
-                      ...(cs.id === 'img' ? { overflow: 'hidden' } : {}),
-                      ...(cs.id === 'status' ? { justifyContent: 'center', overflow: 'visible' } : {}),
-                      ...(cs.id === 'gender' ? { justifyContent: 'center' } : {}),
-                      ...(cs.id === 'role' ? { justifyContent: 'center', overflow: 'visible' } : {}),
-                      ...(cs.id === 'nat' ? { justifyContent: 'center' } : {}),
-                      ...(cs.id === 'condition' || cs.id.startsWith('cond') ? { justifyContent: 'center', overflow: 'visible' } : {}),
-                      ...(cs.id === 'age' ? { justifyContent: 'center' } : {}),
-                      ...(cs.id === 'storyline_with' || cs.id === 'tag_team' || cs.id === 'stable' ? { whiteSpace: 'normal', overflow: 'visible' } : {}),
-                      ...(def.filterGroup === 'stats' || def.filterGroup === 'popularity' || def.filterGroup === 'creative' ? { justifyContent: 'center' } : {}),
-                      ...(cs.id === 'dispo' ? { justifyContent: 'center' } : {}),
-                      ...(cs.id === 'img' || cs.id === 'status' || cs.id === 'name' ? {
-                        position: 'sticky', zIndex: 6,
-                        background: rowIdx % 2 === 1 ? 'linear-gradient(0deg, rgba(255,255,255,0.02), rgba(255,255,255,0.02)), var(--bg-secondary)' : 'var(--bg-secondary)',
-                        left: visibleCols.slice(0, idx).reduce((sum, c) => sum + (c.id === 'img' || c.id === 'status' || c.id === 'name' ? Number(c.width) : 0), 0),
-                      } : {}),
-                    }}
-                    >
-                      {renderCell({ cs, w, pw, cellContent, currentDate: gameInfo?.current_date, onNavigate: uid => navigateToEntity('worker', uid) })}
+          <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+            {rowVirtualizer.getVirtualItems().map(vRow => {
+              const item = vItems[vRow.index]
+              return (
+                <div key={vRow.key} data-index={vRow.index} ref={rowVirtualizer.measureElement}
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${vRow.start}px)` }}>
+                  {item.kind === 'header' ? (
+                    <div className="group-header flex items-center border-default-top"
+                      style={{ background: 'var(--bg-tertiary)', padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      <span>{item.groupKey}</span>
+                      <span className="text-xxs ml-2" style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{item.count}</span>
                     </div>
-                  )
-                })}
-              </div>
-            )
-            if (groups) {
-              return groups.flatMap(([key, groupWorkers]) => [
-                <div key={`group-${key}`} className="group-header flex items-center border-default-top"
-                  style={{ background: 'var(--bg-tertiary)', padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  <span>{key}</span>
-                  <span className="text-xxs ml-2" style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{groupWorkers.length}</span>
-                </div>,
-                ...groupWorkers.map((entry: any, i: number) => renderRow(entry.worker ?? entry, i, entry.secondary)),
-              ])
-            }
-            const sorted = sorts.length > 0 ? sortWorkers(filtered, sorts) : filtered
-            return sorted.map((w, rowIdx) => renderRow(w, rowIdx))
-          })()}
+                  ) : (
+                    <div className="worker-list-row flex border-bottom-row"
+                      style={{ background: item.rowIdx % 2 === 1 ? 'rgba(255,255,255,0.02)' : undefined, opacity: item.secondary ? 0.4 : undefined }}
+                      onContextMenu={e => { e.preventDefault(); setRowCtx({ uid: item.worker.uid, x: e.clientX, y: e.clientY }) }}>
+                      {colState.map((cs, idx) => {
+                        const def = colMap.get(cs.id)!
+                        const pw = Number(cs.width) || 32
+                        const cellContent = def.render(item.worker)
+                        return (
+                          <div key={cs.id} className="data-table-cell text-md" style={{
+                            flex: 'none', width: pw,
+                            boxShadow: separators[cs.id]?.left && separators[cs.id]?.right
+                              ? 'inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent)'
+                              : separators[cs.id]?.left ? 'inset 2px 0 0 var(--accent)'
+                              : separators[cs.id]?.right ? 'inset -2px 0 0 var(--accent)'
+                              : undefined,
+                            padding: cs.id === 'img' ? 0 : (cs.id === 'status' ? 0 : '4px 6px'),
+                            ...(cs.id === 'img' ? { overflow: 'hidden' } : {}),
+                            ...(cs.id === 'status' ? { justifyContent: 'center', overflow: 'visible' } : {}),
+                            ...(cs.id === 'gender' ? { justifyContent: 'center' } : {}),
+                            ...(cs.id === 'role' ? { justifyContent: 'center', overflow: 'visible' } : {}),
+                            ...(cs.id === 'nat' ? { justifyContent: 'center' } : {}),
+                            ...(cs.id === 'condition' || cs.id.startsWith('cond') ? { justifyContent: 'center', overflow: 'visible' } : {}),
+                            ...(cs.id === 'age' ? { justifyContent: 'center' } : {}),
+                            ...(cs.id === 'storyline_with' || cs.id === 'tag_team' || cs.id === 'stable' ? { whiteSpace: 'normal', overflow: 'visible' } : {}),
+                            ...(def.filterGroup === 'stats' || def.filterGroup === 'popularity' || def.filterGroup === 'creative' ? { justifyContent: 'center' } : {}),
+                            ...(cs.id === 'dispo' ? { justifyContent: 'center' } : {}),
+                            ...(cs.id === 'img' || cs.id === 'status' || cs.id === 'name' ? {
+                              position: 'sticky', zIndex: 6,
+                              background: item.rowIdx % 2 === 1 ? 'linear-gradient(0deg, rgba(255,255,255,0.02), rgba(255,255,255,0.02)), var(--bg-secondary)' : 'var(--bg-secondary)',
+                              left: visibleCols.slice(0, idx).reduce((sum, c) => sum + (c.id === 'img' || c.id === 'status' || c.id === 'name' ? Number(c.width) : 0), 0),
+                            } : {}),
+                          }}
+                          >
+                            {renderCell({ cs, w: item.worker, pw, cellContent, currentDate: gameInfo?.current_date, onNavigate: uid => navigateToEntity('worker', uid) })}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>

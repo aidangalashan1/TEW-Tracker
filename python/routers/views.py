@@ -1,11 +1,11 @@
 import os
-import json
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from storage import views_dir
+from json_store import read_json, write_json, scan_json_dir
 
 router = APIRouter(prefix="/api/views", tags=["views"])
 
@@ -15,17 +15,11 @@ def _view_path(view_id: str) -> str:
 
 
 def _read_view(view_id: str) -> dict:
-    path = _view_path(view_id)
-    if not os.path.isfile(path):
-        raise HTTPException(404, f"View '{view_id}' not found")
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return read_json(_view_path(view_id), f"View '{view_id}' not found")
 
 
 def _write_view(view_id: str, data: dict):
-    path = _view_path(view_id)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    write_json(_view_path(view_id), data)
 
 
 class PageSnapshot(BaseModel):
@@ -49,23 +43,16 @@ class ViewUpdate(BaseModel):
 
 @router.get("")
 def list_views():
-    d = views_dir()
     views = []
-    for fname in sorted(os.listdir(d)):
-        if fname.endswith(".json"):
-            try:
-                with open(os.path.join(d, fname), "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                views.append({
-                    "id": data.get("id", fname[:-5]),
-                    "name": data.get("name", fname[:-5]),
-                    "description": data.get("description", ""),
-                    "created": data.get("created", ""),
-                    "updated": data.get("updated", ""),
-                    "pageCount": len(data.get("pages", [])),
-                })
-            except Exception:
-                pass
+    for stem, data in scan_json_dir(views_dir()):
+        views.append({
+            "id": data.get("id", stem),
+            "name": data.get("name", stem),
+            "description": data.get("description", ""),
+            "created": data.get("created", ""),
+            "updated": data.get("updated", ""),
+            "pageCount": len(data.get("pages", [])),
+        })
     return {"views": views}
 
 

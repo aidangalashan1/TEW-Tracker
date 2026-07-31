@@ -1,17 +1,13 @@
 import os
-import json
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
 from storage import cards_dir
+from json_store import read_json, write_json, scan_json_dir
 
 router = APIRouter(prefix="/api/cards", tags=["cards"])
-
-
-def _cards_dir() -> str:
-    return cards_dir()
 
 
 def _card_path(card_id: str) -> str:
@@ -19,17 +15,11 @@ def _card_path(card_id: str) -> str:
 
 
 def _read_card(card_id: str) -> dict:
-    path = _card_path(card_id)
-    if not os.path.isfile(path):
-        raise HTTPException(404, f"Card '{card_id}' not found")
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return read_json(_card_path(card_id), f"Card '{card_id}' not found")
 
 
 def _write_card(card_id: str, data: dict):
-    path = _card_path(card_id)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    write_json(_card_path(card_id), data)
 
 
 class CardSegment(BaseModel):
@@ -58,43 +48,29 @@ class CardUpdate(BaseModel):
 
 @router.get("")
 def list_cards(fed_uid: Optional[int] = Query(None)):
-    d = _cards_dir()
     cards = []
-    for fname in sorted(os.listdir(d)):
-        if fname.endswith(".json"):
-            try:
-                with open(os.path.join(d, fname), "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                if fed_uid is not None and data.get("fedUid") != fed_uid:
-                    continue
-                cards.append({
-                    "id": data.get("id", fname[:-5]),
-                    "showType": data.get("showType", ""),
-                    "showUid": data.get("showUid", 0),
-                    "showName": data.get("showName", ""),
-                    "showDate": data.get("showDate", ""),
-                    "segmentCount": len(data.get("segments", [])),
-                    "updated": data.get("updated", ""),
-                })
-            except Exception:
-                pass
+    for stem, data in scan_json_dir(cards_dir()):
+        if fed_uid is not None and data.get("fedUid") != fed_uid:
+            continue
+        cards.append({
+            "id": data.get("id", stem),
+            "showType": data.get("showType", ""),
+            "showUid": data.get("showUid", 0),
+            "showName": data.get("showName", ""),
+            "showDate": data.get("showDate", ""),
+            "segmentCount": len(data.get("segments", [])),
+            "updated": data.get("updated", ""),
+        })
     return {"cards": cards}
 
 
 @router.get("/by-show")
 def get_card_by_show(show_type: str = Query(...), show_uid: int = Query(...), show_date: str = Query(...)):
-    d = _cards_dir()
-    for fname in os.listdir(d):
-        if fname.endswith(".json"):
-            try:
-                with open(os.path.join(d, fname), "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                if (data.get("showType") == show_type and
-                    data.get("showUid") == show_uid and
-                    data.get("showDate") == show_date):
-                    return data
-            except Exception:
-                pass
+    for _stem, data in scan_json_dir(cards_dir()):
+        if (data.get("showType") == show_type and
+            data.get("showUid") == show_uid and
+            data.get("showDate") == show_date):
+            return data
     return None
 
 

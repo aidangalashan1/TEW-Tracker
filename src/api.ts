@@ -323,9 +323,6 @@ export interface PastShow {
 
 export interface ScheduleData {
   upcoming: UpcomingShow[]
-  tvShows: any[]
-  events: any[]
-  slots: any[]
   currentDate: string
 }
 
@@ -355,8 +352,6 @@ export const api = {
   },
 
   roster: {
-    cacheProgress: () =>
-      request<{phase: string; total: number; done: number}>('/roster/cache-progress'),
     all: (page = 1, limit = 200) =>
       request<{count: number; total: number; page: number; limit: number; workers: import('./api-types').Worker[]}>(
         `/roster/all?page=${page}&limit=${limit}`

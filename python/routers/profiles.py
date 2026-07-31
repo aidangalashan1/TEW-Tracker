@@ -1,5 +1,4 @@
 import os
-import json
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
@@ -7,30 +6,9 @@ from pydantic import BaseModel
 from typing import Optional
 from database import reconnect
 from storage import profiles_path
+from json_store import read_json_list, write_json
 
 router = APIRouter(prefix="/api/profiles", tags=["profiles"])
-
-
-def _profiles_path() -> str:
-    return profiles_path()
-
-
-def _load_profiles() -> list[dict]:
-    p = _profiles_path()
-    if not os.path.isfile(p):
-        return []
-    try:
-        with open(p, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, list) else []
-    except Exception:
-        return []
-
-
-def _save_profiles(profiles: list[dict]):
-    p = _profiles_path()
-    with open(p, "w", encoding="utf-8") as f:
-        json.dump(profiles, f, indent=2)
 
 
 class ProfileCreate(BaseModel):
@@ -47,12 +25,12 @@ class ProfileUpdate(BaseModel):
 
 @router.get("")
 def list_profiles():
-    return {"profiles": _load_profiles()}
+    return {"profiles": read_json_list(profiles_path())}
 
 
 @router.post("")
 def create_profile(body: ProfileCreate):
-    profiles = _load_profiles()
+    profiles = read_json_list(profiles_path())
     pid = str(uuid.uuid4())[:8]
     now = datetime.now(timezone.utc).isoformat()
     entry = {
@@ -64,35 +42,35 @@ def create_profile(body: ProfileCreate):
         "updated": now,
     }
     profiles.append(entry)
-    _save_profiles(profiles)
+    write_json(profiles_path(), profiles)
     return {"ok": True, "profile": entry}
 
 
 @router.put("/{pid}")
 def update_profile(pid: str, body: ProfileUpdate):
-    profiles = _load_profiles()
+    profiles = read_json_list(profiles_path())
     for p in profiles:
         if p["id"] == pid:
             if body.name is not None: p["name"] = body.name
             if body.mdbPath is not None: p["mdbPath"] = body.mdbPath
             if body.imagePath is not None: p["imagePath"] = body.imagePath
             p["updated"] = datetime.now(timezone.utc).isoformat()
-            _save_profiles(profiles)
+            write_json(profiles_path(), profiles)
             return {"ok": True, "profile": p}
     raise HTTPException(404, "Profile not found")
 
 
 @router.delete("/{pid}")
 def delete_profile(pid: str):
-    profiles = _load_profiles()
+    profiles = read_json_list(profiles_path())
     profiles = [p for p in profiles if p["id"] != pid]
-    _save_profiles(profiles)
+    write_json(profiles_path(), profiles)
     return {"ok": True}
 
 
 @router.post("/{pid}/switch")
 def switch_to_profile(pid: str):
-    profiles = _load_profiles()
+    profiles = read_json_list(profiles_path())
     for p in profiles:
         if p["id"] == pid:
             mdb = p["mdbPath"]

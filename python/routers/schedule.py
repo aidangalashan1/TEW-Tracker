@@ -1,9 +1,29 @@
 from fastapi import APIRouter, Query
 from datetime import datetime, timedelta, date
 from typing import Optional
-from datastore import get_store
+from datastore import get_store, register_warm_hook
+from response_utils import fast_json
+from services.company_service import get_controlled_fed_uids
 
 router = APIRouter(prefix="/api/schedule", tags=["schedule"])
+
+# Groups get_schedule needs — each is a separate lazy-loaded table, so on a
+# cold store (first visit after connect/reload) accessing them one at a time
+# means several sequential ~200-400ms DB round trips. preload_groups loads
+# them concurrently instead (measured: ~1.25s sequential -> ~0.4s parallel).
+_SCHEDULE_GROUPS = ("tv_shows", "cards", "broadcaster_slots", "feds", "game_info")
+
+
+def _warm_schedule() -> None:
+    """Registered as a datastore warm hook (see worker_service.warm_cache for
+    the same pattern) so the Schedule tab's groups are pre-loaded in the
+    background on connect/reload, not paid for on the first click in."""
+    store = get_store()
+    if store:
+        store.preload_groups(*_SCHEDULE_GROUPS)
+
+
+register_warm_hook(_warm_schedule)
 
 DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 TEW_TO_PYTHON = {0: 6, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}
@@ -22,14 +42,15 @@ def tew_showday_to_date(today: date, tew_showday: int) -> date:
 def get_schedule(fed_uid: Optional[int] = Query(None), weeks: int = Query(13)):
     store = get_store()
     if not store:
-        return {"tvShows": [], "events": [], "upcoming": [], "currentDate": datetime.now().date().isoformat()}
+        return {"upcoming": [], "currentDate": datetime.now().date().isoformat()}
+    store.preload_groups(*_SCHEDULE_GROUPS)
 
     current_date = store.game_info.get("CurrentGameDate") if store.game_info else datetime.now()
     today = current_date.date() if hasattr(current_date, 'date') else datetime.now().date()
 
-    controlled = [uid for uid, f in store.feds.items() if f.get("User_Controlled") == 1]
+    controlled = get_controlled_fed_uids()
     if not controlled:
-        return {"tvShows": [], "events": [], "upcoming": [], "currentDate": today.isoformat()}
+        return {"upcoming": [], "currentDate": today.isoformat()}
 
     fed_ids = controlled
     if fed_uid not in fed_ids:
@@ -92,13 +113,14 @@ def get_schedule(fed_uid: Optional[int] = Query(None), weeks: int = Query(13)):
 
     upcoming.sort(key=lambda x: x["date"])
 
-    return {
-        "tvShows": list(store.tv_shows.values()),
-        "events": list(store.cards.values()),
-        "slots": slot_rows,
+    # tvShows/events/slots (the full, unfiltered store tables) used to be
+    # returned here too but nothing in the frontend reads them — ScheduleData
+    # only ever uses `upcoming`/`currentDate`. Dropping them cut this
+    # response from ~977KB to a fraction of that.
+    return fast_json({
         "upcoming": upcoming,
         "currentDate": today.isoformat(),
-    }
+    })
 
 
 @router.get("/tv/{tv_uid}")

@@ -206,6 +206,16 @@ def usage_label(w: Worker, stars: float, score: int, is_potential: bool = False)
     if not w.retired and w.is_banged_up and st and st not in ("Complete", "Well-Rounded"):
         return f"Banged Up {st}"
 
+    # Detect workers whose local pop lags far behind their true ability —
+    # world-class talent that's unknown in the fed's home area shouldn't
+    # show as "Preliminary" or "Deadwood".
+    local_pop = getattr(w, "pillar_local_pop", 0) or 0
+    skill_peak = max(getattr(w, "pillar_primary", 0) or 0, getattr(w, "pillar_perf", 0) or 0)
+    max_region_pop = getattr(w, "pillar_max_region_pop", 0) or 0
+    pop_gap = skill_peak - local_pop
+    hidden = pop_gap > 20 and local_pop < 40
+    international = max_region_pop > local_pop + 20 and max_region_pop >= 70
+
     ap = age_prefix(w.age)
     is_young = ap in ("Young", "Rising", "Up-and-Coming")
     is_old = ap in ("Veteran", "Grizzled", "Aging")
@@ -230,32 +240,36 @@ def usage_label(w: Worker, stars: float, score: int, is_potential: bool = False)
         return f"{pos_adj} {typ}"
 
     if s >= 70:
-        return fmt_pos("Main Event", "Main Eventer", st)
-    if s >= 57.5:
+        label = fmt_pos("Main Event", "Main Eventer", st)
+    elif s >= 57.5:
         if is_young:
-            return f"Rising {st}" if st else "Rising Upper Midcarder"
-        if is_old:
+            label = f"Rising {st}" if st else "Rising Upper Midcarder"
+        elif is_old:
             adj = adj_form.get(st, st)
-            if adj != st:
-                return f"{adj} Veteran"
-            return f"Veteran {st}" if st else "Veteran Upper Midcarder"
-        return fmt_pos("Upper Midcard", "Upper Midcarder", st)
-    if s >= 40:
+            label = f"{adj} Veteran" if adj != st else (f"Veteran {st}" if st else "Veteran Upper Midcarder")
+        else:
+            label = fmt_pos("Upper Midcard", "Upper Midcarder", st)
+    elif s >= 40:
         if is_young:
-            return f"Rising {st}" if st else "Rising Midcarder"
+            label = f"Rising {st}" if st else "Rising Midcarder"
+        elif is_old:
+            label = f"Established {st}" if st else "Established Midcarder"
+        else:
+            label = fmt_pos("Midcard", "Midcarder", st)
+    elif s >= 20:
         if is_old:
-            return f"Established {st}" if st else "Established Midcarder"
-        return fmt_pos("Midcard", "Midcarder", st)
-    if s >= 20:
-        if is_old:
-            return f"Journeyman {st}" if st else "Journeyman"
-        return f"Preliminary {st}" if st else "Preliminary"
-    if not is_potential and (w.potential_stars or 0) >= 2.5:
-        return "Developing Young Lion"
-    if w.age >= 30:
-        low = "Deadwood"
-    elif w.age >= 28:
-        low = "Enhancement Talent"
+            label = f"Journeyman {st}" if st else "Journeyman"
+        else:
+            label = f"Preliminary {st}" if st else "Preliminary"
+    elif not is_potential and (w.potential_stars or 0) >= 2.5:
+        label = "Developing Young Lion"
     else:
-        low = "Developing"
-    return f"{low} {st}" if st else low
+        low = "Deadwood" if w.age >= 30 else ("Enhancement Talent" if w.age >= 28 else "Developing")
+        label = f"{low} {st}" if st else low
+
+    if st and international:
+        label = f"International {st}"
+    elif st and hidden:
+        label = f"Hidden {st}"
+
+    return label

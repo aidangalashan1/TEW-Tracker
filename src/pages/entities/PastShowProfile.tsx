@@ -4,15 +4,10 @@ import { useApp } from '../../context/AppContext'
 import useSWR from '../../hooks/useApi'
 import { api } from '../../api'
 import { ratingColor } from '../../lib/colors'
+import { fmtDateOrdinal } from '../../lib/dates'
 
 function fmtDate(d: string): string {
-  if (!d) return '?'
-  const dt = new Date(d)
-  if (isNaN(dt.getTime())) return d.split(' ')[0] || '?'
-  const day = dt.getDate()
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const suffix = day >= 11 && day <= 13 ? 'th' : ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][day % 10]
-  return `${day}${suffix} ${months[dt.getMonth()]} ${dt.getFullYear()}`
+  return d ? fmtDateOrdinal(d) : '?'
 }
 
 export function PastShowProfile({ pastCardUid }: { pastCardUid: number }) {

@@ -199,8 +199,11 @@ export interface Worker {
   pillar_primary: number;
   pillar_perf: number;
   pillar_pop: number;
+  pillar_max_region_pop: number;
+  pillar_local_pop: number;
   perf_score: number;
   contract_expiry_days: number;
+  player_fed_uid: number;
   company_area_pop: number;
   roster_avg_primary: number;
   roster_avg_ent: number;
