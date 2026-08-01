@@ -1,22 +1,18 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../../../context/AppContext'
 import { api } from '../../../api'
+import useSWR from '../../../hooks/useApi'
 import plusIcon from '../../../assets/UI icons/plus.png'
 import { CardEditor } from '../../../components/CardEditor'
 import { fmtDateOrdinal as fmtDate } from '../../../lib/dates'
 
 export function ScheduleTab() {
-  const { focusedFed, playerFed, navigateToEntity, img, storeVersion } = useApp()
+  const { focusedFed, playerFed, navigateToEntity, img } = useApp()
   const fed = focusedFed || playerFed
-  const [data, setData] = useState<any>(null)
-  const [planShow, setPlanShow] = useState<any>(null)
-
   const fedUid = fed?.uid
-  useEffect(() => {
-    if (fedUid == null) return
-    api.schedule.list(fedUid).then(setData).catch(() => {})
-  }, [fedUid, storeVersion])
+  const { data } = useSWR(fedUid != null ? 'schedule-' + fedUid : null, () => api.schedule.list(fedUid!))
+  const [planShow, setPlanShow] = useState<any>(null)
 
   const grouped = useMemo(() => {
     if (!data?.upcoming) return []

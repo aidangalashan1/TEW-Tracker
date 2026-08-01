@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../../../api'
-import { useApp } from '../../../context/AppContext'
+import useSWR from '../../../hooks/useApi'
 import { PERCEPTION_LABELS } from '../../../lib/labels'
 import type { Worker, TagTeam, Stable, Belt } from '../../../api-types'
 import filterIcon from '../../../assets/UI icons/filter.png'
@@ -92,18 +92,12 @@ export function TeamsStablesTab({ fedUid, workers, config, onConfigChange }: {
   fedUid: number; workers: Worker[];
   config?: Record<string, any>; onConfigChange?: (c: Record<string, any>) => void
 }) {
-  const { storeVersion } = useApp()
-  const [tagTeams, setTagTeams] = useState<TagTeam[] | null>(null)
-  const [stables, setStables] = useState<Stable[] | null>(null)
-  const [belts, setBelts] = useState<Belt[]>([])
-
-  useEffect(() => {
-    setTagTeams(null)
-    setStables(null)
-    api.tagteams.list(fedUid).then(r => setTagTeams(r.teams)).catch(() => setTagTeams([]))
-    api.stables.list(fedUid).then(r => setStables(r.stables)).catch(() => setStables([]))
-    api.fed.belts(fedUid).then(r => setBelts(r.belts)).catch(() => setBelts([]))
-  }, [fedUid, storeVersion])
+  const { data: teamsData, isLoading: teamsLoading } = useSWR('tagteams-' + fedUid, () => api.tagteams.list(fedUid))
+  const { data: stablesData, isLoading: stablesLoading } = useSWR('stables-' + fedUid, () => api.stables.list(fedUid))
+  const { data: beltsData } = useSWR('fed-belts-' + fedUid, () => api.fed.belts(fedUid))
+  const tagTeams: TagTeam[] | null = teamsData?.teams ?? null
+  const stables: Stable[] | null = stablesData?.stables ?? null
+  const belts: Belt[] = useMemo(() => beltsData?.belts ?? [], [beltsData])
 
   const champMap = useMemo(() => {
     const map = new Map<number, Belt[]>()
@@ -194,7 +188,7 @@ export function TeamsStablesTab({ fedUid, workers, config, onConfigChange }: {
 
   const hasActiveGroups = groupBy.size > 0 || activeSubgroups.size > 0
 
-  if (tagTeams === null || stables === null) return <div className="loading" style={{ padding: 24 }}>Loading...</div>
+  if (teamsLoading || stablesLoading || tagTeams === null || stables === null) return <div className="loading" style={{ padding: 24 }}>Loading...</div>
 
   return (
     <div className="flex flex-col gap-4" style={{ height: '100%', padding: 20, overflow: 'auto', boxSizing: 'border-box' }}>

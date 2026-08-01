@@ -1,15 +1,13 @@
-import { useState, useEffect } from 'react'
-import { useApp } from '../../../context/AppContext'
 import { api } from '../../../api'
+import useSWR from '../../../hooks/useApi'
 
-/** Worker-domain breadcrumb name lookup for TopBar. */
+/** Worker-domain breadcrumb name lookup for TopBar. Uses the same cache key
+ *  as WorkerProfile.tsx's own detail fetch, so visiting a worker's profile
+ *  only ever triggers one request for its data, not two. */
 export function useWorkerBreadcrumb(isWorkerEntity: boolean, workerUid: number | null): string {
-  const { storeVersion } = useApp()
-  const [name, setName] = useState('')
-  useEffect(() => {
-    if (isWorkerEntity && workerUid) {
-      api.roster.detail(workerUid).then(w => setName(w.name)).catch(() => {})
-    }
-  }, [isWorkerEntity, workerUid, storeVersion])
-  return name
+  const { data } = useSWR(
+    isWorkerEntity && workerUid ? 'worker-' + workerUid : null,
+    () => api.roster.detail(workerUid!),
+  )
+  return data?.name ?? ''
 }

@@ -18,6 +18,7 @@ interface AppState {
   loading: boolean
   error: string | null
   storeVersion: number
+  appReady: boolean
   ratingFormat: RatingFormat
   setRatingFormat: (f: RatingFormat) => void
   currentPage: string
@@ -98,6 +99,7 @@ function AppInner({ children }: { children: React.ReactNode }) {
     loading: data.loading,
     error: data.error,
     storeVersion: data.storeVersion,
+    appReady: data.appReady,
     ratingFormat: ui.ratingFormat,
     setRatingFormat: ui.setRatingFormat,
     currentPage: nav.currentPage,

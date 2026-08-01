@@ -1,15 +1,12 @@
-import { useState, useEffect } from 'react'
-import { useApp } from '../../../context/AppContext'
 import { api } from '../../../api'
+import useSWR from '../../../hooks/useApi'
 
-/** Show-domain breadcrumb name lookup for TopBar. */
+/** Show-domain breadcrumb name lookup for TopBar. Same cache key as
+ *  PastShowProfile.tsx's own detail fetch — one request per show, not two. */
 export function usePastShowBreadcrumb(isPastShowEntity: boolean, pastShowUid: number | null): string {
-  const { storeVersion } = useApp()
-  const [name, setName] = useState('')
-  useEffect(() => {
-    if (isPastShowEntity && pastShowUid) {
-      api.show_history.detail(pastShowUid).then(s => setName(s.name)).catch(() => {})
-    }
-  }, [isPastShowEntity, pastShowUid, storeVersion])
-  return name
+  const { data } = useSWR(
+    isPastShowEntity && pastShowUid ? 'past-show-' + pastShowUid : null,
+    () => api.show_history.detail(pastShowUid!),
+  )
+  return data?.name ?? ''
 }

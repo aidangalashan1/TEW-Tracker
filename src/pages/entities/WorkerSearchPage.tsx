@@ -1,13 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { api } from '../../api'
 import { useApp } from '../../context/AppContext'
+import useSWR from '../../hooks/useApi'
 import { WorkerListColumnTable } from '../../modules/worker-list/WorkerListTable'
 import filterIcon from '../../assets/UI icons/filter.png'
-
-// Cached across remounts (e.g. navigating away and back) so re-opening the
-// page is instant. Stamped with the backend store version so a stale cache
-// from before a game save can't linger — see storeVersion in AppContext.
-let _cachedWorkers: { version: number; workers: any[] } | null = null
 
 function loadFilters(): { excludeCompany: boolean; excludeUnavailable: boolean } {
   try {
@@ -21,17 +17,16 @@ function saveFilters(f: { excludeCompany: boolean; excludeUnavailable: boolean }
   localStorage.setItem('tew-search-filters', JSON.stringify(f))
 }
 
-function cacheIsFresh(storeVersion: number): boolean {
-  return !!_cachedWorkers && _cachedWorkers.version === storeVersion
-}
-
 export function WorkerSearchPage() {
-  const { playerFed, storeVersion } = useApp()
-  const [data, setData] = useState<any>(() =>
-    cacheIsFresh(storeVersion) ? { workers: _cachedWorkers!.workers, total: _cachedWorkers!.workers.length } : null
-  )
+  const { playerFed } = useApp()
+  // Cached across remounts (e.g. navigating away and back) via the shared
+  // dataCache, so re-opening the page is instant. The backend itself
+  // pre-warms this exact request in the background on every connect/reload
+  // (see domains/worker/roster.py's warm_cache), so by the time this fetch
+  // actually runs it's normally an instant cache hit rather than a fresh
+  // multi-second build.
+  const { data, isLoading: loading } = useSWR('all-workers', () => api.roster.all(1, 99999))
   const [config, setConfig] = useState<Record<string, any>>({})
-  const [loading, setLoading] = useState(() => !cacheIsFresh(storeVersion))
   const [showFilters, setShowFilters] = useState(false)
   const [excludeCompany, setExcludeCompany] = useState(() => loadFilters().excludeCompany)
   const [excludeUnavailable, setExcludeUnavailable] = useState(() => loadFilters().excludeUnavailable)
@@ -70,22 +65,6 @@ export function WorkerSearchPage() {
       return next
     })
   }, [])
-
-  useEffect(() => {
-    // storeVersion bumps on reconnect and on every autosave reload, so this
-    // re-fetches whenever the cached list would otherwise go stale — not just
-    // on first mount. The backend itself pre-warms this exact request in the
-    // background on every reload (see worker_service.warm_cache), so by the
-    // time storeVersion actually changes here the request below is normally
-    // an instant cache hit rather than a fresh multi-second build.
-    if (cacheIsFresh(storeVersion)) return
-    setLoading(true)
-    api.roster.all(1, 99999).then(d => {
-      _cachedWorkers = { version: storeVersion, workers: d.workers }
-      setData(d)
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [storeVersion])
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {

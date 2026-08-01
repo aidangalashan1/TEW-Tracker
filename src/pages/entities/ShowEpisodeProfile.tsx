@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../../context/AppContext'
 import { api } from '../../api'
@@ -18,29 +18,18 @@ export function ShowEpisodeProfile({ entityId }: { entityId: string }) {
   const workerById = (uid: number) => workers.find(w => w.uid === uid)
   const fed = focusedFed || playerFed
   const [tvUid, showDate] = (entityId || '').split('@')
-  const [tvShow, setTvShow] = useState<any>(null)
-  const [card, setCard] = useState<any>(null)
   const [showEditor, setShowEditor] = useState(false)
   const [compact, setCompact] = useState(false)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
-  const [workers, setWorkers] = useState<any[]>([])
   const fedUid = fed?.uid
-  useEffect(() => {
-    if (fedUid != null) api.roster.list(fedUid).then(r => setWorkers(r.workers || [])).catch(() => {})
-  }, [fedUid])
+  const { data: workersData } = useSWR(fedUid != null ? 'roster-' + fedUid : null, () => api.roster.list(fedUid!))
+  const workers: any[] = workersData?.workers ?? []
 
-  useEffect(() => {
-    if (tvUid) {
-      api.schedule.tvDetail(parseInt(tvUid, 10)).then(setTvShow).catch(() => {})
-    }
-  }, [tvUid])
-
-  useEffect(() => {
-    if (tvUid && showDate) {
-      api.cards.getByShow('tv', parseInt(tvUid, 10), showDate).then(setCard).catch(() => {})
-    }
-  }, [tvUid, showDate])
+  // Same key as ShowProfile.tsx's `tv-show-{tvUid}` — both pages fetch the
+  // same underlying TV show metadata, just for different episodes/contexts.
+  const { data: tvShow } = useSWR(tvUid ? 'tv-show-' + tvUid : null, () => api.schedule.tvDetail(parseInt(tvUid, 10)))
+  const { data: card, setData: setCard } = useSWR<any>(tvUid && showDate ? `card-tv-${tvUid}-${showDate}` : null, () => api.cards.getByShow('tv', parseInt(tvUid, 10), showDate))
 
   const { data: showHistory } = useSWR(fed?.uid ? 'past-shows-' + fed.uid : null, () => api.show_history.list(fed!.uid, 100))
   const pastEpisodes = useMemo(() => {

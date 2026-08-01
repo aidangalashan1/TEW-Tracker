@@ -8,11 +8,15 @@ import trackerLogo from './assets/TrackerLogo.png'
 import { WORKER_LIST_PAGE_ID } from './pages/pageStorage'
 
 export function AppLayout() {
-  const { currentPage, db, syncWorkspace, rosterTab, setRosterTab, creativeTab, setCreativeTab } = useApp()
+  const { currentPage, db, appReady, syncWorkspace, rosterTab, setRosterTab, creativeTab, setCreativeTab } = useApp()
   const isWelcome = currentPage === 'welcome' || (!db.connected && !db.loading)
   const isRosterPage = currentPage === WORKER_LIST_PAGE_ID
   const isCreativePage = currentPage === 'booking'
-  const isLoading = db.loading && !db.connected
+  // Stay on the loading screen through the connect round trip AND the
+  // post-connect readiness window (game info + fixed-page prefetch — see
+  // DataContext's finishConnect), so the shell only appears once the pages
+  // a user lands on first are already warm, not with its own inline spinner.
+  const isLoading = (db.loading && !db.connected) || (db.connected && !appReady)
 
   useEffect(() => {
     if (!db.connected) return

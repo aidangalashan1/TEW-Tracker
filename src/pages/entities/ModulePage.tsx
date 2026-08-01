@@ -1,22 +1,18 @@
-import { useState, useEffect } from 'react'
 import { getModule } from '../../modules/registry'
 import { useApp } from '../../context/AppContext'
+import useSWR from '../../hooks/useApi'
 import { useModuleConfig } from '../../hooks/useModuleConfig'
 
 export function ModulePage({ moduleId }: { moduleId: string }) {
   const { focusedFed, playerFed } = useApp()
   const fed = focusedFed || playerFed
   const def = getModule(moduleId)
-  const [data, setData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const { config, handleConfigChange } = useModuleConfig(moduleId)
-
   const fedUid = fed?.uid
-  useEffect(() => {
-    if (fedUid == null || !def?.fetchData) { setLoading(false); return }
-    setLoading(true)
-    def.fetchData(fedUid).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
-  }, [def, fedUid])
+  // Previously didn't depend on storeVersion at all, so it never refreshed
+  // after an autosave while mounted — useSWR fixes that as a side effect.
+  const canFetch = fedUid != null && !!def?.fetchData
+  const { data, isLoading } = useSWR(canFetch ? `module-${moduleId}-${fedUid}` : null, () => def!.fetchData!(fedUid!))
+  const { config, handleConfigChange } = useModuleConfig(moduleId)
 
   if (!def) {
     return (
@@ -26,7 +22,7 @@ export function ModulePage({ moduleId }: { moduleId: string }) {
     )
   }
 
-  if (loading) return <div className="loading" style={{ padding: 24 }}>Loading...</div>
+  if (isLoading) return <div className="loading" style={{ padding: 24 }}>Loading...</div>
 
   return (
     <div className="module-full" style={{ padding: 8 }}>

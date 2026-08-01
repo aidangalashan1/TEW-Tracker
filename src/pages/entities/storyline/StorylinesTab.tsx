@@ -1,25 +1,22 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../../../context/AppContext'
 import { api } from '../../../api'
+import useSWR from '../../../hooks/useApi'
 import { ratingColor } from '../../../lib/colors'
 
 export function StorylinesTab() {
-  const { focusedFed, playerFed, img, navigateToEntity, storeVersion } = useApp()
+  const { focusedFed, playerFed, img, navigateToEntity } = useApp()
   const fed = focusedFed || playerFed
-  const [data, setData] = useState<any>(null)
+  const fedUid = fed?.uid
+  const { data, isLoading } = useSWR(fedUid != null ? 'storylines-cross-' + fedUid : null, () => api.storylines.cross(fedUid!))
+  // Same key as WorkerListPage's roster fetch — shares one cache entry.
+  const { data: rosterData } = useSWR(fedUid != null ? 'roster-' + fedUid : null, () => api.roster.list(fedUid!))
+  const roster = useMemo(() => rosterData?.workers ?? [], [rosterData])
   const [ideasOpen, setIdeasOpen] = useState(false)
   const [ideas, setIdeas] = useState<{ feuds: any[]; alliances: any[] }>({ feuds: [], alliances: [] })
-  const [roster, setRoster] = useState<any[]>([])
   const [selectedWorker, setSelectedWorker] = useState<number | null>(null)
   const [ideaSearch, setIdeaSearch] = useState('')
-
-  const fedUid = fed?.uid
-  useEffect(() => {
-    if (fedUid == null) return
-    api.storylines.cross(fedUid).then(setData).catch(() => {})
-    api.roster.list(fedUid).then(r => setRoster(r.workers || [])).catch(() => {})
-  }, [fedUid, storeVersion])
 
   const openIdeas = () => {
     setSelectedWorker(null)
@@ -50,7 +47,7 @@ export function StorylinesTab() {
   const targetWorker = roster.find((w: any) => w.uid === selectedWorker)
   const hideImg = (e: any) => { e.target.style.visibility = 'hidden' }
 
-  if (!data) return <div className="loading" style={{ padding: 24 }}>Loading storylines...</div>
+  if (isLoading || !data) return <div className="loading" style={{ padding: 24 }}>Loading storylines...</div>
 
   const renderCard = (sl: any) => (
     <div key={sl.uid} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '12px 16px', marginBottom: 8, cursor: 'pointer' }}

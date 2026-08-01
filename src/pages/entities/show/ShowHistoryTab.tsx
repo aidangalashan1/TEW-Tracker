@@ -1,21 +1,20 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useApp } from '../../../context/AppContext'
 import { api, type PastShow } from '../../../api'
+import useSWR from '../../../hooks/useApi'
 import { fmtDateOrdinal as fmtDate } from '../../../lib/dates'
 import { ratingColor } from '../../../lib/colors'
 
 export function ShowHistoryTab() {
-  const { focusedFed, playerFed, navigateToEntity, img, storeVersion } = useApp()
+  const { focusedFed, playerFed, navigateToEntity, img } = useApp()
   const fed = focusedFed || playerFed
-  const [shows, setShows] = useState<PastShow[]>([])
-
   const fedUid = fed?.uid
-  useEffect(() => {
-    if (fedUid == null) return
-    api.show_history.list(fedUid, 100).then(r => setShows(r.shows)).catch(() => {})
-  }, [fedUid, storeVersion])
+  // Same key as ShowEpisodeProfile.tsx's identical api.show_history.list call
+  // — shares one cache entry instead of two.
+  const { data, isLoading } = useSWR(fedUid != null ? 'past-shows-' + fedUid : null, () => api.show_history.list(fedUid!, 100))
 
   const grouped = useMemo(() => {
+    const shows: PastShow[] = data?.shows ?? []
     const groups: { month: string; items: PastShow[] }[] = []
     let currentMonth = ''
     for (const show of shows) {
@@ -30,9 +29,9 @@ export function ShowHistoryTab() {
       groups[groups.length - 1].items.push(show)
     }
     return groups
-  }, [shows])
+  }, [data])
 
-  if (shows.length === 0) return <div className="loading" style={{ padding: 24 }}>Loading show history...</div>
+  if (isLoading) return <div className="loading" style={{ padding: 24 }}>Loading show history...</div>
 
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: 20 }}>

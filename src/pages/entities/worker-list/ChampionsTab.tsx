@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { api } from '../../../api'
 import { useApp } from '../../../context/AppContext'
+import useSWR from '../../../hooks/useApi'
 import type { Worker, Belt, BeltHistoryGroup } from '../../../api-types'
 import { fmtFlexibleDateOrdinal, daysBetweenFlexible } from '../../../lib/dates'
 import { MemberCard } from './MemberCard'
@@ -44,17 +45,12 @@ function HistoryCard({ group }: { group: BeltHistoryGroup }) {
 
 /** Champions tab on the Worker List page. */
 export function ChampionsTab({ fedUid, workers }: { fedUid: number; workers: Worker[] }) {
-  const { img, navigateToEntity, storeVersion } = useApp()
-  const [belts, setBelts] = useState<Belt[] | null>(null)
-  const [history, setHistory] = useState<BeltHistoryGroup[] | null>(null)
+  const { img, navigateToEntity } = useApp()
+  const { data: beltsData, isLoading: beltsLoading } = useSWR('fed-belts-' + fedUid, () => api.fed.belts(fedUid))
+  const { data: historyData, isLoading: historyLoading } = useSWR('belt-history-' + fedUid, () => api.fed.beltHistory(fedUid))
+  const belts: Belt[] | null = beltsData?.belts ?? null
+  const history: BeltHistoryGroup[] | null = historyData?.history ?? null
   const [activeOnly, setActiveOnly] = useState(true)
-
-  useEffect(() => {
-    setBelts(null)
-    setHistory(null)
-    api.fed.belts(fedUid).then(r => setBelts(r.belts)).catch(() => setBelts([]))
-    api.fed.beltHistory(fedUid).then(r => setHistory(r.history)).catch(() => setHistory([]))
-  }, [fedUid, storeVersion])
 
   const workerMap = useMemo(() => new Map(workers.map(w => [w.uid, w])), [workers])
 
@@ -76,7 +72,7 @@ export function ChampionsTab({ fedUid, workers }: { fedUid: number; workers: Wor
     return list
   }, [belts, activeOnly])
 
-  if (belts === null || history === null) return <div className="loading" style={{ padding: 24 }}>Loading...</div>
+  if (beltsLoading || historyLoading || belts === null || history === null) return <div className="loading" style={{ padding: 24 }}>Loading...</div>
 
   return (
     <div style={{ height: '100%', padding: 20, overflow: 'auto', boxSizing: 'border-box' }}>
