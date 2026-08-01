@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
+from core.datastore import get_store
 from core.errors import ApiError
-from services.fed_service import get_fed, get_storylines, get_fed_finances
+from .service import get_fed, get_fed_finances
+from .relative import get_player_fed_uid
 from domains.belt.service import get_belts, get_belt_history
-from services.company_service import get_player_fed_uid
+from domains.storyline.service import get_storylines
 
 router = APIRouter(prefix="/api/fed", tags=["federation"])
 
@@ -41,7 +43,6 @@ def belt_history_route(fed_uid: int, limit: int = 5):
 
 @router.get("/{fed_uid}/overview")
 def overview(fed_uid: int):
-    from core.datastore import get_store
     store = get_store()
     if store:
         store.preload_groups("feds", "contracts", "belts", "storylines", "finance")

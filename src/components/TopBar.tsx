@@ -2,8 +2,13 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import type { Federation } from '../api'
-import { api, imageUrl } from '../api'
+import { imageUrl } from '../api'
 import { getAllModules } from '../modules/registry'
+import { useBeltBreadcrumb } from '../pages/entities/belt/useBeltBreadcrumb'
+import { usePastShowBreadcrumb } from '../pages/entities/show/usePastShowBreadcrumb'
+import { useTvEpisodeBreadcrumb } from '../pages/entities/show/useTvEpisodeBreadcrumb'
+import { useWorkerBreadcrumb } from '../pages/entities/worker-profile/useWorkerBreadcrumb'
+import { useWorkerRosterNav } from '../pages/entities/worker-profile/useWorkerRosterNav'
 import moveDownIcon from '../assets/UI icons/movedown.png'
 import moveUpIcon from '../assets/UI icons/moveup.png'
 import leftIcon from '../assets/UI icons/left.png'
@@ -64,7 +69,7 @@ function groupFeds(feds: Federation[], playerFed: Federation | null): [string, F
 }
 
 export function TopBar() {
-  const { currentPage, pages, closeEntity, playerFed, focusedFed, allFeds, setFocusedFed, navigateToEntity, img, goBack, goForward, canGoBack, canGoForward, storeVersion } = useApp()
+  const { currentPage, pages, closeEntity, playerFed, focusedFed, allFeds, setFocusedFed, navigateToEntity, img, goBack, goForward, canGoBack, canGoForward } = useApp()
   const [logoErr, setLogoErr] = useState(false)
   const [fedOpen, setFedOpen] = useState(false)
   const [fedPos, setFedPos] = useState<{ top: number; left: number; width: number } | null>(null)
@@ -74,35 +79,21 @@ export function TopBar() {
   const entityType = entityMatch?.[1]
   const entityId = entityMatch?.[2]
 
-  // Belt entity: fetch name
+  // Entity breadcrumb names — each fetched by a small hook living in that
+  // entity's own domain folder, so TopBar composes rather than knows how to
+  // fetch every entity type itself.
   const isBeltEntity = entityType === 'belt'
   const beltUid = isBeltEntity ? Number(entityId) : null
-  const [beltName, setBeltName] = useState('')
-  useEffect(() => {
-    if (isBeltEntity && beltUid) {
-      api.belt.detail(beltUid).then(b => setBeltName(b.name)).catch(() => {})
-    }
-  }, [isBeltEntity, beltUid, storeVersion])
+  const beltName = useBeltBreadcrumb(isBeltEntity, beltUid)
 
-  // Past show entity: fetch name
   const isPastShowEntity = entityType === 'pastshow'
   const pastShowUid = isPastShowEntity ? Number(entityId) : null
-  const [pastShowName, setPastShowName] = useState('')
-  useEffect(() => {
-    if (isPastShowEntity && pastShowUid) {
-      api.show_history.detail(pastShowUid).then(s => setPastShowName(s.name)).catch(() => {})
-    }
-  }, [isPastShowEntity, pastShowUid, storeVersion])
+  const pastShowName = usePastShowBreadcrumb(isPastShowEntity, pastShowUid)
 
-  // TV episode entity: fetch show name from tvUid encoded in entityId (format: "tvUid@date")
+  // TV episode entity id encodes "tvUid@date"; the breadcrumb only needs tvUid.
   const isTvEpisodeEntity = entityType === 'tvepisode'
   const tvEpisodeTvUid = isTvEpisodeEntity ? parseInt((entityId || '').split('@')[0], 10) : null
-  const [tvEpisodeName, setTvEpisodeName] = useState('')
-  useEffect(() => {
-    if (isTvEpisodeEntity && tvEpisodeTvUid) {
-      api.schedule.tvDetail(tvEpisodeTvUid).then(s => setTvEpisodeName(s.name)).catch(() => {})
-    }
-  }, [isTvEpisodeEntity, tvEpisodeTvUid, storeVersion])
+  const tvEpisodeName = useTvEpisodeBreadcrumb(isTvEpisodeEntity, tvEpisodeTvUid)
 
   let pageName = pageNames[currentPage] || pages.find(p => p.id === currentPage)?.label || currentPage
   if (entityType === 'module') {
@@ -121,33 +112,11 @@ export function TopBar() {
   // Worker entity: fetch name and provide roster nav
   const isWorkerEntity = entityType === 'worker'
   const workerUid = isWorkerEntity ? Number(entityId) : null
-  const [workerName, setWorkerName] = useState('')
-  const [perceptionOrder, setPerceptionOrder] = useState<number[]>([])
+  const workerName = useWorkerBreadcrumb(isWorkerEntity, workerUid)
+  const { rosterList, perceptionOrder } = useWorkerRosterNav()
   const currentPerceptionIdx = isWorkerEntity && workerUid ? perceptionOrder.indexOf(workerUid) : -1
   const [rosterOpen, setRosterOpen] = useState(false)
-  const [rosterList, setRosterList] = useState<{ uid: number; name: string; perception: number; picture: string; contractPicture: string }[]>([])
   const rosterRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (isWorkerEntity && workerUid) {
-      api.roster.detail(workerUid).then(w => setWorkerName(w.name)).catch(() => {})
-    }
-  }, [isWorkerEntity, workerUid, storeVersion])
-  useEffect(() => {
-    const fed = focusedFed || playerFed
-    if (!fed) return
-    api.roster.list(fed.uid).then(res => {
-      const list = (res.workers || []).map((w: any) => ({
-        uid: w.uid,
-        name: w.name,
-        perception: (w.contract as any)?.Perception ?? 99,
-        picture: (w as any).picture || '',
-        contractPicture: (w as any).contract?.picture || '',
-      }))
-      list.sort((a: any, b: any) => a.perception - b.perception)
-      setRosterList(list)
-      setPerceptionOrder(list.map(w => w.uid))
-    }).catch(() => {})
-  }, [focusedFed, playerFed, storeVersion])
   useEffect(() => {
     if (!rosterOpen) return
     const handler = (e: MouseEvent) => {

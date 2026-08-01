@@ -48,7 +48,7 @@ def tew_showday_to_date(today: date, tew_showday: int) -> date:
 
 
 def get_schedule(fed_uid: Optional[int], weeks: int = 13) -> dict:
-    from services.company_service import get_controlled_fed_uids
+    from domains.company.relative import get_controlled_fed_uids
 
     store = get_store()
     if not store:

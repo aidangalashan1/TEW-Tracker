@@ -1,5 +1,5 @@
 from core.datastore import get_store
-from models import Federation, Storyline
+from models import Federation
 
 
 def get_fed(fed_uid: int) -> Federation | None:
@@ -23,15 +23,6 @@ def get_all_feds() -> list[Federation]:
         key=lambda r: (r.get("Based_In", 0), -(r.get("Size", 1) or 1)),
     )
     return [Federation.from_db_row(r) for r in rows]
-
-
-def get_storylines(fed_uid: int) -> list[Storyline]:
-    store = get_store()
-    if not store:
-        return []
-    sls = store.fed_storylines.get(fed_uid, [])
-    sls.sort(key=lambda s: -(s.get("Heat", 0) or 0))
-    return [Storyline.from_db_row(s) for s in sls]
 
 
 def get_fed_finances(fed_uid: int) -> dict:

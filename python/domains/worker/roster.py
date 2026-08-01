@@ -10,7 +10,7 @@ from models import (
     WorkerContract, OvernessEntry, RatingDisplay, WinLoss,
     StorylineAssignment, TagTeamInfo, StableInfo, ChemistryInfo,
 )
-from services.company_service import get_player_fed_uid, get_fed_home_area, clear_fed_avg_cache
+from domains.company.relative import get_player_fed_uid, get_fed_home_area, clear_fed_avg_cache
 from .aggregate import MATCH_TYPE_NAMES, _build_performance
 from .assembly import _build_worker, _lightweight_dump, _CORE_WORKER_GROUPS, _ROSTER_EXTRA_GROUPS
 

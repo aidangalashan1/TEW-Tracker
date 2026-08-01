@@ -7,7 +7,7 @@ import pytest
 
 pytest.importorskip("pyodbc", reason="finance_service imports the pyodbc-backed datastore")
 
-from services.finance_service import (  # noqa: E402
+from domains.company.finance import (  # noqa: E402
     _pct,
     _totals,
     _line,

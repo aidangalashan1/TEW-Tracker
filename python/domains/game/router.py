@@ -1,6 +1,6 @@
 import os
 from fastapi import APIRouter
-from services.game_service import get_game_info
+from .service import get_game_info
 from core.datastore import init_store, get_store
 from core.database import reconnect, current_path
 

@@ -10,7 +10,7 @@ from models import (
     Worker, WorkerSkills, WorkerPhysical, WorkerContract,
     OvernessEntry, RatingDisplay, WinLoss,
 )
-from services.company_service import get_player_fed_uid
+from domains.company.relative import get_player_fed_uid
 from .aggregate import _compute_age, _build_performance
 from .assembly import _set_company_data
 from .form import _get_worker_segments

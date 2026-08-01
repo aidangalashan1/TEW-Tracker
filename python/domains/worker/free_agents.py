@@ -9,7 +9,7 @@ from models import Worker, WorkerSkills, WorkerPhysical, RatingDisplay, Overness
 from core.regions import REGION_TO_AREA, AREAS
 from .aggregate import _compute_age
 from .form import _get_worker_segments, _summarize_segments
-from services.company_service import get_player_fed_uid
+from domains.company.relative import get_player_fed_uid
 
 
 def get_free_agents(fed_uid: int = None) -> list[Worker]:

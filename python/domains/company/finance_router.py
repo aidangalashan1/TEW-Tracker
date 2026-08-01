@@ -1,18 +1,18 @@
 from fastapi import APIRouter, Query
 from typing import Optional
-from services.finance_service import (
+from .finance import (
     get_finance_summary,
     get_finance_history,
     get_finance_breakdown,
     get_wage_bill,
     get_finance_standing,
 )
+from .relative import get_player_fed_uid
 
 router = APIRouter(prefix="/api/finance", tags=["finance"])
 
 
 def _resolve_fed_uid(fed_uid: Optional[int]) -> int:
-    from services.company_service import get_player_fed_uid
     return fed_uid if fed_uid is not None else get_player_fed_uid()
 
 

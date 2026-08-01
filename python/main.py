@@ -12,7 +12,7 @@ _this_dir = os.path.dirname(os.path.abspath(__file__))
 if _this_dir not in sys.path:
     sys.path.insert(0, _this_dir)
 
-from routers import game, federation, database as db_router, images as images_router, views as views_router, workspace as workspace_router, profiles as profiles_router, finance as finance_router, shortlist as shortlist_router, columns as columns_router, filters as filters_router
+from routers import database as db_router, images as images_router, views as views_router, workspace as workspace_router, profiles as profiles_router, shortlist as shortlist_router, columns as columns_router, filters as filters_router
 from domains.worker.router import router as worker_router
 from domains.worker.free_agents_router import router as worker_free_agents_router
 from domains.belt.router import router as belt_router
@@ -23,7 +23,10 @@ from domains.show.cards_router import router as cards_router
 from domains.show.history_router import router as show_history_router
 from domains.storyline.router import router as storyline_router
 from domains.storyline.planned_router import router as planned_storyline_router
-from services.fed_service import get_all_feds
+from domains.company.router import router as company_router
+from domains.company.finance_router import router as finance_router
+from domains.company.service import get_all_feds
+from domains.game.router import router as game_router
 from core.errors import register_error_handlers
 
 _last_request = time.time()
@@ -50,9 +53,9 @@ app.add_middleware(
 )
 app.add_middleware(WatchdogMiddleware)
 
-app.include_router(game.router)
+app.include_router(game_router)
 app.include_router(worker_router)
-app.include_router(federation.router)
+app.include_router(company_router)
 app.include_router(db_router.router)
 app.include_router(images_router.router)
 app.include_router(team_router)
@@ -65,7 +68,7 @@ app.include_router(workspace_router.router)
 app.include_router(profiles_router.router)
 app.include_router(show_history_router)
 app.include_router(storyline_router)
-app.include_router(finance_router.router)
+app.include_router(finance_router)
 app.include_router(worker_free_agents_router)
 app.include_router(shortlist_router.router)
 app.include_router(columns_router.router)

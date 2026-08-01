@@ -1,6 +1,10 @@
+"""Global save-state (current date/turn/stage, the player's own worker/fed
+identity) — distinct from the Company domain, which is about one federation's
+own data. Game state doesn't belong to any one federation even though it
+carries player_fed_uid."""
 from core.datastore import get_store
 from models import GameInfo
-from services.company_service import get_player_fed_uid
+from domains.company.relative import get_player_fed_uid
 
 
 def get_game_info() -> GameInfo:

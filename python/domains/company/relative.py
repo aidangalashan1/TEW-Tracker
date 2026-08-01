@@ -1,6 +1,7 @@
 """Federation-relative computation: which fed the player controls, a fed's home
 area, and roster averages used to score a worker against their company. Reads
-only raw store data (no Worker assembly), so it never depends on worker_service.
+only raw store data (no Worker assembly), so it never depends on the worker
+domain — the worker domain depends on this instead (see domains.worker.assembly).
 """
 from core.datastore import get_store
 from core.regions import REGION_TO_AREA, AREAS

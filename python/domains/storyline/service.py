@@ -1,6 +1,19 @@
 from core.datastore import get_store
 from datetime import datetime, timedelta, date
+from models import Storyline
 from domains.show.schedule import tew_showday_to_date
+
+
+def get_storylines(fed_uid: int) -> list[Storyline]:
+    """A fed's storylines with no cross-referencing — the simple listing used
+    by the Federation Overview page. For the full workers-populated cross
+    table, see get_storylines_cross below."""
+    store = get_store()
+    if not store:
+        return []
+    sls = store.fed_storylines.get(fed_uid, [])
+    sls.sort(key=lambda s: -(s.get("Heat", 0) or 0))
+    return [Storyline.from_db_row(s) for s in sls]
 
 
 def _storyline_involved_workers(store, invs: list[dict], fed_uid: int) -> list[dict]:

@@ -5,7 +5,7 @@ the roster list and worker-detail builders."""
 from datetime import datetime
 from models import Worker, WorkerSkills, WorkerPhysical, RatingDisplay
 from core.regions import AREAS
-from services.company_service import get_player_fed_uid, _compute_fed_averages
+from domains.company.relative import get_player_fed_uid, _compute_fed_averages
 from .aggregate import _compute_age
 from .scoring import _compute_star_scores
 
