@@ -9,10 +9,10 @@ from .worker import (
     WorkerSkills, WorkerContract, StorylineAssignment, WorkerPerformance,
     TagTeamInfo, StableInfo, ChemistryInfo, Worker,
 )
-from .company import (
-    SIZE_MAP, BELT_STYLE_MAP, BELT_LEVEL_MAP,
-    Federation, TagTeam, Stable, Belt,
-)
+from .company import SIZE_MAP, Federation
+from .belt import BELT_STYLE_MAP, BELT_LEVEL_MAP, Belt
+from .team import TagTeam
+from .stable import Stable
 from .show import GameInfo, Narrative, Storyline
 
 __all__ = [
