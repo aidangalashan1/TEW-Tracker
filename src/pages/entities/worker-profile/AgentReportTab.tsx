@@ -1,4 +1,6 @@
 import { Stars } from '../../../components/Stars'
+import { ATTR_MAP, ATTR_TOOLTIP } from './attributeLabels'
+import { ScoutIcon } from './ScoutIcon'
 import iPsych from '../../../assets/UI icons/scouting/psychology.png'
 import iReliable from '../../../assets/UI icons/scouting/reliable.png'
 import iTechnical from '../../../assets/UI icons/scouting/technical.png'
@@ -41,15 +43,12 @@ interface AgentReport { pros: ReportItem[]; cons: ReportItem[]; summary: string;
 
 interface AgentReportTabProps {
   w: any; stars: { current: number; potential: number; currentScore: number; potentialScore: number };
-  ATTR_MAP: Record<number, string>;
-  ATTR_TOOLTIP: Record<number, string>;
-  ScoutIcon: React.ComponentType<{ label: string; isPro: boolean; val?: number; isElite?: boolean; icon?: string; warn?: boolean }>;
   compact?: boolean;
 }
 
 export function AgentReportTab(props: AgentReportTabProps) {
   try {
-    const { w, stars, ATTR_MAP, ATTR_TOOLTIP, ScoutIcon, compact } = props
+    const { w, stars, compact } = props
     const report: AgentReport = w.agent_report || { pros: [], cons: [], summary: '', best_role: '' }
     const pros = report.pros
     const cons = report.cons

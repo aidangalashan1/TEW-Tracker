@@ -9,25 +9,34 @@ import { ratingColor } from '../../../lib/colors'
 import { fmtDateOrdinal } from '../../../lib/dates'
 import { SKILL_LABELS } from '../../../lib/labels'
 import { Tooltip } from '../../../components/Tooltip'
+import { ATTR_MAP, ATTR_TOOLTIP } from './attributeLabels'
 import rightIcon from '../../../assets/UI icons/right.png'
+import wrestlerIcon from '../../../assets/UI icons/wrestleroccasional.png'
+import refereeIcon from '../../../assets/UI icons/referee.png'
+import announcerIcon from '../../../assets/UI icons/announcercolor.png'
+import managerIcon from '../../../assets/UI icons/manager.png'
+import personalityIcon from '../../../assets/UI icons/personality.png'
+import roadAgentIcon from '../../../assets/UI icons/roadagent.png'
+import condMaleHead from '../../../assets/UI icons/condition/malehead.png'
+import condMaleBody from '../../../assets/UI icons/condition/malebody.png'
+import condMaleLegs from '../../../assets/UI icons/condition/malelegs.png'
+import condFemHead from '../../../assets/UI icons/condition/femhead.png'
+import condFemBody from '../../../assets/UI icons/condition/fembody.png'
+import condFemLegs from '../../../assets/UI icons/condition/femlegs.png'
+import condMaleArmLeft from '../../../assets/UI icons/condition/malearmleft.png'
+import condMaleArmRight from '../../../assets/UI icons/condition/malearmright.png'
+import condFemArmLeft from '../../../assets/UI icons/condition/femarmleft.png'
+import condFemArmRight from '../../../assets/UI icons/condition/femarmright.png'
 
 interface ProfileTabProps {
   w: any; stars: any; img: any; focusedFed: any; playerFed: any; allFeds: any; gameInfo: any;
   navigateToEntity: (type: string, uid: number) => void;
   onViewForm?: () => void;
   AREAS: Record<string, number[]>;
-  ATTR_MAP: Record<number, string>;
-  ATTR_TOOLTIP: Record<number, string>;
-  condMaleHead: string; condMaleBody: string; condMaleLegs: string;
-  condMaleArmLeft: string; condMaleArmRight: string;
-  condFemHead: string; condFemBody: string; condFemLegs: string;
-  condFemArmLeft: string; condFemArmRight: string;
-  wrestlerIcon: string; refereeIcon: string; announcerIcon: string;
-  managerIcon: string; personalityIcon: string; roadAgentIcon: string;
 }
 
 export function ProfileTab(props: ProfileTabProps) {
-  const { w, img, AREAS, ATTR_MAP, ATTR_TOOLTIP, condMaleHead, condMaleBody, condMaleLegs, condMaleArmLeft, condMaleArmRight, condFemHead, condFemBody, condFemLegs, condFemArmLeft, condFemArmRight, wrestlerIcon, refereeIcon, announcerIcon, managerIcon, personalityIcon, roadAgentIcon, onViewForm, gameInfo } = props
+  const { w, img, AREAS, onViewForm, gameInfo } = props
 
   const isFem = (w as any).Gender === 5 || (w as any).Gender === 8
   const [tip, setTip] = useState<{ node: React.ReactNode; x: number; y: number } | null>(null)

@@ -21,6 +21,12 @@ export function genderTint(g: number): string {
   return '#c084fc'
 }
 
+/** Maps TEW Gender numeric codes to a display label. */
+export const GENDER_LABELS: Record<number, string> = {
+  1: 'Male', 2: 'Trans Male', 3: 'Non-Binary', 4: 'Male',
+  5: 'Female', 6: 'Trans Female', 7: 'Non-Binary', 8: 'Female',
+}
+
 export function GenderIcon({ gender, size = 16 }: { gender: number; size?: number }) {
   return (
     <span style={{
