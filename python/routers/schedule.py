@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Query
 from datetime import datetime, timedelta, date
 from typing import Optional
-from datastore import get_store, register_warm_hook
-from response_utils import fast_json
+from core.datastore import get_store, register_warm_hook
+from core.response_utils import fast_json
 from services.company_service import get_controlled_fed_uids
 
 router = APIRouter(prefix="/api/schedule", tags=["schedule"])
@@ -15,8 +15,8 @@ _SCHEDULE_GROUPS = ("tv_shows", "cards", "broadcaster_slots", "feds", "game_info
 
 
 def _warm_schedule() -> None:
-    """Registered as a datastore warm hook (see worker_service.warm_cache for
-    the same pattern) so the Schedule tab's groups are pre-loaded in the
+    """Registered as a datastore warm hook (see domains.worker.roster.warm_cache
+    for the same pattern) so the Schedule tab's groups are pre-loaded in the
     background on connect/reload, not paid for on the first click in."""
     store = get_store()
     if store:

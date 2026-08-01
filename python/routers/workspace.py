@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Any
-from storage import workspace_path
-from json_store import read_json_or_default, write_json
+from core.storage import workspace_path
+from core.json_store import read_json_or_default, write_json
 
 router = APIRouter(prefix="/api/workspace", tags=["workspace"])
 

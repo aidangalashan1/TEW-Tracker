@@ -4,7 +4,7 @@ json_store.py's automatic app-state persistence."""
 import json
 import os
 from fastapi import HTTPException
-from storage import saves_dir
+from core.storage import saves_dir
 
 
 def export_json_dialog(title: str, default_filename: str, data_str: str) -> dict:

@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from storage import storylines_dir
-from json_store import read_json, write_json, scan_json_dir
+from core.storage import storylines_dir
+from core.json_store import read_json, write_json, scan_json_dir
 
 router = APIRouter(prefix="/api/storylines/planned", tags=["storylines"])
 

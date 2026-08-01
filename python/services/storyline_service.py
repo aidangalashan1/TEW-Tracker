@@ -1,4 +1,4 @@
-from datastore import get_store
+from core.datastore import get_store
 from datetime import datetime, timedelta, date
 
 DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']

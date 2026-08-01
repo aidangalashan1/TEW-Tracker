@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from json_dialog import export_json_dialog, import_json_dialog
+from core.json_dialog import export_json_dialog, import_json_dialog
 
 router = APIRouter(prefix="/api/filters", tags=["filters"])
 

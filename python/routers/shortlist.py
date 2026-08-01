@@ -4,9 +4,9 @@ to the read-only game database."""
 from datetime import datetime, timezone
 from fastapi import APIRouter
 from pydantic import BaseModel
-from datastore import get_store
-from storage import shortlist_path
-from json_store import read_json_list, write_json
+from core.datastore import get_store
+from core.storage import shortlist_path
+from core.json_store import read_json_list, write_json
 
 router = APIRouter(prefix="/api/shortlist", tags=["shortlist"])
 

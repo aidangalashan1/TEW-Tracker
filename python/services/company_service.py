@@ -2,8 +2,8 @@
 area, and roster averages used to score a worker against their company. Reads
 only raw store data (no Worker assembly), so it never depends on worker_service.
 """
-from datastore import get_store
-from regions import REGION_TO_AREA, AREAS
+from core.datastore import get_store
+from core.regions import REGION_TO_AREA, AREAS
 
 # Roster averages are expensive to recompute, so cache per fed for the duration
 # of a roster/all-workers build; the builders reset it (clear_fed_avg_cache).

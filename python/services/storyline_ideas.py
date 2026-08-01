@@ -14,7 +14,7 @@ narrative; it surfaces the relationships the game already tracks but buries.
 """
 from datetime import datetime
 
-from datastore import get_store
+from core.datastore import get_store
 
 # tblWorkerSkill columns for a rough star-power proxy (real column names —
 # the previous version read Brawling/Aerial/Microphone/Acting/StarQuality,
@@ -190,8 +190,8 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
     game_date = store.game_date_val
 
     # Reuse the canonical popularity / ability-vs-potential scores (single source
-    # of truth in worker_service) rather than recomputing them here.
-    from services.worker_service import get_roster
+    # of truth in domains.worker.roster) rather than recomputing them here.
+    from domains.worker.roster import get_roster
     scored = {w["uid"]: w for w in get_roster(fed_uid)}
 
     def _pop_growth(uid):

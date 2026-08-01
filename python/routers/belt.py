@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from datastore import get_store
-from errors import ApiError
+from core.datastore import get_store
+from core.errors import ApiError
 from models import Belt
 
 router = APIRouter(prefix="/api/belt", tags=["belt"])

@@ -1,4 +1,4 @@
-from datastore import get_store
+from core.datastore import get_store
 from models import GameInfo
 from services.company_service import get_player_fed_uid
 

@@ -5,7 +5,7 @@ Ported from the old frontend AgentReportTab so the backend "makes sense" of the
 data and the tab merely renders it. `icon` fields are string keys the frontend
 maps to its scouting-icon assets — no asset paths cross the boundary.
 """
-from regions import REGION_TO_AREA, AREAS
+from core.regions import REGION_TO_AREA, AREAS
 
 # Absolute skill thresholds (0–100), independent of company level.
 _A = {"elite": 90, "strong": 85, "solid": 75, "weak": 50, "poor": 35}

@@ -4,10 +4,11 @@ mirrors get_roster()'s level of detail (a browsable list, not the full
 worker-detail payload) so the frontend can filter/sort/shortlist at a glance.
 """
 from datetime import datetime
-from datastore import get_store
+from core.datastore import get_store
 from models import Worker, WorkerSkills, WorkerPhysical, RatingDisplay, OvernessEntry
-from regions import REGION_TO_AREA, AREAS
-from services.worker_service import _compute_age, _get_worker_segments, _summarize_segments
+from core.regions import REGION_TO_AREA, AREAS
+from .aggregate import _compute_age
+from .form import _get_worker_segments, _summarize_segments
 from services.company_service import get_player_fed_uid
 
 

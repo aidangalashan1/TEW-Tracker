@@ -1,12 +1,12 @@
-"""Characterization tests for agent_report_service — the scouting-report
-narrative generator, previously untested despite being almost as magic-number-
-heavy as worker_service's scoring engine. These lock in *current* output for
+"""Characterization tests for domains.worker.agent_report — the scouting-
+report narrative generator, previously untested despite being almost as
+magic-number-heavy as the scoring engine. These lock in *current* output for
 representative worker profiles so a refactor can't silently drop a pro/con
 rule or reorder the report.
 
-Unlike worker_service, this module never imports datastore/pyodbc — it's pure
-end to end, operating only on an already-populated Worker plus a plain fed
-dict — so no ODBC driver or importorskip guard is needed here.
+This module never imports datastore/pyodbc — it's pure end to end, operating
+only on an already-populated Worker plus a plain fed dict — so no ODBC
+driver or importorskip guard is needed here.
 
 Expected values were captured by running build_agent_report/_summary against
 each fixture and reading back the actual output (golden-master style), not
@@ -15,7 +15,7 @@ characterizing what the code does today is far more reliable than re-deriving
 it by eye.
 """
 from models import Worker, WorkerSkills, WorkerContract, RatingDisplay
-from services.agent_report_service import (
+from domains.worker.agent_report import (
     build_agent_report,
     _best_role,
     _summary,

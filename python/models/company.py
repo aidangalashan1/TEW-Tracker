@@ -2,7 +2,7 @@
 teams and stables that group its roster."""
 from pydantic import BaseModel, ConfigDict
 
-from regions import REGION_TO_AREA
+from core.regions import REGION_TO_AREA
 from .base import RatingDisplay, row_kwargs
 
 SIZE_MAP = {1: "Local", 2: "Small", 3: "Medium", 4: "Large", 5: "National",

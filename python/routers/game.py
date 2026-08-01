@@ -1,8 +1,8 @@
 import os
 from fastapi import APIRouter
 from services.game_service import get_game_info
-from datastore import init_store, get_store
-from database import reconnect, current_path
+from core.datastore import init_store, get_store
+from core.database import reconnect, current_path
 
 router = APIRouter(prefix="/api/game", tags=["game"])
 

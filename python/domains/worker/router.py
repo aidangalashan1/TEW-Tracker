@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Query
-from errors import ApiError
-from response_utils import fast_json
-from services.worker_service import get_roster, get_all_workers, get_worker_detail, get_worker_form, get_roster_form
+from core.errors import ApiError
+from core.response_utils import fast_json
+from .roster import get_roster, get_all_workers
+from .detail import get_worker_detail
+from .form import get_worker_form, get_roster_form
 from services.company_service import get_player_fed_uid
 
 router = APIRouter(prefix="/api/roster", tags=["roster"])

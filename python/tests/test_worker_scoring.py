@@ -1,16 +1,16 @@
-"""Characterization tests for the star-rating scoring engine in worker_service
-(src/lib/scoring.ts's backend port) — the highest-value, most magic-number-heavy
-logic in the app, previously untested. These lock in *current* output for
-representative worker profiles so a refactor can't silently reshuffle every
-worker's star rating; they don't assert the formula is "correct" against some
-external spec, only that it doesn't drift.
+"""Characterization tests for the star-rating scoring engine in
+domains.worker.scoring (src/lib/scoring.ts's backend port) — the highest-
+value, most magic-number-heavy logic in the app, previously untested. These
+lock in *current* output for representative worker profiles so a refactor
+can't silently reshuffle every worker's star rating; they don't assert the
+formula is "correct" against some external spec, only that it doesn't drift.
 
-`_compute_star_scores` is pure with respect to its `Worker` argument — it never
-touches the datastore, only fields already set on `w` — so these fixtures are
-constructed directly, with no live save file or ODBC driver required. The module
-import chain still pulls in `datastore` (which imports pyodbc) at module scope,
-so the whole file is skipped when the ODBC layer isn't installed, matching
-test_roster_calculations.py's guard.
+`_compute_star_scores` is pure with respect to its `Worker` argument — it
+never touches the datastore, only fields already set on `w` — and now that
+domains.worker.scoring is its own module (split out of the old monolithic
+worker_service.py), its import chain no longer pulls in datastore/pyodbc at
+all, so unlike test_roster_calculations.py's era this file needs no ODBC
+driver and no importorskip guard.
 
 Expected values below were captured by running _compute_star_scores against
 each fixture and reading back the actual output (a golden-master approach),
@@ -19,12 +19,8 @@ not hand-derived from the formula — the formula has enough interacting terms
 hand arithmetic is more error-prone than just characterizing what the code
 does today.
 """
-import pytest
-
-pytest.importorskip("pyodbc", reason="worker_service imports the pyodbc-backed datastore")
-
-from models import Worker, WorkerSkills, WorkerPhysical, WorkerContract, RatingDisplay  # noqa: E402
-from services.worker_service import (  # noqa: E402
+from models import Worker, WorkerSkills, WorkerPhysical, WorkerContract, RatingDisplay
+from domains.worker.scoring import (
     _compute_star_scores,
     _calc_perf,
     _attr_modifier,

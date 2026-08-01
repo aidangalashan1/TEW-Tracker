@@ -1,16 +1,16 @@
 import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from database import reconnect, current_path, browse_file, close as db_close
-from datastore import init_store, reset_store
-from images import get_image_root, auto_detect_image_root, set_image_root, clear_image_root
+from core.database import reconnect, current_path, browse_file, close as db_close
+from core.datastore import init_store, reset_store
+from core.images import get_image_root, auto_detect_image_root, set_image_root, clear_image_root
 
 router = APIRouter(prefix="/api/database", tags=["database"])
 
 
 @router.get("/status")
 def status():
-    from datastore import get_store
+    from core.datastore import get_store
     path = current_path()
     connected = path is not None and os.path.isfile(path) and get_store() is not None
     img_root = get_image_root()

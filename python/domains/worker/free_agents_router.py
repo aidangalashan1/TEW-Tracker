@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 from typing import Optional
-from response_utils import fast_json
-from services.free_agent_service import get_free_agents
+from core.response_utils import fast_json
+from .free_agents import get_free_agents
 
 router = APIRouter(prefix="/api/free-agents", tags=["free-agents"])
 

@@ -1,18 +1,15 @@
-"""Characterization tests for the pure aggregation helpers in worker_service.
+"""Characterization tests for the pure aggregation helpers in
+domains.worker.aggregate.
 
 These guard the rating aggregation and age math that feed worker profiles.
-The module imports the datastore (which imports pyodbc), so the whole module is
-skipped when the ODBC layer isn't installed — the helpers themselves don't touch
-a database.
+Now that aggregate.py is split out of the old monolithic worker_service.py,
+its import chain no longer pulls in datastore/pyodbc, so no ODBC driver or
+importorskip guard is needed here.
 """
 from datetime import datetime
 from types import SimpleNamespace
 
-import pytest
-
-pytest.importorskip("pyodbc", reason="worker_service imports the pyodbc-backed datastore")
-
-from services.worker_service import (  # noqa: E402  (import after importorskip)
+from domains.worker.aggregate import (
     _avg_rating,
     _best_rating,
     _worst_rating,

@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from database import reconnect
-from storage import profiles_path
-from json_store import read_json_list, write_json
+from core.database import reconnect
+from core.storage import profiles_path
+from core.json_store import read_json_list, write_json
 
 router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
@@ -78,7 +78,7 @@ def switch_to_profile(pid: str):
                 raise HTTPException(400, f"MDB file not found: {mdb}")
             try:
                 reconnect(mdb)
-                from datastore import init_store
+                from core.datastore import init_store
                 init_store(mdb)
             except Exception as e:
                 raise HTTPException(500, f"Failed to connect: {e}")

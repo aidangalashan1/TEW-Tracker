@@ -1,6 +1,6 @@
-from datastore import get_store
+from core.datastore import get_store
 from models import Stable
-from services.worker_lookup import resolve_worker_names_pics
+from domains.worker.lookup import resolve_worker_names_pics
 
 
 def get_stables(fed_uid: int) -> list[Stable]:

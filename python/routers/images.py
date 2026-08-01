@@ -2,7 +2,7 @@ import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from images import set_image_root, get_image_root, resolve_image, get_mime_type
+from core.images import set_image_root, get_image_root, resolve_image, get_mime_type
 
 router = APIRouter(prefix="/api/images", tags=["images"])
 
@@ -30,7 +30,7 @@ def set_path(req: SetPathRequest):
 
 @router.get("/auto")
 def auto(mdb_path: str = ""):
-    from images import auto_detect_image_root
+    from core.images import auto_detect_image_root
     path = auto_detect_image_root(mdb_path) if mdb_path else None
     if not path:
         return {"ok": False, "path": None, "error": "Could not auto-detect images folder"}
@@ -40,7 +40,7 @@ def auto(mdb_path: str = ""):
 
 @router.post("/browse")
 def browse():
-    from images import browse_folder
+    from core.images import browse_folder
     try:
         path = browse_folder()
         if path:
