@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from services.tagteam_service import get_tag_teams
+from .service import get_tag_teams
 
 router = APIRouter(prefix="/api/tagteams", tags=["tagteams"])
 

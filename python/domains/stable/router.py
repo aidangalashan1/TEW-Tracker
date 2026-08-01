@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from services.stable_service import get_stables
+from .service import get_stables
 
 router = APIRouter(prefix="/api/stables", tags=["stables"])
 

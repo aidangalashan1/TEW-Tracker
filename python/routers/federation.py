@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query
 from core.errors import ApiError
-from services.fed_service import get_fed, get_belts, get_storylines, get_fed_finances, get_belt_history
+from services.fed_service import get_fed, get_storylines, get_fed_finances
+from domains.belt.service import get_belts, get_belt_history
 from services.company_service import get_player_fed_uid
 
 router = APIRouter(prefix="/api/fed", tags=["federation"])
