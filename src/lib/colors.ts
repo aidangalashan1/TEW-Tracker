@@ -3,6 +3,7 @@
 export const COLOR_FACE = '#22c55e'
 export const COLOR_HEEL = '#ef4444'
 export const COLOR_MALE = '#60a5fa'
+export const COLOR_FEMALE = '#f472b6'
 
 export function ratingColor(pct: number): string {
   if (pct > 79) return '#60a5fa'
@@ -38,18 +39,4 @@ export function heatClass(h: number): string {
 
 export function tierColor(pct: number): string {
   return ratingColor(pct)
-}
-
-/** Maps TEW Gender numeric codes to display icons (sprite-like masks). */
-export function genderIcon(g: number): string {
-  const icons: Record<number, string> = { 1: 'male', 4: 'male', 5: 'female', 8: 'female', 2: 'trans', 6: 'trans' }
-  return icons[g] || 'nonbinary'
-}
-
-export function genderTint(g: number): string {
-  if (g === 1 || g === 4) return COLOR_MALE
-  if (g === 2) return '#93b4e8'
-  if (g === 5 || g === 8) return '#f472b6'
-  if (g === 6) return '#e88ab8'
-  return '#c084fc'
 }

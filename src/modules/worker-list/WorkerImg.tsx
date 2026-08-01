@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Worker } from '../api'
-import { useApp } from '../context/AppContext'
+import { Worker } from '../../api'
+import { useApp } from '../../context/AppContext'
 
 interface WorkerImgProps {
   worker: Worker

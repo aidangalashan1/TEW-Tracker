@@ -4,10 +4,7 @@ import useSWR from '../../hooks/useApi'
 import { api } from '../../api'
 import { NATIONALITY_FLAGS, NATIONALITY_NAMES } from '../../modules/worker-list/nationality'
 import { AREAS } from '../../modules/worker-list/regions'
-import maleIcon from '../../assets/UI icons/male.png'
-import femaleIcon from '../../assets/UI icons/female.png'
-import nonbinaryIcon from '../../assets/UI icons/nonbinary.png'
-import transIcon from '../../assets/UI icons/trans.png'
+import { GenderIcon } from '../../lib/genderIcon'
 import wrestlerIcon from '../../assets/UI icons/wrestleroccasional.png'
 import refereeIcon from '../../assets/UI icons/referee.png'
 import announcerIcon from '../../assets/UI icons/announcercolor.png'
@@ -377,19 +374,6 @@ const ATTR_TOOLTIP: Record<number, string> = {
   387:'Mr. Finale: The worker raises their game even more than normal when wrestling on a season finale show.',
 }
 
-function genderIcon(g: number): string {
-  return g === 1 || g === 4 ? maleIcon
-       : g === 5 || g === 8 ? femaleIcon
-       : g === 2 || g === 6 ? transIcon
-       : nonbinaryIcon
-}
-function genderTint(g: number): string {
-  return g === 1 || g === 4 ? '#60a5fa'
-       : g === 2 ? '#93b4e8'
-       : g === 5 || g === 8 ? '#f472b6'
-       : g === 6 ? '#e88ab8'
-       : '#c084fc'
-}
 const GENDER_LABELS: Record<number, string> = {
   1: 'Male', 2: 'Trans Male', 3: 'Non-Binary', 4: 'Male',
   5: 'Female', 6: 'Trans Female', 7: 'Non-Binary', 8: 'Female',
@@ -485,12 +469,7 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
                   {w.age} years old{birthday ? ` (${fmtDate(birthday)})` : ''}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{
-                    display: 'inline-block', width: 18, height: 18, flexShrink: 0,
-                    backgroundColor: genderTint(rawGender),
-                    mask: `url(${genderIcon(rawGender)}) center/contain no-repeat`,
-                    WebkitMask: `url(${genderIcon(rawGender)}) center/contain no-repeat`,
-                  }} />
+                  <GenderIcon gender={rawGender} size={18} />
                   <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{GENDER_LABELS[rawGender] || w.gender}</span>
                 </div>
               </div>

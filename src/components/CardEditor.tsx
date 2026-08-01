@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { api, ShowCard, CardSegment, Worker, PlannedStoryline, UpcomingShow } from '../api'
 import { useApp } from '../context/AppContext'
+import { COLOR_MALE, COLOR_FEMALE } from '../lib/colors'
 import plusIcon from '../assets/UI icons/plus.png'
 import faceIcon from '../assets/UI icons/face.png'
 import heelIcon from '../assets/UI icons/heel.png'
@@ -332,10 +333,10 @@ export function CardEditor({ show, fedUid, onClose }: CardEditorProps) {
                 <div className="toolbar card-editor-toolbar-group">
                   <button className={`btn ${genderFilter === 'all' ? 'active' : ''}`} onClick={() => setGenderFilter('all')} style={{ color: '#fff' }}>All</button>
                   <button className={`btn ${genderFilter === 'male' ? 'active' : ''}`} onClick={() => setGenderFilter('male')} style={{ color: '#fff' }}>
-                    <span style={{ display: 'inline-block', width: 14, height: 14, backgroundColor: '#60a5fa', mask: `url(${maleIcon}) center/contain no-repeat`, WebkitMask: `url(${maleIcon}) center/contain no-repeat`, verticalAlign: 'middle' }} />
+                    <span style={{ display: 'inline-block', width: 14, height: 14, backgroundColor: COLOR_MALE, mask: `url(${maleIcon}) center/contain no-repeat`, WebkitMask: `url(${maleIcon}) center/contain no-repeat`, verticalAlign: 'middle' }} />
                   </button>
                   <button className={`btn ${genderFilter === 'female' ? 'active' : ''}`} onClick={() => setGenderFilter('female')} style={{ color: '#fff' }}>
-                    <span style={{ display: 'inline-block', width: 14, height: 14, backgroundColor: '#f472b6', mask: `url(${femaleIcon}) center/contain no-repeat`, WebkitMask: `url(${femaleIcon}) center/contain no-repeat`, verticalAlign: 'middle' }} />
+                    <span style={{ display: 'inline-block', width: 14, height: 14, backgroundColor: COLOR_FEMALE, mask: `url(${femaleIcon}) center/contain no-repeat`, WebkitMask: `url(${femaleIcon}) center/contain no-repeat`, verticalAlign: 'middle' }} />
                   </button>
                 </div>
                 <div className="toolbar card-editor-toolbar-group">

@@ -1,14 +1,11 @@
 import { Worker } from '../../../api'
 import { RatingBadge } from '../../../components/RatingDisplay'
-import { WorkerImg } from '../../../components/WorkerImg'
+import { WorkerImg } from '../WorkerImg'
 import { NavChip } from '../../../components/NavChip'
 import { NATIONALITY_FLAGS } from '../nationality'
 import faceIcon from '../../../assets/UI icons/face.png'
 import heelIcon from '../../../assets/UI icons/heel.png'
-import maleIcon from '../../../assets/UI icons/male.png'
-import femaleIcon from '../../../assets/UI icons/female.png'
-import nonbinaryIcon from '../../../assets/UI icons/nonbinary.png'
-import transIcon from '../../../assets/UI icons/trans.png'
+import { GenderIcon } from '../../../lib/genderIcon'
 import wrestlerIcon from '../../../assets/UI icons/wrestleroccasional.png'
 import refereeIcon from '../../../assets/UI icons/referee.png'
 import announcerIcon from '../../../assets/UI icons/announcercolor.png'
@@ -18,7 +15,7 @@ import roadAgentIcon from '../../../assets/UI icons/roadagent.png'
 import { REGION_NAMES, AREAS } from '../regions'
 import { ColumnDef } from './types'
 import { StatusBadge, MoneyDisplay, conditionHeart, condPctBar, AvgCell, Last5Cell, fmtDuration, fmtDurationHm } from './renderers'
-import { COLOR_MALE, COLOR_FACE, COLOR_HEEL } from '../../../lib/colors'
+import { COLOR_FACE, COLOR_HEEL } from '../../../lib/colors'
 import { PERCEPTION_LABELS, SKILL_LABELS } from '../../../lib/labels'
 import starIcon from '../../../assets/UI icons/star.png'
 
@@ -50,17 +47,8 @@ export function buildColumns(): ColumnDef[] {
     { id: 'name', label: 'Name', width: 250, group: 'info', filterGroup: 'personal', render: w => <NavChip type="worker" id={w.uid} label={w.name} style={{ fontWeight: 700 }} />, sortKey: 'name' },
     { id: 'gender', label: 'Gender', abbrev: 'Gen', width: 24, group: 'info', filterGroup: 'personal', sortKey: 'gender', render: w => {
       const g = (w as any).Gender ?? 1
-      const icon = g === 1 || g === 4 ? maleIcon
-                 : g === 5 || g === 8 ? femaleIcon
-                 : g === 2 || g === 6 ? transIcon
-                 : nonbinaryIcon
-      const tint = g === 1 || g === 4 ? COLOR_MALE
-                 : g === 2 ? '#93b4e8'
-                 : g === 5 || g === 8 ? '#f472b6'
-                 : g === 6 ? '#e88ab8'
-                 : '#c084fc'
       return <div className="flex-center w-full h-full">
-        <span className="icon-mask" style={{ width: 16, height: 16, backgroundColor: tint, mask: `url(${icon}) center/contain no-repeat`, WebkitMask: `url(${icon}) center/contain no-repeat` }} />
+        <GenderIcon gender={g} size={16} />
       </div>
     } },
     { id: 'nat', label: 'Nationality', abbrev: 'Nat', width: 28, group: 'info', filterGroup: 'personal', sortKey: 'nat', render: w => {
