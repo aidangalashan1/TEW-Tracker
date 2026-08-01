@@ -1,17 +1,29 @@
-from fastapi import APIRouter, Query
+"""Upcoming schedule (TV + events) and single-show detail. Previously this
+logic lived directly in routers/schedule.py's route handlers instead of a
+service — including a `return {"error": ...}, 500`-style tuple return in
+tv_detail/event_detail, which FastAPI encodes as an HTTP 200 with a malformed
+2-element array body instead of an actual error status (the same bug already
+fixed across 7 other routes this session; missed here because this file
+didn't have a service layer to catch it during that pass). Now raises
+ApiError like everywhere else.
+
+DAY_NAMES/TEW_TO_PYTHON/tew_showday_to_date are also the Show domain's, and
+were previously duplicated verbatim in services/storyline_service.py (which
+needs upcoming-TV-show dates for its own "shows" list) — that file now
+imports them from here instead.
+"""
 from datetime import datetime, timedelta, date
 from typing import Optional
 from core.datastore import get_store, register_warm_hook
-from core.response_utils import fast_json
-from services.company_service import get_controlled_fed_uids
-
-router = APIRouter(prefix="/api/schedule", tags=["schedule"])
 
 # Groups get_schedule needs — each is a separate lazy-loaded table, so on a
 # cold store (first visit after connect/reload) accessing them one at a time
 # means several sequential ~200-400ms DB round trips. preload_groups loads
 # them concurrently instead (measured: ~1.25s sequential -> ~0.4s parallel).
 _SCHEDULE_GROUPS = ("tv_shows", "cards", "broadcaster_slots", "feds", "game_info")
+
+DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+TEW_TO_PYTHON = {0: 6, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}
 
 
 def _warm_schedule() -> None:
@@ -25,9 +37,6 @@ def _warm_schedule() -> None:
 
 register_warm_hook(_warm_schedule)
 
-DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-TEW_TO_PYTHON = {0: 6, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}
-
 
 def tew_showday_to_date(today: date, tew_showday: int) -> date:
     target = TEW_TO_PYTHON.get(tew_showday, 0)
@@ -38,8 +47,9 @@ def tew_showday_to_date(today: date, tew_showday: int) -> date:
     return d
 
 
-@router.get("")
-def get_schedule(fed_uid: Optional[int] = Query(None), weeks: int = Query(13)):
+def get_schedule(fed_uid: Optional[int], weeks: int = 13) -> dict:
+    from services.company_service import get_controlled_fed_uids
+
     store = get_store()
     if not store:
         return {"upcoming": [], "currentDate": datetime.now().date().isoformat()}
@@ -117,20 +127,19 @@ def get_schedule(fed_uid: Optional[int] = Query(None), weeks: int = Query(13)):
     # returned here too but nothing in the frontend reads them — ScheduleData
     # only ever uses `upcoming`/`currentDate`. Dropping them cut this
     # response from ~977KB to a fraction of that.
-    return fast_json({
+    return {
         "upcoming": upcoming,
         "currentDate": today.isoformat(),
-    })
+    }
 
 
-@router.get("/tv/{tv_uid}")
-def tv_detail(tv_uid: int):
+def get_tv_detail(tv_uid: int) -> dict | None:
     store = get_store()
     if not store:
-        return {"error": "No data"}, 500
+        return None
     tv = store.tv_shows.get(tv_uid)
     if not tv:
-        return {"error": "TV show not found"}, 404
+        return None
 
     current_date = store.game_info.get("CurrentGameDate") if store.game_info else datetime.now()
     today = current_date.date() if hasattr(current_date, 'date') else datetime.now().date()
@@ -154,7 +163,7 @@ def tv_detail(tv_uid: int):
         "name": tv.get("Name", ""),
         "type": "tv",
         "showday": tv.get("Showday", 0),
-        "dayLabel": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][tv.get("Showday", 0)],
+        "dayLabel": DAY_NAMES[tv.get("Showday", 0)],
         "length": tv.get("Length", 0),
         "lengthMin": (tv.get("Length") or 0) * 30,
         "bShow": bool(tv.get("B_Show")),
@@ -164,14 +173,13 @@ def tv_detail(tv_uid: int):
     }
 
 
-@router.get("/event/{card_uid}")
-def event_detail(card_uid: int):
+def get_event_detail(card_uid: int) -> dict | None:
     store = get_store()
     if not store:
-        return {"error": "No data"}, 500
+        return None
     ev = store.cards.get(card_uid)
     if not ev:
-        return {"error": "Event not found"}, 404
+        return None
 
     current_date = store.game_info.get("CurrentGameDate") if store.game_info else datetime.now()
     today = current_date.date() if hasattr(current_date, 'date') else datetime.now().date()

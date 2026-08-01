@@ -45,7 +45,7 @@ def _cleanup():
 @pytest.fixture(autouse=True)
 def _no_warm_hook(monkeypatch):
     """This module tests DataStore's own lazy-load semantics in isolation.
-    Importing domains.worker.roster / routers.schedule (as sibling test
+    Importing domains.worker.roster / domains.show.schedule (as sibling test
     modules in the same pytest session do) registers their warm hooks —
     background threads that eagerly touch many groups right after
     init_store(). Neutralize them here so they can't race the loaded-groups

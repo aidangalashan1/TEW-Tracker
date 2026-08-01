@@ -10,7 +10,7 @@ import pytest
 # storyline_ideas imports datastore, which imports pyodbc — absent on Linux CI.
 pytest.importorskip("pyodbc")
 
-from services.storyline_ideas import _past_story_delta, _rub_delta  # noqa: E402
+from domains.storyline.ideas import _past_story_delta, _rub_delta  # noqa: E402
 
 
 class TestPastStoryDelta:

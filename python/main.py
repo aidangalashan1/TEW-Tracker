@@ -12,12 +12,17 @@ _this_dir = os.path.dirname(os.path.abspath(__file__))
 if _this_dir not in sys.path:
     sys.path.insert(0, _this_dir)
 
-from routers import game, federation, database as db_router, images as images_router, views as views_router, schedule as schedule_router, cards as cards_router, planned_storylines as planned_storylines_router, workspace as workspace_router, profiles as profiles_router, show_history as show_history_router, storylines as storylines_router, finance as finance_router, shortlist as shortlist_router, columns as columns_router, filters as filters_router
+from routers import game, federation, database as db_router, images as images_router, views as views_router, workspace as workspace_router, profiles as profiles_router, finance as finance_router, shortlist as shortlist_router, columns as columns_router, filters as filters_router
 from domains.worker.router import router as worker_router
 from domains.worker.free_agents_router import router as worker_free_agents_router
 from domains.belt.router import router as belt_router
 from domains.team.router import router as team_router
 from domains.stable.router import router as stable_router
+from domains.show.router import router as show_router
+from domains.show.cards_router import router as cards_router
+from domains.show.history_router import router as show_history_router
+from domains.storyline.router import router as storyline_router
+from domains.storyline.planned_router import router as planned_storyline_router
 from services.fed_service import get_all_feds
 from core.errors import register_error_handlers
 
@@ -53,13 +58,13 @@ app.include_router(images_router.router)
 app.include_router(team_router)
 app.include_router(stable_router)
 app.include_router(views_router.router)
-app.include_router(schedule_router.router)
-app.include_router(cards_router.router)
-app.include_router(planned_storylines_router.router)
+app.include_router(show_router)
+app.include_router(cards_router)
+app.include_router(planned_storyline_router)
 app.include_router(workspace_router.router)
 app.include_router(profiles_router.router)
-app.include_router(show_history_router.router)
-app.include_router(storylines_router.router)
+app.include_router(show_history_router)
+app.include_router(storyline_router)
 app.include_router(finance_router.router)
 app.include_router(worker_free_agents_router)
 app.include_router(shortlist_router.router)

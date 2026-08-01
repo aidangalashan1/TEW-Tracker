@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Query
 from typing import Optional
 from core.errors import ApiError
-from services.storyline_service import get_storylines_cross, get_storyline_detail
-from services.storyline_ideas import get_storyline_ideas
+from .service import get_storylines_cross, get_storyline_detail
+from .ideas import get_storyline_ideas
 
 router = APIRouter(prefix="/api/storylines", tags=["storylines"])
 

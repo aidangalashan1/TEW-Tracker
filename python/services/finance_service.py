@@ -260,7 +260,7 @@ def get_finance_standing(fed_uid: int, limit: int = 10) -> dict:
 
 def _warm_finance() -> None:
     """Registered as a datastore warm hook (see domains.worker.roster.warm_cache /
-    routers.schedule._warm_schedule for the same pattern). workers/contracts/
+    domains.show.schedule._warm_schedule for the same pattern). workers/contracts/
     feds — the other groups these getters touch — are already covered by the
     worker warm-up; this only needs to additionally warm the finance-specific
     tables so the Finance module is instant once background warming settles."""

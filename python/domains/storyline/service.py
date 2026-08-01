@@ -1,17 +1,6 @@
 from core.datastore import get_store
 from datetime import datetime, timedelta, date
-
-DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-TEW_TO_PYTHON = {0: 6, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}
-
-
-def tew_showday_to_date(today: date, tew_showday: int) -> date:
-    target = TEW_TO_PYTHON.get(tew_showday, 0)
-    delta = (target - today.weekday()) % 7
-    d = today + timedelta(days=delta)
-    if d < today:
-        d += timedelta(days=7)
-    return d
+from domains.show.schedule import tew_showday_to_date
 
 
 def _storyline_involved_workers(store, invs: list[dict], fed_uid: int) -> list[dict]:

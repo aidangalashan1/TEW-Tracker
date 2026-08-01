@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 from typing import Optional
 from core.errors import ApiError
-from services.show_history_service import get_past_shows, get_past_show_detail
+from .history import get_past_shows, get_past_show_detail
 
 router = APIRouter(prefix="/api/show_history", tags=["show_history"])
 
