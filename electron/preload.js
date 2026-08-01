@@ -14,4 +14,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   apiBase,
   logError: (payload) => ipcRenderer.send('log-error', payload),
   quitApp: () => ipcRenderer.send('quit-app'),
+  openExternal: (url) => ipcRenderer.send('open-external', url),
 })

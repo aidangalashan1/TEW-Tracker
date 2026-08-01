@@ -5,6 +5,33 @@ _MDB_PASSWORD = "20YearsOfTEW"
 _current_path = None
 
 
+class DatabaseDriverError(Exception):
+    """Raised when the Microsoft Access ODBC driver isn't usable on this machine
+    (not installed, or installed with the wrong 32/64-bit architecture) — as
+    opposed to a problem with the save file itself.
+    """
+
+    def __init__(self, message: str, *, mismatch: bool = False):
+        super().__init__(message)
+        self.mismatch = mismatch
+
+
+def _classify_driver_error(exc: pyodbc.Error) -> DatabaseDriverError | None:
+    text = str(exc).lower()
+    if "architecture mismatch" in text:
+        return DatabaseDriverError(
+            "The Microsoft Access driver installed on this machine is the wrong "
+            "architecture (32-bit vs 64-bit) for TEW Tracker.",
+            mismatch=True,
+        )
+    if "im002" in text or ("data source name not found" in text and "driver" in text):
+        return DatabaseDriverError(
+            "The Microsoft Access Database Engine isn't installed on this machine, "
+            "so TEW Tracker can't open .mdb save files."
+        )
+    return None
+
+
 def _conn_string(path: str) -> str:
     return f"DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={path};PWD={_MDB_PASSWORD};ReadOnly=True;Exclusive=0;Pooling=False;"
 
@@ -18,8 +45,14 @@ def test_connection(path: str) -> None:
     cause of save failures for whichever process actually needs to write.
     All real reads go through datastore.py's own short-lived connections.
     """
-    conn = pyodbc.connect(_conn_string(path), autocommit=True)
-    conn.close()
+    try:
+        conn = pyodbc.connect(_conn_string(path), autocommit=True)
+        conn.close()
+    except pyodbc.Error as e:
+        driver_error = _classify_driver_error(e)
+        if driver_error:
+            raise driver_error from e
+        raise
 
 
 def current_path() -> str | None:

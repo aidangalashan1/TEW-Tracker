@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol, shell } = require('electron')
 const path = require('path')
 const { spawn } = require('child_process')
 const http = require('http')
@@ -135,6 +135,14 @@ ipcMain.on('get-api-port', (e) => { e.returnValue = API_PORT })
 // Renderer forwards caught errors here to be persisted to the diagnostics log.
 ipcMain.on('log-error', (_e, payload) => {
   try { appendLog(`RENDERER ${JSON.stringify(payload)}`) } catch { appendLog('RENDERER <unserializable payload>') }
+})
+
+// Open a link in the user's real browser rather than inside the app window —
+// only http(s) URLs are allowed, since this is reachable from the renderer.
+ipcMain.on('open-external', (_e, url) => {
+  try {
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url)
+  } catch { /* best-effort */ }
 })
 
 async function createWindow() {

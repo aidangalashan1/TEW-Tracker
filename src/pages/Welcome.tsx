@@ -12,6 +12,9 @@ import starIcon from '../assets/UI icons/credits.png'
 import confirmIcon from '../assets/UI icons/tutorial.png'
 import closeIcon from '../assets/UI icons/close.png'
 import { fmtDateOrdinal } from '../lib/dates'
+import { openExternalLink } from '../lib/openExternalLink'
+
+const ACCESS_ENGINE_URL = 'https://www.microsoft.com/en-us/download/details.aspx?id=54920'
 
 const iconStyle = { width: 16, height: 16, filter: 'brightness(0) invert(1)' }
 const btnStyle: React.CSSProperties = { width: '100%', justifyContent: 'flex-start', color: '#fff', padding: '8px 16px', fontSize: 13 }
@@ -27,6 +30,19 @@ export function WelcomePage() {
   const [imgPath, setImgPath] = useState(images.path)
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState('')
+  const [driverError, setDriverError] = useState<{ mismatch: boolean; message: string } | null>(null)
+
+  // pyodbc failures where the Microsoft Access driver itself is missing or the
+  // wrong bitness get a distinct, actionable panel instead of a raw error string.
+  const handleConnectError = (e: any) => {
+    if (e?.code === 'odbc_driver_missing' || e?.code === 'odbc_driver_mismatch') {
+      setDriverError({ mismatch: e.code === 'odbc_driver_mismatch', message: e.message })
+      setStatus('')
+    } else {
+      setDriverError(null)
+      setStatus(e?.message || 'Failed to start')
+    }
+  }
 
   const handleBrowseDb = async () => {
     setBusy('browse-db')
@@ -59,6 +75,7 @@ export function WelcomePage() {
   const handleStart = async () => {
     setBusy('start')
     setStatus('Loading...')
+    setDriverError(null)
     try {
       if (dbPath) {
         await connectToDb(dbPath)
@@ -67,7 +84,7 @@ export function WelcomePage() {
         await setImagePath(imgPath)
       }
     } catch (e: any) {
-      setStatus(e.message || 'Failed to start')
+      handleConnectError(e)
       setBusy('')
     }
   }
@@ -105,10 +122,11 @@ export function WelcomePage() {
                 <button className="btn" onClick={async () => {
                   setBusy('start')
                   setStatus('Loading...')
+                  setDriverError(null)
                   try {
                     await connectToDb(recentDbs[0].path)
                   } catch (e: any) {
-                    setStatus(e.message || 'Failed to start')
+                    handleConnectError(e)
                   }
                   setBusy('')
                 }} style={bigBtnStyle}>
@@ -165,6 +183,21 @@ export function WelcomePage() {
             {status && <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center' }}>{status}</div>}
           </>
         )}
+        {driverError && (
+          <div style={{
+            background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)',
+            borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#fff', textAlign: 'left',
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              {driverError.mismatch ? 'Wrong Access driver installed' : 'Microsoft Access driver required'}
+            </div>
+            <div style={{ color: 'var(--text-secondary)', marginBottom: 8, lineHeight: 1.4 }}>{driverError.message}</div>
+            <button className="btn primary" style={{ fontSize: 12 }}
+              onClick={() => openExternalLink(ACCESS_ENGINE_URL)}>
+              Download Microsoft Access Database Engine
+            </button>
+          </div>
+        )}
       </div>
 
       {showLoad && createPortal(
@@ -181,10 +214,11 @@ export function WelcomePage() {
                     setShowLoad(false)
                     setBusy('start')
                     setStatus('Loading...')
+                    setDriverError(null)
                     try {
                       await connectToDb(entry.path)
                     } catch (e: any) {
-                      setStatus(e.message || 'Failed to start')
+                      handleConnectError(e)
                     }
                     setBusy('')
                   }}
