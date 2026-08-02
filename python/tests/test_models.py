@@ -11,6 +11,7 @@ from models import (
     _decode_condition,
     get_positions,
     Worker,
+    WorkerContract,
     Federation,
     Belt,
 )
@@ -101,6 +102,20 @@ class TestWorkerFromDbRow:
         )
         assert w.gender == "Male"
         assert w.style == "Regular"
+
+
+class TestWorkerContractFromDbRow:
+    def test_maps_gimmick_from_plastercaster_column(self):
+        c = WorkerContract.from_db_row(
+            {"UID": 1, "WorkerUID": 7, "Name": "Contract", "FedUID": 1, "Amount": 100, "PlasterCaster_Gimmick": "The Icon"}
+        )
+        assert c.gimmick == "The Icon"
+
+    def test_missing_gimmick_column_defaults_to_empty_string(self):
+        c = WorkerContract.from_db_row(
+            {"UID": 1, "WorkerUID": 7, "Name": "Contract", "FedUID": 1, "Amount": 100}
+        )
+        assert c.gimmick == ""
 
 
 class TestFederationFromDbRow:

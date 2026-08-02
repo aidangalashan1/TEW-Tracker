@@ -19,7 +19,7 @@ export const GROUP_ORDER: Record<string, string[]> = {
   disposition: ['Face', 'Heel'],
   gender: ['Male', 'Female'],
   brand: [],
-  perception: Object.values(PERCEPTION_LABELS).filter(v => v !== 'No Perception'),
+  perception: ['Major Star', 'Star', 'Well Known', 'Recognisable', 'Unimportant'],
 }
 
 export function buildDimOptions(allBrands: number[]): { id: string; label: string }[] {
@@ -92,6 +92,7 @@ export function roleGroupKeyFallback(w: Worker, advancedRoleFilters: Set<string>
 
 export interface ComputeGroupsOpts {
   groupBy: Set<string>
+  dimOrder?: string[]
   subgroups: SubgroupDef[]
   activeSubgroups: Set<string>
   advancedRoleFilters: Set<string>
@@ -104,8 +105,11 @@ export interface ComputeGroupsOpts {
  *  expansion (a retired/non-wrestler worker can appear under every matching
  *  advanced role), then standard single-key grouping. */
 export function computeGroups(filtered: Worker[], opts: ComputeGroupsOpts): [string, GroupedEntry[]][] | null {
-  const { groupBy, subgroups, activeSubgroups, advancedRoleFilters, sorts } = opts
-  const dims = Array.from(groupBy)
+  const { groupBy, dimOrder, subgroups, activeSubgroups, advancedRoleFilters, sorts } = opts
+  let dims = Array.from(groupBy)
+  if (dimOrder && dimOrder.length > 0) {
+    dims = dimOrder.filter(d => groupBy.has(d))
+  }
   const hasSubgroups = activeSubgroups.size > 0
   const hasAdvanced = advancedRoleFilters.size > 0
   const roleDim = dims.includes('role')
@@ -186,12 +190,24 @@ export function computeGroups(filtered: Worker[], opts: ComputeGroupsOpts): [str
       return sortGroups([a, b], lastDim)[0][0] === a[0] ? -1 : 1
     })
   } else {
-    for (const dim of [...dims].reverse()) {
-      if (dim === 'role') {
-        entries = entries.sort(sortByRoleGroup)
-      } else {
-        entries = sortGroups(entries, dim)
-      }
+    for (let dimIdx = dims.length - 1; dimIdx >= 0; dimIdx--) {
+      const dim = dims[dimIdx]
+      entries = entries.sort((a, b) => {
+        const aKey = a[0].split(' › ')[dimIdx] || a[0]
+        const bKey = b[0].split(' › ')[dimIdx] || b[0]
+        if (dim === 'role') {
+          const ai = roleGroupSort.indexOf(aKey)
+          const bi = roleGroupSort.indexOf(bKey)
+          return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+        }
+        const order = GROUP_ORDER[dim]
+        if (order && order.length > 0) {
+          const ai = order.indexOf(aKey)
+          const bi = order.indexOf(bKey)
+          return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+        }
+        return aKey.localeCompare(bKey)
+      })
     }
   }
   if (sorts.length > 0) {
@@ -207,4 +223,94 @@ export function computeGroups(filtered: Worker[], opts: ComputeGroupsOpts): [str
     })
   }
   return entries
+}
+
+export interface HierarchicalGroup {
+  key: string
+  count: number
+  level: number
+  children?: HierarchicalGroup[]
+  entries?: GroupedEntry[]
+}
+
+export function buildHierarchy(
+  groups: [string, GroupedEntry[]][],
+  dims: string[],
+  dimLevels?: number[]
+): HierarchicalGroup[] {
+  if (dims.length < 2) return []
+  
+  const levels = dimLevels || dims.map(() => 0)
+  
+  // If all dimensions are at level 0, no hierarchy
+  if (levels.every(l => l === 0)) return []
+  
+  // Build a tree structure
+  const root: HierarchicalGroup[] = []
+  
+  for (const [key, entries] of groups) {
+    const parts = key.split(' › ')
+    
+    // Track the most recent group at each level
+    const levelGroups: Map<number, HierarchicalGroup> = new Map()
+    
+    for (let i = 0; i < dims.length; i++) {
+      const level = levels[i]
+      const groupKey = parts[i]
+      
+      if (level === 0) {
+        // Top-level group
+        let existing = root.find(g => g.key === groupKey)
+        if (!existing) {
+          existing = {
+            key: groupKey,
+            count: 0,
+            level: 0,
+            children: []
+          }
+          root.push(existing)
+        }
+        levelGroups.set(0, existing)
+      } else {
+        // Child group - find parent at level-1
+        const parent = levelGroups.get(level - 1)
+        if (!parent) {
+          // Skip if no parent exists (invalid hierarchy)
+          continue
+        }
+        if (!parent.children) parent.children = []
+        
+        let existing = parent.children.find(g => g.key === groupKey)
+        if (!existing) {
+          existing = {
+            key: groupKey,
+            count: 0,
+            level: level,
+            children: []
+          }
+          parent.children.push(existing)
+        }
+        levelGroups.set(level, existing)
+      }
+    }
+    
+    // Add entries to the deepest group
+    const deepestLevel = Math.max(...Array.from(levelGroups.keys()))
+    const leaf = levelGroups.get(deepestLevel)
+    if (leaf) {
+      if (!leaf.entries) leaf.entries = []
+      leaf.entries.push(...entries)
+      leaf.count += entries.length
+      
+      // Update counts up the tree
+      for (let lvl = deepestLevel - 1; lvl >= 0; lvl--) {
+        const parent = levelGroups.get(lvl)
+        if (parent) {
+          parent.count += entries.length
+        }
+      }
+    }
+  }
+  
+  return root
 }

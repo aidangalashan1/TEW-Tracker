@@ -113,6 +113,7 @@ class WorkerContract(BaseModel):
     travel: int = 0
     picture: str = ""
     perception: int = 0
+    gimmick: str = ""
 
     @classmethod
     def from_db_row(cls, row: dict) -> "WorkerContract":
@@ -139,6 +140,7 @@ class WorkerContract(BaseModel):
             travel=row.get("Travel", 0),
             picture=row.get("Picture", ""),
             perception=row.get("Perception", 0),
+            gimmick=row.get("PlasterCaster_Gimmick", "") or "",
         ))
 
 

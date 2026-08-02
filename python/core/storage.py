@@ -45,3 +45,7 @@ def workspace_path() -> str:
 
 def profiles_path() -> str:
     return os.path.join(saves_dir(), "profiles.json")
+
+
+def arcs_path() -> str:
+    return os.path.join(saves_dir(), "arcs.json")

@@ -98,6 +98,16 @@ export function calcContractExpiry(gameDate: string | null, daysLeft: number): s
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+/** "January 2026"-style label for a YYYY-MM-DD date string — the labelFn
+ *  ScheduleTab/ShowHistoryTab-style month grouping is built from, via
+ *  groupByLabel below. */
+export function monthLabel(dateStr: string): string {
+  const dt = new Date(dateStr)
+  return isNaN(dt.getTime()) ? dateStr.substring(0, 7) : `${MONTH_NAMES[dt.getMonth()]} ${dt.getFullYear()}`
+}
+
 /** Buckets items into contiguous labeled groups, in the order given — the
  *  label function decides "Today"/"This Week"/month-name/etc; consecutive
  *  items sharing a label join the same group (was schedule/show-history). */

@@ -18,6 +18,29 @@ export function StorylinesTab() {
   const [selectedWorker, setSelectedWorker] = useState<number | null>(null)
   const [ideaSearch, setIdeaSearch] = useState('')
 
+  // Same key ArcItemModal already uses — one shared cache entry, and
+  // creating one here is visible from there too without a refetch.
+  const { data: plannedData, mutate: mutatePlanned } = useSWR('planned-storylines', () => api.plannedStorylines.list())
+  const plannedStorylines = plannedData?.storylines ?? []
+  const [showArchivedStorylines, setShowArchivedStorylines] = useState(false)
+  const visiblePlannedStorylines = showArchivedStorylines ? plannedStorylines : plannedStorylines.filter(sl => !sl.archived)
+  const [showCreateStoryline, setShowCreateStoryline] = useState(false)
+  const [newStorylineName, setNewStorylineName] = useState('')
+  const [newStorylineNotes, setNewStorylineNotes] = useState('')
+  const [creatingStoryline, setCreatingStoryline] = useState(false)
+
+  const createStoryline = () => {
+    if (!newStorylineName.trim()) return
+    setCreatingStoryline(true)
+    api.plannedStorylines.create(newStorylineName.trim(), newStorylineNotes.trim()).then(r => {
+      mutatePlanned()
+      setShowCreateStoryline(false)
+      setNewStorylineName('')
+      setNewStorylineNotes('')
+      navigateToEntity('plannedstoryline', r.storyline.id)
+    }).finally(() => setCreatingStoryline(false))
+  }
+
   const openIdeas = () => {
     setSelectedWorker(null)
     setIdeaSearch('')
@@ -80,9 +103,36 @@ export function StorylinesTab() {
 
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: 20 }}>
-      <div className="flex justify-end mb-2">
+      <div className="flex justify-end gap-2 mb-2">
+        <button className="manage-view-btn" onClick={() => setShowCreateStoryline(true)}>+ New Planned Storyline</button>
         <button className="manage-view-btn" onClick={openIdeas}>Storyline Ideas</button>
       </div>
+
+      {plannedStorylines.length > 0 && (
+        <>
+          <div className="flex items-center justify-between mb-2" style={{ background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 6 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Planned Storylines</div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <span className="toggle-track" data-checked={showArchivedStorylines} onClick={() => setShowArchivedStorylines(v => !v)}>
+                <span className="toggle-thumb" />
+              </span>
+              Show archived
+            </label>
+          </div>
+          {visiblePlannedStorylines.map(sl => (
+            <div key={sl.id} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '12px 16px', marginBottom: 8, cursor: 'pointer', opacity: sl.archived ? 0.6 : 1 }}
+              onClick={() => navigateToEntity('plannedstoryline', sl.id)}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: sl.notes ? 6 : 0 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{sl.name}{sl.archived ? ' (Archived)' : ''}</div>
+                {sl.workers.length > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>{sl.workers.length} worker{sl.workers.length === 1 ? '' : 's'}</span>}
+              </div>
+              {sl.notes && <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{sl.notes}</div>}
+            </div>
+          ))}
+          {visiblePlannedStorylines.length === 0 && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>No planned storylines to show.</div>}
+        </>
+      )}
+
       {active.length > 0 && (
         <>
           <div className="mb-2" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 6 }}>Active Storylines</div>
@@ -162,6 +212,39 @@ export function StorylinesTab() {
                   })}
                 </>
               )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showCreateStoryline && createPortal(
+        <div className="modal-overlay" onClick={() => setShowCreateStoryline(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">New Planned Storyline</span>
+              <button className="modal-close" onClick={() => setShowCreateStoryline(false)}>×</button>
+            </div>
+            <div className="modal-body" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <div className="section-label mb-1">Name</div>
+                <input className="search-input" style={{ width: '100%' }} value={newStorylineName}
+                  onChange={e => setNewStorylineName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') createStoryline() }}
+                  placeholder="e.g. The Rise of..." autoFocus />
+              </div>
+              <div>
+                <div className="section-label mb-1">Notes</div>
+                <textarea className="search-input" style={{ width: '100%', minHeight: 64, resize: 'vertical', fontFamily: 'inherit', padding: '6px 8px' }}
+                  value={newStorylineNotes} onChange={e => setNewStorylineNotes(e.target.value)}
+                  placeholder="Optional planning notes…" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button className="manage-view-btn" onClick={() => setShowCreateStoryline(false)}>Cancel</button>
+                <button className="btn primary" disabled={!newStorylineName.trim() || creatingStoryline} onClick={createStoryline}>
+                  {creatingStoryline ? 'Creating...' : 'Create'}
+                </button>
+              </div>
             </div>
           </div>
         </div>,

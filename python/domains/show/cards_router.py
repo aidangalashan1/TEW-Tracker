@@ -23,6 +23,7 @@ def _write_card(card_id: str, data: dict):
 
 
 class CardSegment(BaseModel):
+    id: Optional[str] = None
     type: str  # "match" or "angle"
     order: int
     workers: list[int] = []
@@ -31,6 +32,11 @@ class CardSegment(BaseModel):
     notes: str = ""
     storyline: str = ""
     saved: bool = False
+    # Real link to a PlannedStoryline id, distinct from `storyline` above
+    # (which is just a free-text display label written from whatever name
+    # was selected in the picker, never a real id — kept as-is for backward
+    # compatibility with existing saved cards).
+    linked_planned_storyline_id: Optional[str] = None
 
 
 class CardCreate(BaseModel):

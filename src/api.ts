@@ -187,6 +187,7 @@ export interface UpcomingShow {
 }
 
 export interface CardSegment {
+  id?: string
   type: 'match' | 'angle' | 'battle-royal'
   order: number
   workers: number[]
@@ -195,6 +196,7 @@ export interface CardSegment {
   notes: string
   storyline?: string
   saved?: boolean
+  linked_planned_storyline_id?: string | null
 }
 
 export interface FormSegmentPerson {
@@ -326,13 +328,29 @@ export interface ScheduleData {
   currentDate: string
 }
 
+export interface ShowRef {
+  kind: 'past' | 'upcoming'
+  ref_uid: number
+  show_type: string
+  show_date: string
+  show_name: string
+}
+
 export interface PlannedStoryline {
   id: string
   name: string
   workers: number[]
   notes: string
+  start_show?: ShowRef | null
+  end_show?: ShowRef | null
+  archived?: boolean
   created: string
   updated: string
+}
+
+export interface PlannedStorylineLinks {
+  arcs: { worker_uid: number; field: string; item_id: string; text: string }[]
+  segments: LinkedSegment[]
 }
 
 export function imageUrl(relativePath: string): string {
@@ -539,13 +557,14 @@ export const api = {
   plannedStorylines: {
     list: () => request<{storylines: PlannedStoryline[]}>('/storylines/planned'),
     get: (id: string) => request<PlannedStoryline>(`/storylines/planned/${encodeURIComponent(id)}`),
+    links: (id: string) => request<PlannedStorylineLinks>(`/storylines/planned/${encodeURIComponent(id)}/links`),
     create: (name: string, notes = '') =>
       request<{ok: boolean; storyline: PlannedStoryline}>('/storylines/planned', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({name, notes}),
       }),
-    update: (id: string, data: {name?: string; notes?: string; workers?: number[]}) =>
+    update: (id: string, data: {name?: string; notes?: string; workers?: number[]; start_show?: ShowRef | null; end_show?: ShowRef | null; archived?: boolean}) =>
       request<{ok: boolean; storyline: PlannedStoryline}>(`/storylines/planned/${encodeURIComponent(id)}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
@@ -584,6 +603,16 @@ export const api = {
     ideas: (fed_uid?: number, worker_uid?: number) =>
       request<{feuds: StorylineIdea[]; alliances: StorylineIdea[]}>(`/storylines/ideas${fed_uid ? `?fed_uid=${fed_uid}` : ''}${worker_uid ? `&worker_uid=${worker_uid}` : ''}`),
   },
+  arcs: {
+    list: () => request<{arcs: Record<string, ArcData>}>('/arcs'),
+    get: (worker_uid: number) => request<ArcData>(`/arcs/${worker_uid}`),
+    update: (worker_uid: number, data: Partial<ArcData>) =>
+      request<{ok: boolean; arc: ArcData}>(`/arcs/${worker_uid}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }),
+  },
   system: {
     shutdown: () => request<{ok: boolean}>('/system/shutdown', {method: 'POST'}),
   },
@@ -607,4 +636,30 @@ export interface StorylineShowRow {
   uid: string; type: string; show_uid?: number; name: string; date: string
   logo: string; is_upcoming: boolean; is_tv?: boolean; overall_rating?: number
   segments?: { uid: number; log_entry: string; rating: number; match_type: number; worker_uids: number[]; storyline_uids: number[]; pre_show: boolean }[]
+}
+
+export type ArcStatus = 'planned' | 'in_progress' | 'done' | 'shelved'
+
+export interface ArcItem {
+  id: string
+  text: string
+  description?: string
+  status: ArcStatus
+  linked_belt_uid?: number | null
+  linked_worker_uids: number[]
+  linked_planned_storyline_id?: string | null
+  linked_segments: LinkedSegment[]
+}
+
+export interface LinkedSegment {
+  card_id: string
+  segment_id: string
+}
+
+export interface ArcData {
+  character_profile?: string
+  short_term_arcs?: ArcItem[]
+  long_term_arcs?: ArcItem[]
+  short_term_goals?: ArcItem[]
+  long_term_goals?: ArcItem[]
 }

@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useMemo } from 'react'
 export type RatingFormat = 'pct' | 'grade'
 
 export type RosterTab = 'workers' | 'teams' | 'champions'
-export type CreativeTab = 'schedule' | 'history' | 'storylines'
+export type CreativeTab = 'schedule' | 'history' | 'storylines' | 'arcs'
 
 interface UIState {
   ratingFormat: RatingFormat

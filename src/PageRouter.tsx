@@ -14,6 +14,7 @@ import { ShowProfile } from './pages/entities/ShowProfile'
 import { ShowEpisodeProfile } from './pages/entities/ShowEpisodeProfile'
 import { PastShowProfile } from './pages/entities/PastShowProfile'
 import { StorylineProfile } from './pages/entities/StorylineProfile'
+import { PlannedStorylineProfile } from './pages/entities/storyline/PlannedStorylineProfile'
 
 export function PageRouter() {
   const { currentPage, db, error, pages } = useApp()
@@ -41,6 +42,7 @@ export function PageRouter() {
       case 'tvshow': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="ShowProfile"><ShowProfile showUid={entity.id as number} showType="tv" /></ErrorBoundary>
       case 'pastshow': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="PastShowProfile"><PastShowProfile pastCardUid={entity.id as number} /></ErrorBoundary>
       case 'storyline': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="StorylineProfile"><StorylineProfile storylineUid={entity.id as number} /></ErrorBoundary>
+      case 'plannedstoryline': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="PlannedStorylineProfile"><PlannedStorylineProfile storylineId={entity.id as string} /></ErrorBoundary>
       case 'tvepisode': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="ShowEpisodeProfile"><ShowEpisodeProfile entityId={entity.id as string} /></ErrorBoundary>
       case 'event': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="ShowProfile"><ShowProfile showUid={entity.id as number} showType="event" /></ErrorBoundary>
       case 'module':

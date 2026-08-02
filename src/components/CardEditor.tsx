@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { api, ShowCard, CardSegment, Worker, PlannedStoryline, UpcomingShow } from '../api'
 import { useApp } from '../context/AppContext'
 import { COLOR_MALE, COLOR_FEMALE } from '../lib/colors'
+import { useArcsData, ARC_LIST_FIELDS, type ArcListField } from '../pages/entities/arc/arcData'
+import { Tooltip } from './Tooltip'
 import plusIcon from '../assets/UI icons/plus.png'
 import faceIcon from '../assets/UI icons/face.png'
 import heelIcon from '../assets/UI icons/heel.png'
@@ -13,6 +15,14 @@ interface CardEditorProps {
   show: UpcomingShow
   fedUid: number
   onClose: () => void
+  /** Pre-adds this worker into a fresh angle segment as soon as the card
+   *  loads (only if it doesn't already have segments) — used by the Arcs
+   *  page's "Convert to Segment" action. */
+  initialWorkerUid?: number
+  /** Fired once, right when that pre-filled segment is actually created
+   *  (card.id + the new segment's id both guaranteed available) — the Arcs
+   *  page uses this to record the arc -> segment link. */
+  onSegmentLinked?: (cardId: string, segmentId: string) => void
 }
 
 const PERCEPTION_LABELS = [
@@ -24,7 +34,18 @@ const PERCEPTION_LABELS = [
   { label: 'Unimportant', v: 5 },
 ]
 
-function SavedSegment({ seg, i, workerById, workerPic }: { seg: CardSegment; i: number; workerById: (uid: number) => Worker | undefined; workerPic: (w: Worker) => string }) {
+function LinkedArcsBadge({ linkedArcs }: { linkedArcs?: { ownerName: string; field: ArcListField; text: string }[] }) {
+  if (!linkedArcs || linkedArcs.length === 0) return null
+  return (
+    <Tooltip text={linkedArcs.map(l => `${l.ownerName}: "${l.text}"`).join('\n')}>
+      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent)', background: 'var(--bg-secondary)', borderRadius: 8, padding: '1px 6px' }}>
+        ↔ {linkedArcs.length}
+      </span>
+    </Tooltip>
+  )
+}
+
+function SavedSegment({ seg, i, workerById, workerPic, linkedArcs }: { seg: CardSegment; i: number; workerById: (uid: number) => Worker | undefined; workerPic: (w: Worker) => string; linkedArcs?: { ownerName: string; field: ArcListField; text: string }[] }) {
   const headline = () => {
     if (seg.type === 'match') {
       const parts = seg.sides.map(side => side.map(uid => workerById(uid)?.name || '?').join(' & ') || '???')
@@ -62,6 +83,7 @@ function SavedSegment({ seg, i, workerById, workerPic }: { seg: CardSegment; i: 
             {headline()}
           </div>
         )}
+        <LinkedArcsBadge linkedArcs={linkedArcs} />
       </div>
       {seg.notes && <div style={{ fontSize: 12, color: '#fff', marginLeft: 26, lineHeight: 1.4 }}>{seg.notes}</div>}
     </div>
@@ -139,8 +161,9 @@ function FlatWorkerList({ seg, dragWorker, onDrop, onRemoveWorker, workerById, w
   )
 }
 
-export function CardEditor({ show, fedUid, onClose }: CardEditorProps) {
+export function CardEditor({ show, fedUid, onClose, initialWorkerUid, onSegmentLinked }: CardEditorProps) {
   const { img } = useApp()
+  const { arcs } = useArcsData()
   const [card, setCard] = useState<ShowCard | null>(null)
   const [loading, setLoading] = useState(true)
   const [segments, setSegments] = useState<CardSegment[]>([])
@@ -182,6 +205,26 @@ export function CardEditor({ show, fedUid, onClose }: CardEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    // `loading` can flip false before `card` is actually set (the "create a
+    // new card" branch above calls setLoading(false) synchronously, before
+    // its api.cards.create(...) promise resolves) — wait for both so
+    // card.id is guaranteed available when onSegmentLinked fires.
+    if (!loading && card && initialWorkerUid != null && segments.length === 0) {
+      const segId = crypto.randomUUID().slice(0, 8)
+      setSegments([{
+        id: segId, type: 'angle', order: 0,
+        workers: [initialWorkerUid], sides: [],
+        description: '', notes: '', storyline: '', saved: false,
+      }])
+      setDirty(true)
+      onSegmentLinked?.(card.id, segId)
+    }
+    // Runs once right after the initial load resolves; not re-run as the
+    // booker subsequently adds/removes segments.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, card])
+
   const assignedUids = new Set<number>()
   for (const seg of segments) {
     if (seg.saved) continue
@@ -206,6 +249,28 @@ export function CardEditor({ show, fedUid, onClose }: CardEditorProps) {
   const workerById = useCallback((uid: number) => workerMap.get(uid), [workerMap])
   const workerPic = (w: Worker) => { const p = w.contract?.picture || w.picture; return p ? img('People/' + p) : '' }
 
+  // Reverse index: which arc items reference a segment on this specific card,
+  // so each segment can show what arc(s) it's developing.
+  const linkedArcsBySegment = useMemo(() => {
+    const map = new Map<string, { ownerName: string; field: ArcListField; text: string }[]>()
+    if (!card) return map
+    for (const [uidStr, arc] of Object.entries(arcs)) {
+      const ownerName = workerById(Number(uidStr))?.name || `Worker #${uidStr}`
+      for (const field of ARC_LIST_FIELDS) {
+        for (const item of arc[field] || []) {
+          for (const link of item.linked_segments) {
+            if (link.card_id === card.id) {
+              const arr = map.get(link.segment_id) || []
+              arr.push({ ownerName, field, text: item.text })
+              map.set(link.segment_id, arr)
+            }
+          }
+        }
+      }
+    }
+    return map
+  }, [arcs, card, workerById])
+
   const update = (idx: number, updates: Partial<CardSegment>) => {
     setSegments(segments.map((s, i) => i === idx ? { ...s, ...updates } : s))
     setDirty(true)
@@ -213,6 +278,7 @@ export function CardEditor({ show, fedUid, onClose }: CardEditorProps) {
 
   const addSegment = (type: 'match' | 'angle' | 'battle-royal') => {
     setSegments([...segments, {
+      id: crypto.randomUUID().slice(0, 8),
       type, order: segments.length,
       workers: (type === 'angle' || type === 'battle-royal') ? [] : [],
       sides: type === 'match' ? [[], []] : [],
@@ -301,8 +367,15 @@ export function CardEditor({ show, fedUid, onClose }: CardEditorProps) {
     return () => clearTimeout(timer)
   }, [segments, dirty, card, save])
 
+  // CardEditor can be reached from a nested modal (Arcs -> ArcItemModal ->
+  // "Convert to Segment" -> CardEditor). React bubbles synthetic events
+  // along the component tree, not the DOM tree it portals into, so an
+  // un-stopped backdrop click would also close whatever this is nested
+  // inside.
+  const closeSelf = (e: React.MouseEvent) => { e.stopPropagation(); onClose() }
+
   return createPortal(
-    <div className="card-editor-overlay" onClick={onClose}>
+    <div className="card-editor-overlay" onClick={closeSelf}>
       <div onClick={e => e.stopPropagation()} className="card-editor-modal">
         <div className="card-editor-header">
           <div>
@@ -391,7 +464,7 @@ export function CardEditor({ show, fedUid, onClose }: CardEditorProps) {
                 <div key={i} className="card-editor-segment">
                   {seg.saved ? (
                     <div onClick={() => update(i, { saved: false })}>
-                      <SavedSegment seg={seg} i={i} workerById={workerById} workerPic={workerPic} />
+                      <SavedSegment seg={seg} i={i} workerById={workerById} workerPic={workerPic} linkedArcs={seg.id ? linkedArcsBySegment.get(seg.id) : undefined} />
                     </div>
                   ) : (
                     <div draggable onDragStart={e => handleSegDragStart(e, i)} onDragOver={handleSegDragOver}
@@ -418,14 +491,15 @@ export function CardEditor({ show, fedUid, onClose }: CardEditorProps) {
                               </button>
                                 {showStorylinePicker === i && (
                                   <div className="card-editor-storyline-picker">
-                                    <div className="card-editor-storyline-item" style={{ fontSize: 11 }} onClick={() => { update(i, { storyline: '' }); setShowStorylinePicker(null) }}>None</div>
+                                    <div className="card-editor-storyline-item" style={{ fontSize: 11 }} onClick={() => { update(i, { storyline: '', linked_planned_storyline_id: null }); setShowStorylinePicker(null) }}>None</div>
                                     {gameStorylines.length > 0 && <><div className="card-editor-storyline-header">Current</div>
-                                      {gameStorylines.map(sl => <div key={sl.id} className="card-editor-storyline-item" onClick={() => { update(i, { storyline: sl.name }); setShowStorylinePicker(null) }}>{sl.name}</div>)}</>}
+                                      {gameStorylines.map(sl => <div key={sl.id} className="card-editor-storyline-item" onClick={() => { update(i, { storyline: sl.name, linked_planned_storyline_id: null }); setShowStorylinePicker(null) }}>{sl.name}</div>)}</>}
                                     {plannedStorylines.length > 0 && <><div className="card-editor-storyline-header">Planned</div>
-                                      {plannedStorylines.map(sl => <div key={sl.id} className="card-editor-storyline-item" onClick={() => { update(i, { storyline: sl.name }); setShowStorylinePicker(null) }}>{sl.name}</div>)}</>}
+                                      {plannedStorylines.map(sl => <div key={sl.id} className="card-editor-storyline-item" onClick={() => { update(i, { storyline: sl.name, linked_planned_storyline_id: sl.id }); setShowStorylinePicker(null) }}>{sl.name}</div>)}</>}
                                   </div>
                                 )}
                               </div>
+                              <LinkedArcsBadge linkedArcs={seg.id ? linkedArcsBySegment.get(seg.id) : undefined} />
                               <button onClick={() => removeSegment(i)} className="card-editor-delete-btn">✕</button>
                             </div>
 

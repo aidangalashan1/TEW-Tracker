@@ -12,7 +12,7 @@ _this_dir = os.path.dirname(os.path.abspath(__file__))
 if _this_dir not in sys.path:
     sys.path.insert(0, _this_dir)
 
-from routers import database as db_router, images as images_router, views as views_router, workspace as workspace_router, profiles as profiles_router, shortlist as shortlist_router, columns as columns_router, filters as filters_router
+from routers import database as db_router, images as images_router, views as views_router, workspace as workspace_router, profiles as profiles_router, shortlist as shortlist_router, columns as columns_router, filters as filters_router, arcs as arcs_router
 from domains.worker.router import router as worker_router
 from domains.worker.free_agents_router import router as worker_free_agents_router
 from domains.belt.router import router as belt_router
@@ -74,6 +74,7 @@ app.include_router(shortlist_router.router)
 app.include_router(columns_router.router)
 app.include_router(filters_router.router)
 app.include_router(belt_router)
+app.include_router(arcs_router.router)
 
 
 @app.get("/api/health", include_in_schema=False)

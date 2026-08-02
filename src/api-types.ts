@@ -70,6 +70,7 @@ export interface WorkerContract {
   travel: number;
   picture: string;
   perception: number;
+  gimmick: string;
 }
 
 export interface OvernessEntry {

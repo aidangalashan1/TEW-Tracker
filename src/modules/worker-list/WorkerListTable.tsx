@@ -26,9 +26,20 @@ import {
   type FilterRule, type DimDef,
 } from './workerListFilters'
 import {
-  buildDimOptions, orderDims, computeGroups,
+  buildDimOptions, orderDims, computeGroups, buildHierarchy,
   type SubgroupFilter, type SubgroupDef,
 } from './workerListGrouping'
+
+function getGroupHeaderColor(groupKey: string): string {
+  if (!groupKey) return 'var(--bg-tertiary)'
+  let hash = 0
+  for (let i = 0; i < groupKey.length; i++) {
+    hash = ((hash << 5) - hash) + groupKey.charCodeAt(i)
+    hash = hash & hash
+  }
+  const hue = Math.abs(hash) % 360
+  return `hsla(${hue}, 50%, 30%, 0.4)`
+}
 
 export function WorkerListColumnTable({ workers, config, onConfigChange }: { workers: Worker[]; config: Record<string, any>; onConfigChange: (c: Record<string, any>) => void }) {
   const { navigateToEntity, gameInfo, focusedFed, playerFed, currentPage } = useApp()
@@ -49,6 +60,7 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
 
   const subgroups = useMemo<SubgroupDef[]>(() => config.subgroups || LS('subgroups') || [], [config.subgroups])
   useEffect(() => { localStorage.setItem('tew-wl-subgroups', JSON.stringify(subgroups)) }, [subgroups])
+  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
   const [selectedDim, setSelectedDim] = useState<string | null>(null)
   const [selectedSg, setSelectedSg] = useState<string | null>(null)
   const [showSgEditor, setShowSgEditor] = useState(false)
@@ -114,8 +126,13 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
   const orderedDims = useMemo(() => orderDims(dimOrder, dimOptions), [dimOrder, dimOptions])
 
   const groups = useMemo(
-    () => computeGroups(filtered, { groupBy, subgroups, activeSubgroups, advancedRoleFilters, sorts }),
-    [groupBy, filtered, advancedRoleFilters, subgroups, activeSubgroups, sorts]
+    () => computeGroups(filtered, { groupBy, dimOrder, subgroups, activeSubgroups, advancedRoleFilters, sorts }),
+    [groupBy, dimOrder, filtered, advancedRoleFilters, subgroups, activeSubgroups, sorts]
+  )
+
+  const hierarchy = useMemo(
+    () => groups && groupBy.size > 1 ? buildHierarchy(groups, dimOrder.filter(d => groupBy.has(d)), config.dimLevels) : null,
+    [groups, groupBy, dimOrder, config.dimLevels]
   )
 
   // Flatten the grouped-or-flat worker list into one indexable array so a
@@ -124,8 +141,44 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
   // 100k+ DOM nodes and took 10+ seconds; only rows near the viewport are
   // rendered now, with the rest accounted for by the virtualizer's spacer.
   type RowVItem = { kind: 'row'; worker: Worker; rowIdx: number; secondary?: boolean }
-  type HeaderVItem = { kind: 'header'; groupKey: string; count: number }
+  type HeaderVItem = { kind: 'header'; groupKey: string; count: number; isParent?: boolean; parentKey?: string; level?: number }
   const vItems = useMemo<(RowVItem | HeaderVItem)[]>(() => {
+    if (hierarchy) {
+      const out: (RowVItem | HeaderVItem)[] = []
+      
+      const flattenGroup = (group: any, parentPath: string[] = []) => {
+        const currentPath = [...parentPath, group.key]
+        const fullPath = currentPath.join(' › ')
+        const isCollapsed = collapsedParents.has(fullPath)
+        
+        out.push({ 
+          kind: 'header', 
+          groupKey: group.key, 
+          count: group.count, 
+          isParent: group.children && group.children.length > 0,
+          parentKey: fullPath,
+          level: group.level
+        })
+        
+        if (!isCollapsed) {
+          if (group.entries) {
+            group.entries.forEach((entry: any, i: number) => {
+              out.push({ kind: 'row', worker: entry.worker ?? entry, rowIdx: i, secondary: entry.secondary })
+            })
+          }
+          if (group.children) {
+            for (const child of group.children) {
+              flattenGroup(child, currentPath)
+            }
+          }
+        }
+      }
+      
+      for (const group of hierarchy) {
+        flattenGroup(group)
+      }
+      return out
+    }
     if (groups) {
       const out: (RowVItem | HeaderVItem)[] = []
       for (const [key, groupWorkers] of groups) {
@@ -138,7 +191,7 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
     }
     const sorted = sorts.length > 0 ? sortWorkers(filtered, sorts) : filtered
     return sorted.map((w, rowIdx) => ({ kind: 'row', worker: w, rowIdx }))
-  }, [groups, filtered, sorts])
+  }, [hierarchy, groups, filtered, sorts, collapsedParents])
 
   const rowVirtualizer = useVirtualizer({
     count: vItems.length,
@@ -151,6 +204,18 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
   })
 
   const hasActiveFilters = positionFilter !== 'all'
+
+  const toggleParentCollapse = (parentKey: string) => {
+    setCollapsedParents(prev => {
+      const next = new Set(prev)
+      if (next.has(parentKey)) {
+        next.delete(parentKey)
+      } else {
+        next.add(parentKey)
+      }
+      return next
+    })
+  }
 
   const toggleSort = (key: string) => {
     const sk = key as SortKey
@@ -362,6 +427,7 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
         <FilterPanel
           onClose={() => setShowFilterPanel(false)}
           orderedDims={orderedDims}
+          dimLevels={config.dimLevels}
           selectedDim={selectedDim} setSelectedDim={setSelectedDim}
           groupBy={groupBy} setGroupBy={setGroupBy}
           advancedRoleFilters={advancedRoleFilters} setAdvancedRoleFilters={setAdvancedRoleFilters}
@@ -467,10 +533,29 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
                 <div key={vRow.key} data-index={vRow.index} ref={rowVirtualizer.measureElement}
                   style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${vRow.start}px)` }}>
                   {item.kind === 'header' ? (
-                    <div className="group-header flex items-center border-default-top"
-                      style={{ background: 'var(--bg-tertiary)', padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    <div 
+                      className="group-header flex items-center border-default-top"
+                      style={{ 
+                        background: getGroupHeaderColor(item.groupKey),
+                        padding: item.isParent ? '8px 10px' : '6px 10px', 
+                        paddingLeft: item.isParent ? `${10 + (item.level || 0) * 16}px` : `${10 + (item.level || 0) * 16}px`,
+                        fontSize: item.isParent ? 12 : 11, 
+                        fontWeight: 700, 
+                        color: '#fff',
+                        textTransform: 'uppercase', 
+                        letterSpacing: 0.5,
+                        cursor: item.isParent ? 'pointer' : 'default',
+                        userSelect: 'none'
+                      }}
+                      onClick={item.isParent ? () => toggleParentCollapse(item.parentKey!) : undefined}
+                    >
+                      {item.isParent && (
+                        <span style={{ marginRight: 6, fontSize: 10 }}>
+                          {collapsedParents.has(item.parentKey!) ? '▶' : '▼'}
+                        </span>
+                      )}
                       <span>{item.groupKey}</span>
-                      <span className="text-xxs ml-2" style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{item.count}</span>
+                      <span className="text-xxs ml-2" style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 400 }}>{item.count}</span>
                     </div>
                   ) : (
                     <div className="worker-list-row flex border-bottom-row"
