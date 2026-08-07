@@ -323,6 +323,24 @@ export interface PastShow {
   logo: string; matches: PastShowMatch[];
 }
 
+export interface DiaryLinkedShow {
+  showType: string; showUid: number; showName: string; showDate: string;
+}
+
+export interface DiarySummary {
+  id: string; fedUid: number; title: string; date: string;
+  format: 'bbcode' | 'markdown';
+  linkedShows: DiaryLinkedShow[]; updated: string;
+}
+
+export interface DiaryEntry extends DiarySummary {
+  body: string; created: string;
+}
+
+export type CollateralCategory = 'fed_logo' | 'show_logos' | 'roster' | 'custom'
+export interface CollateralItem { name: string; path: string }
+export type CollateralListing = Record<CollateralCategory, CollateralItem[]>
+
 export interface ScheduleData {
   upcoming: UpcomingShow[]
   currentDate: string
@@ -334,6 +352,7 @@ export interface ShowRef {
   show_type: string
   show_date: string
   show_name: string
+  show_logo?: string
 }
 
 export interface PlannedStoryline {
@@ -358,6 +377,14 @@ export function imageUrl(relativePath: string): string {
   const parts = relativePath.replace(/\\/g, '/').split('/')
   const encoded = parts.map(p => encodeURIComponent(p)).join('/')
   return `${API_BASE}/images/${encoded}`
+}
+
+/** `path` is a "category/filename" pair as returned by api.collateral.list(). */
+export function collateralFileUrl(path: string): string {
+  if (!path) return ''
+  const parts = path.split('/')
+  const encoded = parts.map(p => encodeURIComponent(p)).join('/')
+  return `${API_BASE}/collateral/file/${encoded}`
 }
 
 export const api = {
@@ -554,10 +581,43 @@ export const api = {
       request<{shows: PastShow[]; count: number}>(`/show_history?limit=${limit}${fed_uid ? `&fed_uid=${fed_uid}` : ''}`),
     detail: (uid: number) => request<PastShow>(`/show_history/${uid}`),
   },
+  diary: {
+    list: (fed_uid?: number) =>
+      request<{entries: DiarySummary[]}>(`/diary${fed_uid ? `?fed_uid=${fed_uid}` : ''}`),
+    get: (id: string) => request<DiaryEntry>(`/diary/${encodeURIComponent(id)}`),
+    create: (data: {fedUid: number; title?: string; date?: string; format?: string}) =>
+      request<{ok: boolean; entry: DiaryEntry}>('/diary', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: {title?: string; date?: string; format?: string; body?: string; linkedShows?: DiaryLinkedShow[]}) =>
+      request<{ok: boolean; entry: DiaryEntry}>(`/diary/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<{ok: boolean}>(`/diary/${encodeURIComponent(id)}`, {method: 'DELETE'}),
+  },
+  collateral: {
+    list: () => request<CollateralListing>('/collateral'),
+    sync: (fedUid: number) =>
+      request<{ok: boolean; copied: Record<string, number>}>(`/collateral/sync?fed_uid=${fedUid}`, { method: 'POST' }),
+    reveal: (path: string) =>
+      request<{ok: boolean}>('/collateral/reveal', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ path }),
+      }),
+    openFolder: (category: CollateralCategory) =>
+      request<{ok: boolean}>(`/collateral/open-folder/${category}`, { method: 'POST' }),
+  },
   plannedStorylines: {
     list: () => request<{storylines: PlannedStoryline[]}>('/storylines/planned'),
     get: (id: string) => request<PlannedStoryline>(`/storylines/planned/${encodeURIComponent(id)}`),
     links: (id: string) => request<PlannedStorylineLinks>(`/storylines/planned/${encodeURIComponent(id)}/links`),
+    pastSegments: (id: string) => request<{segments: {date: string; show: string; text: string; rating?: number}[]}>(`/storylines/planned/${encodeURIComponent(id)}/past-segments`),
     create: (name: string, notes = '') =>
       request<{ok: boolean; storyline: PlannedStoryline}>('/storylines/planned', {
         method: 'POST',
@@ -647,7 +707,8 @@ export interface ArcItem {
   status: ArcStatus
   linked_belt_uid?: number | null
   linked_worker_uids: number[]
-  linked_planned_storyline_id?: string | null
+  linked_planned_storyline_ids: string[]
+  linked_storyline_uids: number[]
   linked_segments: LinkedSegment[]
 }
 
@@ -658,8 +719,6 @@ export interface LinkedSegment {
 
 export interface ArcData {
   character_profile?: string
-  short_term_arcs?: ArcItem[]
-  long_term_arcs?: ArcItem[]
-  short_term_goals?: ArcItem[]
-  long_term_goals?: ArcItem[]
+  arcs?: ArcItem[]
+  goals?: ArcItem[]
 }

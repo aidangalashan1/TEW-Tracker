@@ -27,6 +27,8 @@ from domains.company.router import router as company_router
 from domains.company.finance_router import router as finance_router
 from domains.company.service import get_all_feds
 from domains.game.router import router as game_router
+from domains.diary.diary_router import router as diary_router
+from domains.collateral.collateral_router import router as collateral_router
 from core.errors import register_error_handlers
 
 _last_request = time.time()
@@ -75,6 +77,8 @@ app.include_router(columns_router.router)
 app.include_router(filters_router.router)
 app.include_router(belt_router)
 app.include_router(arcs_router.router)
+app.include_router(diary_router)
+app.include_router(collateral_router)
 
 
 @app.get("/api/health", include_in_schema=False)

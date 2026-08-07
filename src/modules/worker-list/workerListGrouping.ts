@@ -20,15 +20,20 @@ export const GROUP_ORDER: Record<string, string[]> = {
   gender: ['Male', 'Female'],
   brand: [],
   perception: ['Major Star', 'Star', 'Well Known', 'Recognisable', 'Unimportant'],
+  developmental: ['Main Roster', 'Developmental'],
 }
 
-export function buildDimOptions(allBrands: number[]): { id: string; label: string }[] {
+export function buildDimOptions(allBrands: number[], hasDevelopmental = false): { id: string; label: string }[] {
   return [
     { id: 'role', label: 'Role' },
     { id: 'disposition', label: 'Disposition' },
     { id: 'gender', label: 'Gender' },
     { id: 'perception', label: 'Perception' },
     ...(allBrands.length > 1 ? [{ id: 'brand', label: 'Brand' }] : []),
+    // Developmental prospects are pulled in from a parent company's feeder
+    // territory (see backend get_roster) — only worth offering as a
+    // grouping option when the roster actually has any.
+    ...(hasDevelopmental ? [{ id: 'developmental', label: 'Developmental' }] : []),
   ]
 }
 
@@ -51,6 +56,7 @@ export function groupKey(w: Worker, dim: string): string {
   if (dim === 'gender') return w.gender
   if (dim === 'brand') return `Brand ${(w as any).contract?.brand || 0}`
   if (dim === 'perception') return PERCEPTION_LABELS[(w.contract as any)?.Perception ?? 0] || 'Unknown'
+  if (dim === 'developmental') return w.contract?.developmental ? 'Developmental' : 'Main Roster'
   return ''
 }
 

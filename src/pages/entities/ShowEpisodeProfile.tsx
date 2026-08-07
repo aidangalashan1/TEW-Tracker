@@ -8,13 +8,14 @@ import plusIcon from '../../assets/UI icons/plus.png'
 import closeIcon from '../../assets/UI icons/close.png'
 import { fmtDateOrdinal } from '../../lib/dates'
 import { ratingColor } from '../../lib/colors'
+import { formatRatingPct } from '../../lib/grade'
 
 function fmtDate(d: string): string {
   return d ? fmtDateOrdinal(d) : '?'
 }
 
 export function ShowEpisodeProfile({ entityId }: { entityId: string }) {
-  const { img, focusedFed, playerFed } = useApp()
+  const { img, focusedFed, playerFed, ratingFormat } = useApp()
   const workerById = (uid: number) => workers.find(w => w.uid === uid)
   const fed = focusedFed || playerFed
   const [tvUid, showDate] = (entityId || '').split('@')
@@ -165,12 +166,12 @@ export function ShowEpisodeProfile({ entityId }: { entityId: string }) {
               <div key={ep.uid} style={{ flex: 1, background: 'var(--bg-secondary)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#fff', marginBottom: 4 }}>
                   {fmtDate(ep.date)}
-                  {ep.overall_rating > 0 && <span style={{ background: ratingColor(ep.overall_rating), color: '#fff', borderRadius: 3, padding: '0 4px', fontWeight: 700, fontSize: 10, lineHeight: '16px', marginLeft: 6, display: 'inline-block' }}>{ep.overall_rating}</span>}
+                  {ep.overall_rating > 0 && <span style={{ background: ratingColor(ep.overall_rating), color: '#fff', borderRadius: 3, padding: '0 4px', fontWeight: 700, fontSize: 10, lineHeight: '16px', marginLeft: 6, display: 'inline-block' }}>{formatRatingPct(ep.overall_rating, ratingFormat)}</span>}
                 </div>
                 {ep.matches && [...ep.matches].reverse().map((m: any) => (
                   <div key={m.uid} style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: 'var(--bg-secondary)', padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ flex: 1, fontSize: 10, fontWeight: 400 }}>{m.log_entry || m.label || 'No description'}</span>
-                    {m.rating > 0 && <span style={{ background: ratingColor(m.rating), color: '#fff', borderRadius: 3, padding: '0 4px', fontWeight: 700, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}>{m.rating}</span>}
+                    {m.rating > 0 && <span style={{ background: ratingColor(m.rating), color: '#fff', borderRadius: 3, padding: '0 4px', fontWeight: 700, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}>{formatRatingPct(m.rating, ratingFormat)}</span>}
                   </div>
                 ))}
                 {(!ep.matches || ep.matches.length === 0) && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>No segments</div>}

@@ -2,19 +2,22 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '../../context/AppContext'
 import useSWR from '../../hooks/useApi'
-import { api } from '../../api'
+import { api, UpcomingShow } from '../../api'
 import { CardEditor } from '../../components/CardEditor'
-import plusIcon from '../../assets/UI icons/plus.png'
+import { UpcomingShowPicker } from '../../components/ShowPicker'
 import { fmtDateOrdinal } from '../../lib/dates'
 import { ratingColor } from '../../lib/colors'
+import { formatRatingPct } from '../../lib/grade'
 
 export function StorylineProfile({ storylineUid }: { storylineUid: number }) {
-  const { img, focusedFed, playerFed, navigateToEntity } = useApp()
+  const { img, focusedFed, playerFed, navigateToEntity, ratingFormat } = useApp()
   const fed = focusedFed || playerFed
   const { data: sl, error } = useSWR(`storyline-${storylineUid}`, () => api.storylines.detail(storylineUid, fed?.uid))
   const { data: crossData, mutate: refreshCross } = useSWR(fed?.uid ? `storylines-cross-${fed.uid}` : null, () => api.storylines.cross(fed!.uid))
+  const { data: scheduleData } = useSWR(fed?.uid ? `schedule-${fed.uid}` : null, () => api.schedule.list(fed!.uid))
+  const upcomingShows = scheduleData?.upcoming ?? []
   const [showPicker, setShowPicker] = useState(false)
-  const [editorShow, setEditorShow] = useState<any>(null)
+  const [editorShow, setEditorShow] = useState<UpcomingShow | null>(null)
   const pastSegments = useMemo(() => {
     const result: { date: string; show: string; text: string; rating?: number }[] = []
     if (crossData?.shows) {
@@ -103,7 +106,7 @@ export function StorylineProfile({ storylineUid }: { storylineUid: number }) {
         </div>
         {sl.heat > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: ratingColor(sl.heat), color: '#fff', borderRadius: 6, width: 80, height: 80, flexShrink: 0 }}>
-            <span style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-family)' }}>{sl.heat}</span>
+            <span style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-family)' }}>{formatRatingPct(sl.heat, ratingFormat)}</span>
           </div>
         )}
       </div>
@@ -128,11 +131,6 @@ export function StorylineProfile({ storylineUid }: { storylineUid: number }) {
           </div>
         </div>
       )}
-      <div className="flex justify-end mb-2">
-        <button className="manage-view-btn" style={{ display: 'flex', alignItems: 'center', gap: 3 }} onClick={() => setShowPicker(true)}>
-          <img src={plusIcon} alt="" style={{ width: 10, height: 10 }} /> Add to Show
-        </button>
-      </div>
       {pastSegments.length > 0 && (() => {
         const groups = new Map<string, typeof pastSegments>()
         for (const seg of [...pastSegments].reverse()) {
@@ -152,7 +150,7 @@ export function StorylineProfile({ storylineUid }: { storylineUid: number }) {
                     <div key={i} style={{ fontSize: 12, padding: '3px 0', paddingLeft: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 700, color: '#fff', background: 'var(--bg-secondary)', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border-color)' }}>
                         <span style={{ flex: 1 }}>{seg.text}</span>
-                        {seg.rating != null && <span style={{ background: ratingColor(seg.rating), color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}>{seg.rating}</span>}
+                        {seg.rating != null && <span style={{ background: ratingColor(seg.rating), color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}>{formatRatingPct(seg.rating, ratingFormat)}</span>}
                       </div>
                     </div>
                   ))}
@@ -187,41 +185,16 @@ export function StorylineProfile({ storylineUid }: { storylineUid: number }) {
             ))
           })() : <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: 16 }}>No Planned Segments</div>}
         </div>
-      </div>
-      {showPicker && createPortal(
-        <div className="modal-overlay" onClick={() => setShowPicker(false)}>
-          <div className="modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <span className="modal-title">Select Show</span>
-              <button className="modal-close" onClick={() => setShowPicker(false)}>×</button>
-            </div>
-            <div className="modal-body" style={{ padding: 12, maxHeight: 300, overflowY: 'auto' }}>
-              {crossData?.shows?.filter((s: any) => s.is_upcoming).map((s: any, i: number) => (
-                <div key={s.uid || i} style={{ padding: '6px 8px', borderRadius: 4, cursor: 'pointer', color: '#fff', fontSize: 13, background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}
-                  onClick={() => { setShowPicker(false); setEditorShow(s) }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-                  onMouseLeave={e => e.currentTarget.style.background = i % 2 === 1 ? 'rgba(255,255,255,0.03)' : 'transparent'}>
-                  {s.date} · {s.name}
-                </div>
-              ))}
-              {(!crossData?.shows || crossData.shows.filter((s: any) => s.is_upcoming).length === 0) && <div style={{ color: 'var(--text-muted)' }}>No upcoming shows</div>}
-            </div>
+        <button className="manage-view-btn" style={{ marginTop: 6 }} onClick={() => setShowPicker(p => !p)}>{showPicker ? 'Cancel' : '+ Add Segment'}</button>
+        {showPicker && (
+          <div style={{ marginTop: 6 }}>
+            <UpcomingShowPicker shows={upcomingShows} img={img} onPick={show => { setShowPicker(false); setEditorShow(show) }} />
           </div>
-        </div>,
-        document.body
-      )}
+        )}
+      </div>
       {editorShow && fed && createPortal(
         <CardEditor
-          show={{
-            type: editorShow.type as 'tv' | 'event',
-            tvUid: editorShow.type === 'tv' ? editorShow.show_uid : undefined,
-            cardUid: editorShow.type === 'event' ? editorShow.show_uid : undefined,
-            date: editorShow.date,
-            name: editorShow.name,
-            length: 0,
-            lengthMin: 0,
-            logo: editorShow.logo || '',
-          }}
+          show={editorShow}
           fedUid={fed.uid}
           onClose={() => { setEditorShow(null); refreshCross() }}
         />,

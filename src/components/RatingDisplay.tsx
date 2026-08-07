@@ -1,5 +1,6 @@
 import { useApp } from '../context/AppContext'
 import type { RatingData } from '../api'
+import { formatRatingPct } from '../lib/grade'
 
 function mutedColor(pct: number): string {
   if (pct > 79) return '#3b82c4'
@@ -12,7 +13,13 @@ function mutedColor(pct: number): string {
 
 export function RatingBadge({ rating }: { rating: RatingData }) {
   const { ratingFormat } = useApp()
-  const display = ratingFormat === 'pct' ? rating.pct : rating.grade
+  // Always derived from `.pct` rather than trusting `.grade` — several call
+  // sites (defs.tsx's group/business/booking/fatigue/ringrust/win%/pop-area
+  // columns) build a RatingDisplay-shaped object client-side with no way to
+  // compute a real grade, so `.grade` was just `''`. Deriving from `.pct`
+  // here fixes every one of those at once and can't drift from the real
+  // grade for genuine backend RatingDisplay objects either (same formula).
+  const display = formatRatingPct(rating.pct, ratingFormat)
   return <span style={{
     background: mutedColor(rating.pct), color: '#fff', borderRadius: 3, padding: '0 6px',
     fontFamily: 'var(--font-family)', fontSize: 11, fontWeight: 700, lineHeight: '18px', display: 'inline-block',

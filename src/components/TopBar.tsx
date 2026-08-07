@@ -8,11 +8,15 @@ import { useBeltBreadcrumb } from '../pages/entities/belt/useBeltBreadcrumb'
 import { usePastShowBreadcrumb } from '../pages/entities/show/usePastShowBreadcrumb'
 import { useTvEpisodeBreadcrumb } from '../pages/entities/show/useTvEpisodeBreadcrumb'
 import { useWorkerBreadcrumb } from '../pages/entities/worker-profile/useWorkerBreadcrumb'
+import { usePlannedStorylineBreadcrumb } from '../pages/entities/storyline/usePlannedStorylineBreadcrumb'
 import { useWorkerRosterNav } from '../pages/entities/worker-profile/useWorkerRosterNav'
 import moveDownIcon from '../assets/UI icons/movedown.png'
 import moveUpIcon from '../assets/UI icons/moveup.png'
 import leftIcon from '../assets/UI icons/left.png'
 import rightIcon from '../assets/UI icons/right.png'
+import popoutIcon from '../assets/UI icons/popout.png'
+import { isPopoutWindow, openPopout } from '../lib/popout'
+import { WORKER_LIST_PAGE_ID } from '../pages/pageStorage'
 
 const pageNames: Record<string, string> = {
   roster: 'Roster',
@@ -34,6 +38,17 @@ const entityLabels: Record<string, string> = {
 }
 
 const AREA_ORDER = ['USA', 'Canada', 'Mexico', 'Japan', 'British Isles', 'Europe', 'Oceania', 'India']
+
+// Popout window titles for the WORKER_LIST_PAGE_ID / 'booking' sub-tabs —
+// those pages show several distinct views (Full Roster vs. Champions,
+// Schedule vs. Storylines, ...) under one currentPage, so the plain page
+// name alone wouldn't tell the popout windows apart.
+const ROSTER_TAB_LABELS: Record<string, string> = {
+  workers: 'Full Roster', developmental: 'Developmental', teams: 'Teams & Stables', champions: 'Champions',
+}
+const CREATIVE_TAB_LABELS: Record<string, string> = {
+  schedule: 'Schedule', history: 'Show History', segments: 'Segments', storylines: 'Storylines', arcs: 'Arcs',
+}
 
 function groupFeds(feds: Federation[], playerFed: Federation | null): [string, Federation[]][] {
   const groups = new Map<string, Federation[]>()
@@ -69,13 +84,12 @@ function groupFeds(feds: Federation[], playerFed: Federation | null): [string, F
 }
 
 export function TopBar() {
-  const { currentPage, pages, closeEntity, playerFed, focusedFed, allFeds, setFocusedFed, navigateToEntity, img, goBack, goForward, canGoBack, canGoForward } = useApp()
+  const { currentPage, pages, playerFed, focusedFed, allFeds, setFocusedFed, navigateToEntity, img, goBack, goForward, canGoBack, canGoForward, rosterTab, creativeTab, storylinesSubTab } = useApp()
   const [logoErr, setLogoErr] = useState(false)
   const [fedOpen, setFedOpen] = useState(false)
   const [fedPos, setFedPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const fedRef = useRef<HTMLDivElement>(null)
   const entityMatch = currentPage.match(/^entity-(\w+)-(.+)$/)
-  const isEntity = !!entityMatch
   const entityType = entityMatch?.[1]
   const entityId = entityMatch?.[2]
 
@@ -95,6 +109,10 @@ export function TopBar() {
   const tvEpisodeTvUid = isTvEpisodeEntity ? parseInt((entityId || '').split('@')[0], 10) : null
   const tvEpisodeName = useTvEpisodeBreadcrumb(isTvEpisodeEntity, tvEpisodeTvUid)
 
+  const isPlannedStorylineEntity = entityType === 'plannedstoryline'
+  const plannedStorylineId = isPlannedStorylineEntity ? entityId ?? null : null
+  const plannedStorylineName = usePlannedStorylineBreadcrumb(isPlannedStorylineEntity, plannedStorylineId)
+
   let pageName = pageNames[currentPage] || pages.find(p => p.id === currentPage)?.label || currentPage
   if (entityType === 'module') {
     const mod = getAllModules().find(m => m.id === entityId)
@@ -103,6 +121,8 @@ export function TopBar() {
     pageName = beltName || 'Belt Profile'
   } else if (entityType === 'tvepisode') {
     pageName = 'TV Episode'
+  } else if (isPlannedStorylineEntity) {
+    pageName = plannedStorylineName || 'Planned Storyline'
   } else if (entityType && entityLabels[entityType]) {
     pageName = entityLabels[entityType]
   }
@@ -293,7 +313,37 @@ export function TopBar() {
         )}
         </>)}
       <div className="topbar-breadcrumb">
-        {!isWorkerEntity && !isBeltEntity && !isPastShowEntity && !isTvEpisodeEntity && isEntity && entityType !== 'module' && <button className="btn" onClick={closeEntity} style={{ padding: '2px 8px', fontSize: 12, marginRight: 8 }}>← Back</button>}
+        {!isPopoutWindow && (window as any).electronAPI?.isElectron && (() => {
+          // Roster and Booking are one currentPage each but several distinct
+          // sub-tab views (see ROSTER_TAB_LABELS/CREATIVE_TAB_LABELS above) —
+          // that tab state lives in UIContext, not currentPage, so it has to
+          // be forwarded explicitly for the popout to land on the exact tab
+          // the user had open (e.g. Champions) instead of that page's default.
+          const isRoster = currentPage === WORKER_LIST_PAGE_ID
+          const isBooking = currentPage === 'booking'
+          const tabLabel = isRoster ? ROSTER_TAB_LABELS[rosterTab] : isBooking ? CREATIVE_TAB_LABELS[creativeTab] : null
+          const popoutTitle = tabLabel ? `${pageName} — ${tabLabel}` : pageName
+          return (
+            <button
+              className="btn" title="Open in a separate, resizable window"
+              style={{ padding: '2px 4px', border: 'none', background: 'transparent' }}
+              onClick={() => openPopout(currentPage, popoutTitle, {
+                rosterTab: isRoster ? rosterTab : undefined,
+                creativeTab: isBooking ? creativeTab : undefined,
+                storylinesSubTab: isBooking && creativeTab === 'storylines' ? storylinesSubTab : undefined,
+                // Most top-level pages (Roster, Champions, Teams & Stables,
+                // Schedule, ...) scope themselves to whichever company is
+                // currently focused in this switcher, not always the
+                // player's own — without forwarding it, the popout's fresh
+                // DataProvider would default back to the player's fed
+                // regardless of what's actually showing here.
+                focusedFedUid: displayFed?.uid,
+              })}
+            >
+              <img src={popoutIcon} alt="" style={{ width: 16, height: 16, filter: 'brightness(0) invert(1)' }} />
+            </button>
+          )
+        })()}
         <span className="topbar-breadcrumb-current">{pageName}</span>
       </div>
     </div>

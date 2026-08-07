@@ -2,10 +2,11 @@ import { useApp } from '../../context/AppContext'
 import useSWR from '../../hooks/useApi'
 import { api } from '../../api'
 import { ratingColor } from '../../lib/colors'
+import { formatRatingPct } from '../../lib/grade'
 import { fmtFlexibleDateOrdinal, daysBetweenFlexible } from '../../lib/dates'
 
 export function BeltProfile({ beltUid }: { beltUid: number }) {
-  const { img, navigateToEntity, allFeds, gameInfo } = useApp()
+  const { img, navigateToEntity, allFeds, gameInfo, ratingFormat } = useApp()
   const { data: belt, error } = useSWR('belt-' + beltUid, () => api.belt.detail(beltUid))
 
   const multiHolder = belt ? (belt.style === 'Tag Team' || belt.style === 'Trios') : false
@@ -252,7 +253,7 @@ export function BeltProfile({ beltUid }: { beltUid: number }) {
                           </span>
                         </>
                       )}
-                      <span style={{ color: '#fff', flexShrink: 0 }}>{reignDays}d</span>
+                      <span style={{ color: '#fff', flexShrink: 0 }}>{reignDays} days</span>
                     </div>
                   )
                 })}
@@ -270,7 +271,7 @@ export function BeltProfile({ beltUid }: { beltUid: number }) {
                       </span>
                     ))}
                     <span style={{ flex: 1, cursor: 'pointer' }} onClick={() => { const f = data.holders[0]; if (f) navigateToEntity('worker', f.uid) }}>{name}</span>
-                    <span style={{ color: '#fff', flexShrink: 0 }}>{data.days}d</span>
+                    <span style={{ color: '#fff', flexShrink: 0 }}>{data.days} days</span>
                   </div>
                 ))}
               </div>
@@ -315,7 +316,7 @@ export function BeltProfile({ beltUid }: { beltUid: number }) {
                 )
               })() : (
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  {belt.prestige != null ? `Current: ${Math.round(belt.prestige.pct)}` : 'No data'}
+                  {belt.prestige != null ? `Current: ${formatRatingPct(belt.prestige.pct, ratingFormat)}` : 'No data'}
                 </div>
               )}
             </div>

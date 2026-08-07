@@ -1,10 +1,10 @@
 import React from 'react'
 import { NavigationProvider, useNavigation } from './NavigationContext'
-import { UIProvider, useUI } from './UIContext'
+import { UIProvider, useUI, type UIInitialState } from './UIContext'
 import { DataProvider, useData } from './DataContext'
 import type { GameInfo, Federation } from '../api'
 import type { UserPage } from '../pages/pageTypes'
-import type { RatingFormat, RosterTab, CreativeTab } from './UIContext'
+import type { RatingFormat, RosterTab, CreativeTab, StorylinesSubTab } from './UIContext'
 import type { RecentDb } from './DataContext'
 
 export type { RatingFormat }
@@ -53,6 +53,8 @@ interface AppState {
   setRosterTab: (t: RosterTab) => void
   creativeTab: CreativeTab
   setCreativeTab: (t: CreativeTab) => void
+  storylinesSubTab: StorylinesSubTab
+  setStorylinesSubTab: (t: StorylinesSubTab) => void
 }
 
 function AppInner({ children }: { children: React.ReactNode }) {
@@ -134,6 +136,8 @@ function AppInner({ children }: { children: React.ReactNode }) {
     setRosterTab: ui.setRosterTab,
     creativeTab: ui.creativeTab,
     setCreativeTab: ui.setCreativeTab,
+    storylinesSubTab: ui.storylinesSubTab,
+    setStorylinesSubTab: ui.setStorylinesSubTab,
   }), [data, nav, ui, connectToDb, disconnectFromDb, addPage, removePage, resetDefaultView])
 
   return (
@@ -145,11 +149,11 @@ function AppInner({ children }: { children: React.ReactNode }) {
 
 const AppContext = React.createContext<AppState | null>(null)
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export function AppProvider({ children, initialPage, initialUI, initialFocusedFedUid }: { children: React.ReactNode; initialPage?: string; initialUI?: UIInitialState; initialFocusedFedUid?: number }) {
   return (
-    <NavigationProvider>
-      <UIProvider>
-        <DataProvider>
+    <NavigationProvider initialPage={initialPage}>
+      <UIProvider initial={initialUI}>
+        <DataProvider initialFocusedFedUid={initialFocusedFedUid}>
           <AppInner>
             {children}
           </AppInner>

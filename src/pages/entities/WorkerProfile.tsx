@@ -11,6 +11,7 @@ import { AgentReportTab } from './worker-profile/AgentReportTab'
 import { FormTab } from './worker-profile/FormTab'
 import { RadarChart } from './worker-profile/RadarChart'
 import { fmtDate as libFmtDate } from '../../lib/dates'
+import { useShortlist } from '../../hooks/useShortlist'
 
 function fmtDate(d: any): string {
   if (!d) return ''
@@ -21,6 +22,8 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
   const { img, focusedFed, playerFed, gameInfo, allFeds, navigateToEntity } = useApp()
   const { data: w, error } = useSWR('worker-' + workerUid, () => api.roster.detail(workerUid))
   const [tab, setTab] = useState<'profile' | 'agent-report' | 'form'>('profile')
+  const { isShortlisted, toggle: toggleShortlist } = useShortlist()
+  const shortlisted = isShortlisted(workerUid)
 
   const stars = useMemo(() => ({
     current: w?.current_stars || 0.5,
@@ -68,6 +71,13 @@ export function WorkerProfile({ workerUid }: { workerUid: number }) {
         <span className={`page-tab${tab === 'profile' ? ' active' : ''}`} onClick={() => setTab('profile')}>Profile</span>
         <span className={`page-tab${tab === 'agent-report' ? ' active' : ''}`} onClick={() => setTab('agent-report')}>Agent Report</span>
         <span className={`page-tab${tab === 'form' ? ' active' : ''}`} onClick={() => setTab('form')}>Form</span>
+        <button
+          className="manage-view-btn"
+          style={{ marginLeft: 'auto', marginRight: 12, alignSelf: 'center', ...(shortlisted ? { borderColor: '#8b5cf6', color: '#8b5cf6' } : {}) }}
+          onClick={() => toggleShortlist(workerUid)}
+        >
+          {shortlisted ? '★ Shortlisted' : '☆ Add to Shortlist'}
+        </button>
       </div>
 
       {/* Info bar: portrait+info+logos | contract | agent's report */}

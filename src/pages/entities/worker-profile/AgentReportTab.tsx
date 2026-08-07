@@ -1,4 +1,6 @@
 import { Stars } from '../../../components/Stars'
+import { useApp } from '../../../context/AppContext'
+import { formatRatingPct } from '../../../lib/grade'
 import { ATTR_MAP, ATTR_TOOLTIP } from './attributeLabels'
 import { ScoutIcon } from './ScoutIcon'
 import iPsych from '../../../assets/UI icons/scouting/psychology.png'
@@ -47,6 +49,7 @@ interface AgentReportTabProps {
 }
 
 export function AgentReportTab(props: AgentReportTabProps) {
+  const { ratingFormat } = useApp()
   try {
     const { w, stars, compact } = props
     const report: AgentReport = w.agent_report || { pros: [], cons: [], summary: '', best_role: '' }
@@ -148,7 +151,7 @@ export function AgentReportTab(props: AgentReportTabProps) {
           {[{label:'Stamina',val:w.skills?.stamina?.pct??0},{label:'Athleticism',val:w.skills?.athletic?.pct??0},{label:'Power',val:w.skills?.power?.pct??0},{label:'Toughness',val:w.skills?.toughness?.pct??0},{label:'Injury Res.',val:w.skills?.injury?.pct??0}].map(item => (
             <div key={item.label} className="flex-between text-md" style={{ padding: '3px 0' }}>
               <span className="text-secondary">{item.label}</span>
-              <span className="text-primary text-mono text-bold">{item.val}</span>
+              <span className="text-primary text-mono text-bold">{formatRatingPct(item.val, ratingFormat)}</span>
             </div>
           ))}
         </div>
@@ -158,7 +161,7 @@ export function AgentReportTab(props: AgentReportTabProps) {
           {[{label:'Psychology',val:w.skills?.psych?.pct??0},{label:'Experience',val:w.skills?.experience?.pct??0},{label:'Respect',val:w.skills?.respect?.pct??0},{label:'Reputation',val:w.skills?.reputation?.pct??0}].map(item => (
             <div key={item.label} className="flex-between text-md" style={{ padding: '3px 0' }}>
               <span className="text-secondary">{item.label}</span>
-              <span className="text-primary text-mono text-bold">{item.val}</span>
+              <span className="text-primary text-mono text-bold">{formatRatingPct(item.val, ratingFormat)}</span>
             </div>
           ))}
         </div>

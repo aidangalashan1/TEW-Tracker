@@ -1,4 +1,4 @@
-// Auto-generated from python/models.py ï¿½ do not edit directly
+// Auto-generated from python/models.py — do not edit directly
 // Run: py scripts/generate_types.py > src/api-types.ts
 
 export interface RatingDisplay {
@@ -67,6 +67,7 @@ export interface WorkerContract {
   leaving: boolean;
   on_loan: boolean;
   developmental: boolean;
+  parent_fed_uid: number;
   travel: number;
   picture: string;
   perception: number;
@@ -160,6 +161,7 @@ export interface Worker {
   style: string;
   active: boolean;
   non_wrestler: boolean;
+  is_celebrity: boolean;
   freelance: boolean;
   age: number;
   nationality: number;
@@ -187,6 +189,15 @@ export interface Worker {
   chemistry: ChemistryInfo[];
   injury_count: number;
   contract_status: string;
+  contract_expiry_days: number;
+  player_fed_uid: number;
+  company_area_pop: number;
+  roster_avg_primary: number;
+  roster_avg_ent: number;
+  roster_avg_psych: number;
+  roster_avg_fund: number;
+  roster_avg_stamina: number;
+  roster_avg_pop: number;
   current_score: number;
   potential_score: number;
   current_stars: number;
@@ -202,19 +213,18 @@ export interface Worker {
   pillar_pop: number;
   pillar_max_region_pop: number;
   pillar_local_pop: number;
+  pillar_max_region_is_home: boolean;
+  is_champion: boolean;
+  title_reign_count: number;
+  max_title_defences: number;
+  total_title_reign_count: number;
+  longest_primary_reign_days: number;
+  is_fed_ace: boolean;
+  is_signed_to_player_fed: boolean;
   perf_score: number;
-  contract_expiry_days: number;
-  player_fed_uid: number;
-  company_area_pop: number;
-  roster_avg_primary: number;
-  roster_avg_ent: number;
-  roster_avg_psych: number;
-  roster_avg_fund: number;
-  roster_avg_stamina: number;
-  roster_avg_pop: number;
   belt_history: { belt_uid: number; belt_name: string; belt_picture: string; captured: string; lost: string; defences: number }[];
   moves: { name: string; desc: string; level: number }[];
-  bio?: string;
+  bio: string;
   home_region_pop?: RatingDisplay;
   Gender?: number;
   all_fed_ids?: number[];
@@ -261,29 +271,13 @@ export interface Belt {
   active: boolean;
   holder1: number;
   holder2: number;
-  holder3?: number;
+  holder3: number;
   brand: number;
   defences: number;
   belt_level: number;
   picture: string;
-  bio?: string;
-  belt_captured?: string;
-  prestige_history?: number[];
-}
-
-export interface BeltHistoryEntry {
-  holders: { uid: number; name: string; picture: string }[];
-  captured: string;
-  lost: string;
-  defences?: number;
-  team_name?: string;
-}
-
-export interface BeltHistoryGroup {
-  belt_uid: number;
-  belt_name: string;
-  belt_picture: string;
-  entries: BeltHistoryEntry[];
+  bio: string;
+  belt_captured: string;
 }
 
 export interface GameInfo {

@@ -12,6 +12,7 @@
     "build:react": "vite build && node scripts/strip-crossorigin.js",
     "build:python": "node scripts/kill-backend.js && py -3.14 -m PyInstaller --noconfirm --onedir --distpath dist-python --workpath build-python --paths python --name main python/main.py",
     "build:electron": "npm run build:react && npm run build:python && electron-builder --win",
+    "release": "npm run build:react && npm run build:python && electron-builder --win --publish always",
     "build": "npm run gen:types && npm run build:react",
     "lint": "eslint .",
     "test": "vitest run",
@@ -45,10 +46,17 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "aidangalashan1",
+      "repo": "TEW-Tracker",
+      "private": true
     }
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.9",
+    "electron-updater": "^6.8.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-grid-layout": "^2.2.3"

@@ -1,5 +1,5 @@
 export type { ColumnDef, ColumnState } from './types'
-export { StatusBadge, MoneyDisplay, conditionHeart, condPctBar, fmtDuration, fmtDurationHm, MiniGraphTooltip, Last5Cell, AvgCell, renderCell } from './renderers'
+export { StatusBadge, MoneyDisplay, ConditionHeart, CondPctBar, fmtDuration, fmtDurationHm, MiniGraphTooltip, Last5Cell, AvgCell, renderCell } from './renderers'
 export { ratingColor } from '../../../lib/colors'
 
 const STORAGE_KEY = 'tew-worker-columns'

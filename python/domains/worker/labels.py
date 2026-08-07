@@ -190,42 +190,62 @@ def usage_label(w: Worker, stars: float, score: int, is_potential: bool = False)
     st = w.worker_type or ""
     s = float(score) if score else float(stars) * 10
 
+    if w.is_celebrity:
+        return "Celebrity"
+
     if not _is_wrestler(w):
-        levels = ["Ineffective", "Poor", "Below Average", "Average", "Good",
+        levels = ["Weak", "Poor", "Below Average", "Average", "Good",
                   "Very Good", "Impressive", "Exceptional", "World Class"]
+        # "Personality" on its own, paired with a tier adjective, reads as a
+        # judgment on the person ("Poor Personality") rather than a rating of
+        # their on-screen role — "TV Personality" is an actual job title, so
+        # the same tiers read as a performance rating instead.
         role_map = {
             "Referee": "Referee", "Announcer": "Announcer", "Colour": "Colour Commentator",
-            "Manager": "Manager", "Personality": "Personality", "Road Agent": "Agent",
+            "Manager": "Manager", "Personality": "TV Personality", "Road Agent": "Agent",
         }
         role = next((p for p in (w.positions or []) if p in role_map), "Announcer")
         label = role_map.get(role, "Announcer")
         idx = 8 if s >= 90 else 7 if s >= 80 else 6 if s >= 70 else 5 if s >= 57.5 else 4 if s >= 40 else 3 if s >= 20 else 2 if s >= 10 else 1 if s >= 5 else 0
         return f"{levels[idx]} {label}"
 
-    # Banged-up wrestlers with a type
-    if not w.retired and w.is_banged_up and st and st not in ("Complete", "Well-Rounded"):
-        return f"Banged Up {st}"
-
     # Detect workers whose local pop lags far behind their true ability —
     # world-class talent that's unknown in the fed's home area shouldn't
-    # show as "Preliminary" or "Deadwood".
+    # show as "Undercard" or "Fading Talent".
     local_pop = getattr(w, "pillar_local_pop", 0) or 0
     skill_peak = max(getattr(w, "pillar_primary", 0) or 0, getattr(w, "pillar_perf", 0) or 0)
     max_region_pop = getattr(w, "pillar_max_region_pop", 0) or 0
     pop_gap = skill_peak - local_pop
-    hidden = pop_gap > 20 and local_pop < 40
-    international = max_region_pop > local_pop + 20 and max_region_pop >= 70
+    # "Hidden Gem" is a scouting signal — it's about talent the player hasn't
+    # found yet. Once a worker is already signed to the player's own
+    # company, they're not hidden from the player anymore no matter what the
+    # raw pop numbers say.
+    signed_to_player = bool(getattr(w, "is_signed_to_player_fed", False))
+    hidden = pop_gap > 20 and local_pop < 40 and not signed_to_player
+    # International is for a star who's genuinely famous abroad but not in
+    # the fed's home market — offsetting a poor star rating that's really
+    # just a low-pop-at-home artifact, not a reflection of their actual
+    # drawing power. Three conditions: famous abroad, unknown at home, and
+    # — since "abroad" only means anything relative to "home" — their best
+    # region can't actually be the home region itself.
+    max_region_is_home = getattr(w, "pillar_max_region_is_home", False)
+    international = max_region_pop >= 70 and local_pop < 40 and not max_region_is_home
 
     ap = age_prefix(w.age)
     is_young = ap in ("Young", "Rising", "Up-and-Coming")
     is_old = ap in ("Veteran", "Grizzled", "Aging")
 
+    # Deliberately omits Enforcer and Veteran: neither has a natural leading-
+    # adjective form ("Enforcing" reads like a stray verb, and "Veteran" as a
+    # style type would collide with the literal word "Veteran" used for age
+    # below), so both fall through to the `adj == st` branch and get ordered
+    # as "Veteran {type}" instead.
     adj_form = {
         "Monster": "Monstrous", "Technician": "Technical", "Bruiser": "Bruising",
         "High-Flyer": "High-Flying", "Powerhouse": "Powerful", "Brawler": "Brawling",
-        "Enforcer": "Enforcing", "Entertainer": "Entertaining", "Specialist": "Specialist",
-        "Solid Hand": "Solid", "Veteran": "Veteran", "Young Lion": "Young Lion",
-        "All-Rounder": "All-Rounding", "Ring General": "Ring General",
+        "Entertainer": "Entertaining", "Specialist": "Specialist",
+        "Solid Hand": "Solid", "Young Lion": "Young Lion",
+        "All-Rounder": "All-Round", "Ring General": "Ring General",
         "Complete": "Complete", "Well-Rounded": "Well-Rounded",
     }
     role_types = {"Monster", "Technician", "Bruiser", "High-Flyer", "Powerhouse",
@@ -235,41 +255,146 @@ def usage_label(w: Worker, stars: float, score: int, is_potential: bool = False)
     def fmt_pos(pos_adj: str, pos_noun: str, typ: str) -> str:
         if not typ:
             return pos_noun
-        if typ in ("Complete", "Well-Rounded"):
+        if typ in ("Complete", "Well-Rounded", "Solid Hand"):
+            # "Solid Hand" is normally its own noun phrase — "Main Event
+            # Solid Hand" reads clunky, "Solid Hand Main Eventer" doesn't.
             return f"{typ} {pos_noun}"
         return f"{pos_adj} {typ}"
 
+    # Complete/Well-Rounded are compound nouns elsewhere (e.g. "Complete
+    # Midcarder"), not bare adjectives — trailing them directly after another
+    # descriptor with no noun of their own reads awkwardly ("Generational
+    # Complete", "Veteran Complete"). Wherever
+    # `st` is used as a bare trailing word after a prefix like that, use this
+    # standalone noun form instead.
+    trailing_noun_form = {"Complete": "Complete Package", "Well-Rounded": "Well-Rounded Star"}
+    st_trail = trailing_noun_form.get(st, st)
+
     if s >= 70:
-        label = fmt_pos("Main Event", "Main Eventer", st)
+        # The flat "Main Event {type}" used to be every top guy's label
+        # regardless of age or title history — two workers with the same
+        # worker_type and a similar score read identically even when one's
+        # a decorated, long-reigning champion and the other's a green
+        # 22-year-old who just cracked the main event. These tiers are
+        # checked most-specific/rarest first so a worker only ever earns
+        # the single best-fitting one.
+        is_champion = bool(getattr(w, "is_champion", False))
+        title_reign_count = getattr(w, "title_reign_count", 0) or 0
+        max_title_defences = getattr(w, "max_title_defences", 0) or 0
+        total_title_reign_count = getattr(w, "total_title_reign_count", 0) or 0
+        longest_primary_reign_days = getattr(w, "longest_primary_reign_days", 0) or 0
+        is_fed_ace = bool(getattr(w, "is_fed_ace", False))
+        # Living Legend and Legendary are about career achievement, not
+        # current age — a worker can rack up 3 world title reigns over a
+        # decade without ever crossing the is_old (38+) age threshold (e.g.
+        # someone who started young and stayed on top). Gating these on
+        # is_old meant a genuinely decorated worker who wasn't old *yet*
+        # fell all the way through to a plain "Main Event {type}", which is
+        # what was happening. is_old is now only used for the fallback tier
+        # below, for veterans who *don't* have real title pedigree.
+        has_legendary_pedigree = (
+            title_reign_count >= 3
+            or longest_primary_reign_days > 365
+            or (total_title_reign_count >= 6 and title_reign_count >= 2)
+        )
+        pop = w.pop.pct if w.pop else 0
+        # The three rarest/top tiers stand on their own, with no style-type
+        # suffix — at that level the achievement itself is the identity,
+        # not what style of wrestler they are.
+        if (is_champion and max_title_defences >= 8) or is_fed_ace:
+            # tblFed.Ace is the fed's designated on-screen figurehead — not
+            # always the current champion, so this is a second, independent
+            # route into the top tier alongside dominant title reigns.
+            label = "Face of the Company"
+        elif pop >= 90:
+            # A genuine mega-star's drawing power outranks any title-history
+            # signal below it — a 90+ pop worker is an Icon regardless of
+            # how many reigns they've had.
+            label = "Icon"
+        elif title_reign_count >= 3:
+            label = "Living Legend"
+        elif is_young and s >= 85:
+            label = f"Generational {st_trail}" if st else "Generational Talent"
+        elif has_legendary_pedigree:
+            label = f"Legendary {st_trail}" if st else "Legendary Main Eventer"
+        elif title_reign_count >= 1:
+            # A real but shorter career than Legendary calls for — a
+            # Christian/Del Rio/Miz type: a genuine former (or current)
+            # world champion, just not a multi-reign or long-reign legend.
+            label = f"Decorated {st_trail}" if st else "Decorated Main Eventer"
+        elif is_old:
+            # "Elder Statesman" read oddly for a working wrestler — this is
+            # a veteran main eventer without a decorated title history, not
+            # a retired dignitary. "Veteran" already only trails a prefix
+            # for us as the word for that.
+            if st == "Veteran":
+                label = "Veteran Main Eventer"
+            else:
+                label = f"Veteran {st_trail}" if st else "Veteran Main Eventer"
+        elif is_young and not is_potential:
+            # "Breakout" is about a young talent's current trajectory — for
+            # their *potential* label, the same score should read as the
+            # established worker they'd be once they get there, not still
+            # "breaking out". Falls through to Elite/Main Event below.
+            label = f"Breakout {st_trail}" if st else "Breakout Star"
+        elif s >= 90:
+            label = f"Elite {st_trail}" if st else "Elite Main Eventer"
+        else:
+            label = fmt_pos("Main Event", "Main Eventer", st)
     elif s >= 57.5:
         if is_young:
-            label = f"Rising {st}" if st else "Rising Upper Midcarder"
+            label = f"Rising {st_trail}" if st else "Rising Upper Midcarder"
         elif is_old:
-            adj = adj_form.get(st, st)
-            label = f"{adj} Veteran" if adj != st else (f"Veteran {st}" if st else "Veteran Upper Midcarder")
+            if st == "Veteran":
+                # worker_type "Veteran" already says everything the age
+                # prefix would — stacking them just doubles the word.
+                label = "Veteran Upper Midcarder"
+            else:
+                adj = adj_form.get(st, st)
+                label = f"{adj} Veteran" if adj != st else (f"Veteran {st_trail}" if st else "Veteran Upper Midcarder")
         else:
             label = fmt_pos("Upper Midcard", "Upper Midcarder", st)
     elif s >= 40:
         if is_young:
-            label = f"Rising {st}" if st else "Rising Midcarder"
+            label = f"Rising {st_trail}" if st else "Rising Midcarder"
         elif is_old:
-            label = f"Established {st}" if st else "Established Midcarder"
+            label = f"Established {st_trail}" if st else "Established Midcarder"
         else:
             label = fmt_pos("Midcard", "Midcarder", st)
     elif s >= 20:
         if is_old:
-            label = f"Journeyman {st}" if st else "Journeyman"
+            label = f"Journeyman {st_trail}" if st else "Journeyman"
         else:
-            label = f"Preliminary {st}" if st else "Preliminary"
+            # "Curtain Jerker" read as harsher than intended and paired
+            # oddly with some styles ("Curtain Jerker Monster") — "Undercard"
+            # is the same real wrestling term for this card position without
+            # either problem.
+            label = f"Undercard {st_trail}" if st else "Undercard"
     elif not is_potential and (w.potential_stars or 0) >= 2.5:
         label = "Developing Young Lion"
     else:
-        low = "Deadwood" if w.age >= 30 else ("Enhancement Talent" if w.age >= 28 else "Developing")
-        label = f"{low} {st}" if st else low
+        # "Deadwood" is real-world slang for someone who should be cut —
+        # too harsh for a player-facing label on a low-rated roster member.
+        low = "Fading Talent" if w.age >= 30 else ("Enhancement Talent" if w.age >= 28 else "Developing")
+        label = f"{low} {st_trail}" if st else low
 
-    if st and international:
-        label = f"International {st}"
-    elif st and hidden:
-        label = f"Hidden {st}"
+    if international or hidden:
+        # "International"/"Hidden Gem" both read as a bare adjective + type
+        # (e.g. "International Technician") — same trailing-noun issue as
+        # above. Not gated on `st` being set: a worker with no detected
+        # style archetype can still be a genuine hidden gem or international
+        # star, and used to silently lose that label entirely.
+        if international:
+            label = f"International {st_trail}" if st_trail else "International Worker"
+        else:
+            label = f"Hidden Gem {st_trail}" if st_trail else "Hidden Gem"
+
+    # Banged Up is a modifier on top of whatever tier/flavor label was
+    # computed above (including Living Legend, Face of the Company, etc.) —
+    # it used to fully replace the label instead, so an aging or currently-
+    # injured legend lost their actual character entirely and just read as
+    # "Banged Up {type}".
+    if not w.retired and w.is_banged_up and st and st not in ("Complete", "Well-Rounded"):
+        label = f"Banged Up {label}"
 
     return label

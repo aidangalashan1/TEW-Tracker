@@ -35,12 +35,23 @@ def _compute_star_scores(w: Worker):
         if not skills:
             w.current_score = 0; w.potential_score = 0
             w.current_stars = 0.5; w.potential_stars = 0.5
+            w.is_wrestler = is_wrestler
+            w.usage_label = usage_label(w, w.current_stars, w.current_score)
+            w.potential_usage_label = usage_label(w, w.potential_stars, w.potential_score, is_potential=True)
             return
         avg = sum(skills) / len(skills)
         w.current_score = round(max(0, min(100, avg)))
         w.potential_score = w.current_score
         w.current_stars = _stars_from_score(w.current_score)
         w.potential_stars = w.current_stars
+        # usage_label()'s non-wrestler branch is role-based (Referee/
+        # Announcer/Manager/...) and never touches worker_type or the
+        # pillar_*/International-Hidden fields below, which only exist for
+        # wrestlers — safe to call directly without the rest of this
+        # function's wrestler-only setup.
+        w.is_wrestler = is_wrestler
+        w.usage_label = usage_label(w, w.current_stars, w.current_score)
+        w.potential_usage_label = usage_label(w, w.potential_stars, w.potential_score, is_potential=True)
         return
 
     rv = [_pct(k) for k in ('brawl', 'puroresu', 'hardcore', 'technical', 'air')]
@@ -54,7 +65,22 @@ def _compute_star_scores(w: Worker):
     best_skill = max(primary, perf)
     worst_skill = min(primary, perf)
     secondary = (psych + fund + stamina) / 3
-    worker_level = pop * 0.50 + best_skill * 0.25 + worst_skill * 0.15 + secondary * 0.10
+
+    # A worker whose real peak popularity is abroad rather than in the fed's
+    # home market (a "foreign star") shouldn't have their rating crushed by
+    # a home-pop number that undersells their actual drawing power/talent —
+    # shift weight from pop toward skill (worker_level below), and soften
+    # the low-pop penalty further down, in proportion to that gap. Capped so
+    # pop still matters even for the most extreme cases — this nudges the
+    # balance toward skill, it doesn't hand the rating over to skill alone.
+    max_region_pop = getattr(w, 'pillar_max_region_pop', 0) or 0
+    foreign_pop_gap = max(0, max_region_pop - pop)
+    pop_deweight = min(0.20, foreign_pop_gap / 250)
+    pop_weight = 0.50 - pop_deweight
+    worker_level = (pop * pop_weight
+                    + best_skill * (0.25 + pop_deweight * 0.625)
+                    + worst_skill * (0.15 + pop_deweight * 0.375)
+                    + secondary * 0.10)
 
     core85 = sum(1 for k in ('charisma', 'mic', 'acting') if _pct(k) >= 85)
     core90 = sum(1 for k in ('charisma', 'mic', 'acting') if _pct(k) >= 90)
@@ -72,7 +98,7 @@ def _compute_star_scores(w: Worker):
     score = 60 + delta * 1.5
     pop_gap_current = max(0, company_level - pop)
     if pop_gap_current > 10:
-        score -= pop_gap_current * 0.6
+        score -= pop_gap_current * 0.6 * (1 - pop_deweight)
 
     if stamina < 60:
         score -= (60 - stamina) * 0.4

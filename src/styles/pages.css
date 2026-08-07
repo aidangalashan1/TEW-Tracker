@@ -183,6 +183,19 @@
   white-space: nowrap;
 }
 
+.shortlist-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #fff;
+  background: #8b5cf6;
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .si-strength {
   width: 40px;
   height: 4px;

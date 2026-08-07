@@ -12,7 +12,7 @@ from models import (
 )
 from domains.company.relative import get_player_fed_uid
 from .aggregate import _compute_age, _build_performance
-from .assembly import _set_company_data
+from .assembly import _set_company_data, _compute_pop_pillars, _compute_title_pillars
 from .form import _get_worker_segments
 
 
@@ -73,6 +73,11 @@ def get_worker_detail(worker_uid: int, fed_uid: int = None) -> Worker | None:
         if w.pop.pct == 0:
             all_vals = [over_row.get(f"Over{i}", 0) for i in range(1, 58)]
             w.pop = RatingDisplay.from_raw(round(sum(all_vals) / len(all_vals)))
+        # Same pillar computation the Roster tab's _build_worker uses — this
+        # page used to skip it entirely, so usage_label()'s International/
+        # Hidden detection silently never fired here, disagreeing with
+        # whatever the Roster tab showed for the same worker.
+        _compute_pop_pillars(w, store, over_row, company_fed_uid=fed_uid)
 
     game_date_val = store.game_date_val
     w.age = _compute_age(w_row.get("Birthday"), game_date_val)
@@ -118,6 +123,7 @@ def get_worker_detail(worker_uid: int, fed_uid: int = None) -> Worker | None:
             w.contract_status = "developmental"
         w.contract_expiry_days = main.get("Daysleft", 0) or 0
 
+    _compute_title_pillars(w, store, worker_uid, game_date_val)
     _set_company_data(w, store, game_date_val)
 
     # Agent report (strengths / weaknesses / usage narrative / best role) —

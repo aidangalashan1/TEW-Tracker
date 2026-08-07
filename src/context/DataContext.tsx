@@ -73,7 +73,7 @@ function saveRecents(list: RecentDb[]) {
   localStorage.setItem(RECENT_KEY, JSON.stringify(list))
 }
 
-export function DataProvider({ children }: { children: React.ReactNode }) {
+export function DataProvider({ children, initialFocusedFedUid }: { children: React.ReactNode; initialFocusedFedUid?: number }) {
   const [gameInfo, setGameInfo] = useState<GameInfo | null>(null)
   const [playerFed, setPlayerFed] = useState<Federation | null>(null)
   const [allFeds, setAllFeds] = useState<Federation[]>([])
@@ -136,32 +136,54 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       // error — fall back to the world's first fed so pages that need a
       // fedUid (roster, etc.) have something real to show instead of going
       // blank, rather than leaving focusedFed stuck on null or undefined.
-      setFocusedFed(prev => prev || fed || fedsRes.feds[0] || null)
+      //
+      // A popout window carries over whatever fed the main window had
+      // focused (see lib/popout.ts/TopBar's openPopout call) — without
+      // preferring it here first, this would fall through to the player's
+      // own fed instead, silently showing different data than the page it
+      // was popped out from (e.g. Champions for a rival promotion the main
+      // window was browsing turning into the player's own promotion).
+      const initialFocusedFed = initialFocusedFedUid != null ? fedsRes.feds.find(f => f.uid === initialFocusedFedUid) : undefined
+      setFocusedFed(prev => prev || initialFocusedFed || fed || fedsRes.feds[0] || null)
       // A caller can't reliably read the just-set focusedFed/storeVersion
       // React state synchronously right after `await load()` — those setters
       // haven't committed in this closure yet. Return the resolved values
       // directly instead, for callers (finishConnect) that need them right away.
-      return { info, fed, focusedFedUid: fed?.uid ?? fedsRes.feds[0]?.uid ?? null, version: versionRes.version }
+      return { info, fed, focusedFedUid: initialFocusedFed?.uid ?? fed?.uid ?? fedsRes.feds[0]?.uid ?? null, version: versionRes.version }
     } catch (e: any) {
       if (id === loadIdRef.current) setError(e.message || 'Failed to load game data')
       return null
     } finally {
       if (id === loadIdRef.current) setLoading(false)
     }
-  }, [])
+  }, [initialFocusedFedUid])
 
   // Backend-warmed fixed navigation targets — the small set of pages a user
   // reaches directly from the sidebar (Roster, Schedule, Show History,
-  // Storylines, Champions, Teams/Stables) rather than by clicking through an
-  // entity. Blocking on these (Promise.allSettled — individual failures
-  // don't hang the batch) during connect means none of them ever shows its
-  // own inline spinner on the first visit. Keys match the ones the
-  // corresponding useSWR call sites use, so this populates the same cache
-  // entries they'll read. The backend itself pre-warms the underlying
-  // DataStore groups behind most of these the instant init_store() runs
-  // (see domains/worker/roster.py, domains/show/schedule.py,
+  // Storylines, Teams/Stables) rather than by clicking through an entity.
+  // Blocking on these (Promise.allSettled — individual failures don't hang
+  // the batch) during connect means none of them ever shows its own inline
+  // spinner on the first visit. Keys match the ones the corresponding
+  // useSWR call sites use, so this populates the same cache entries they'll
+  // read. The backend itself pre-warms the underlying DataStore groups
+  // behind most of these the instant init_store() runs (see
+  // domains/worker/roster.py, domains/show/schedule.py,
   // domains/company/finance.py's warm_cache hooks), so these requests are
   // normally fast rather than a fresh multi-second build.
+  //
+  // Champions' belts/belt-history are deliberately NOT in this list, unlike
+  // the comment here used to claim — this cache entry is never invalidated
+  // except on reconnect/reload (see dataCache.ts's version-keyed model), so
+  // pre-warming it here would mean whatever this one snapshot at connect
+  // time happened to be is what Champions is stuck showing for the player's
+  // own fed for the entire session, with no way to ever refresh — while
+  // every OTHER fed's Champions tab (never pre-warmed) always does a live
+  // fetch the first time it's actually opened. That asymmetry is exactly
+  // the kind of thing that silently goes stale/wrong for one specific fed
+  // while working everywhere else. Leaving it out costs one inline spinner
+  // the first time the player opens their own Champions tab, in exchange
+  // for it always reflecting a real, current fetch — same as every other
+  // fed already gets.
   //
   // Worker Search's full roster dump is deliberately left out of the
   // blocking batch — it's heavier and not a guaranteed first click — and
@@ -174,8 +196,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           prefetch('schedule-' + fedUid, version, () => api.schedule.list(fedUid)),
           prefetch('past-shows-' + fedUid, version, () => api.show_history.list(fedUid, 100)),
           prefetch('storylines-cross-' + fedUid, version, () => api.storylines.cross(fedUid)),
-          prefetch('fed-belts-' + fedUid, version, () => api.fed.belts(fedUid)),
-          prefetch('belt-history-' + fedUid, version, () => api.fed.beltHistory(fedUid)),
         ])
       }
     } finally {

@@ -49,6 +49,7 @@ export function buildFilterDimensions(allContracts: string[], allBrands: number[
     { id: 'age', label: 'Age', type: 'num', group: 'personal', getValue: w => w.age },
     { id: 'status', label: 'Status', type: 'cat', group: 'personal', options: ['Active', 'Inactive'], getValue: w => w.active ? 'Active' : 'Inactive' },
     { id: 'wrestler', label: 'Worker Type', type: 'cat', group: 'personal', options: ['Wrestler', 'Non-Wrestler'], getValue: w => w.non_wrestler ? 'Non-Wrestler' : 'Wrestler' },
+    { id: 'celebrity', label: 'Celebrity', type: 'cat', group: 'personal', options: ['Regular', 'Celebrity'], getValue: w => w.is_celebrity ? 'Celebrity' : 'Regular' },
     { id: 'retired', label: 'Retirement', type: 'cat', group: 'personal', options: ['Active', 'Retired'], getValue: w => w.retired ? 'Retired' : 'Active' },
     // Creative
     { id: 'perception', label: 'Perception', type: 'cat', group: 'creative', options: Object.values(PERCEPTION_LABELS).filter(v => v !== 'No Perception'), getValue: w => PERCEPTION_LABELS[(w.contract as any)?.Perception ?? 0] || 'Unknown' },
@@ -61,6 +62,7 @@ export function buildFilterDimensions(allContracts: string[], allBrands: number[
     { id: 'total_angles', label: '# Angles', type: 'num', group: 'creative', getValue: w => w.performance?.total_angles ?? 0 },
     // Contract
     { id: 'contract', label: 'Contract', type: 'cat', group: 'contract', options: allContracts.filter(c => c !== 'all'), getValue: w => w.contract_status },
+    { id: 'developmental', label: 'Developmental', type: 'cat', group: 'contract', options: ['Developmental', 'Main Roster'], getValue: w => w.contract?.developmental ? 'Developmental' : 'Main Roster' },
     { id: 'wage', label: 'Wage', type: 'num', group: 'contract', getValue: w => w.contract?.amount ?? 0 },
     { id: 'days_left', label: 'Days Left', type: 'num', group: 'contract', getValue: w => w.contract?.days_left ?? 0 },
     ...(allBrands.length > 1 ? [{ id: 'brand', label: 'Brand', type: 'cat' as const, group: 'contract', options: allBrands.map(b => `Brand ${b}`), getValue: (w: Worker) => `Brand ${(w as any).contract?.brand || 0}` }] : []),

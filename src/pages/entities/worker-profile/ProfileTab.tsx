@@ -6,6 +6,8 @@ import useSWR from '../../../hooks/useApi'
 import { ConditionBody } from './ConditionBody'
 import { RatingBadge } from './RatingBadge'
 import { ratingColor } from '../../../lib/colors'
+import { formatRatingPct } from '../../../lib/grade'
+import { useApp } from '../../../context/AppContext'
 import { fmtDateOrdinal } from '../../../lib/dates'
 import { SKILL_LABELS } from '../../../lib/labels'
 import { Tooltip } from '../../../components/Tooltip'
@@ -37,6 +39,7 @@ interface ProfileTabProps {
 
 export function ProfileTab(props: ProfileTabProps) {
   const { w, img, AREAS, onViewForm, gameInfo } = props
+  const { ratingFormat } = useApp()
 
   const isFem = (w as any).Gender === 5 || (w as any).Gender === 8
   const [tip, setTip] = useState<{ node: React.ReactNode; x: number; y: number } | null>(null)
@@ -169,7 +172,7 @@ export function ProfileTab(props: ProfileTabProps) {
               {col.allItems.map((item, i) => (
                 <div key={item.label} className="flex-between px-1" style={{ padding: '3px 4px', fontSize: 12, background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
                   <span style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
-                  <span style={{ color: 'var(--text-primary)', minWidth: 30, textAlign: 'right' }}>{item.val}</span>
+                  <span style={{ color: 'var(--text-primary)', minWidth: 30, textAlign: 'right' }}>{formatRatingPct(item.val, ratingFormat)}</span>
                 </div>
               ))}
             </div>
@@ -191,7 +194,7 @@ export function ProfileTab(props: ProfileTabProps) {
               {g.regions.map((r, i) => (
                 <div key={r.rid} className="flex-between px-1" style={{ padding: '3px 4px', fontSize: 12, background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
                   <span style={{ color: 'var(--text-secondary)' }}>{REGION_NAMES[r.rid] || `Region ${r.rid}`}</span>
-                  <span style={{ color: 'var(--text-primary)', minWidth: 30, textAlign: 'right' }}>{r.v}</span>
+                  <span style={{ color: 'var(--text-primary)', minWidth: 30, textAlign: 'right' }}>{formatRatingPct(r.v, ratingFormat)}</span>
                 </div>
               ))}
             </div>
@@ -211,9 +214,9 @@ export function ProfileTab(props: ProfileTabProps) {
               {onViewForm && <span className="cursor-pointer flex" onClick={onViewForm} title="View full form history"><img src={rightIcon} alt="" style={{ width: 12, height: 12, filter: 'brightness(0) invert(0.6)' }} /></span>}
             </div>
             <div style={{ display: 'flex', gap: 6, fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.3px', marginBottom: 1, alignItems: 'center' }}>
-              <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Segments <span style={{ background: ratingColor(avgSeg), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-family)' }}>{avgSeg}</span></span>
-                    <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Matches <span style={{ background: ratingColor(avgMatch), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-family)' }}>{avgMatch}</span></span>
-                    <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Angles <span style={{ background: ratingColor(avgAngle), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-family)' }}>{avgAngle}</span></span>
+              <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Segments <span style={{ background: ratingColor(avgSeg), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-family)' }}>{formatRatingPct(avgSeg, ratingFormat)}</span></span>
+                    <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Matches <span style={{ background: ratingColor(avgMatch), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-family)' }}>{formatRatingPct(avgMatch, ratingFormat)}</span></span>
+                    <span className="flex items-center gap-1" style={{ fontSize: 10 }}>Angles <span style={{ background: ratingColor(avgAngle), color: '#fff', borderRadius: 3, padding: '0 6px', fontWeight: 700, fontSize: 12, lineHeight: '20px', display: 'inline-block', fontFamily: 'var(--font-family)' }}>{formatRatingPct(avgAngle, ratingFormat)}</span></span>
             </div>
             <svg width={w2} height={h2} className="block" style={{ overflow: 'visible' }}>
               <defs>
@@ -254,7 +257,7 @@ export function ProfileTab(props: ProfileTabProps) {
                                 {showLogo && <img src={showLogo} alt="" style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'contain' }} />}
                                 {showName && <div style={{ fontWeight: 700, fontSize: 12 }}>{showName}</div>}
                               </div>
-                              <div style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>{segLabel} <span style={{ background: ratingColor(pct), color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px', display: 'inline-block' }}>{pct}</span></div>
+                              <div style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>{segLabel} <span style={{ background: ratingColor(pct), color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px', display: 'inline-block' }}>{formatRatingPct(pct, ratingFormat)}</span></div>
                               {others.length > 0 && <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                 {others.map((o: any, j: number) => (
                                   <img key={j} src={img('People/' + o.picture)} alt="" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover' }}

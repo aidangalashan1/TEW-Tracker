@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { api } from '../api'
 import { ProfileManager } from '../components/ProfileManager'
+import { getZoomOverride, setZoomOverride, getAutoScale, ZOOM_PRESETS } from '../lib/uiScale'
 
 export function SettingsPage() {
   const { ratingFormat, setRatingFormat, refresh, gameInfo, db, connectToDb, images, setImagePath, resetDefaultView } = useApp()
@@ -10,6 +11,9 @@ export function SettingsPage() {
   const [status, setStatus] = useState('')
   const [browsing, setBrowsing] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [zoomOverride, setZoomOverrideState] = useState(getZoomOverride)
+  const autoScale = getAutoScale()
+  const isElectron = !!(window as any).electronAPI?.isElectron
 
   const handleBrowse = async () => {
     setBrowsing(true)
@@ -88,6 +92,29 @@ export function SettingsPage() {
               </button>
             </div>
           </div>
+
+          {isElectron && (
+            <div className="settings-row">
+              <div>
+                <div className="settings-label">UI Scale</div>
+                <div className="settings-description">
+                  The app auto-fits itself to your monitor (currently {Math.round(autoScale * 100)}% of the design's 2560×1440 baseline).
+                  Nudge it further here if that's still too small or too large.
+                </div>
+              </div>
+              <div className="toolbar">
+                {ZOOM_PRESETS.map(p => (
+                  <button
+                    key={p}
+                    className={`btn ${zoomOverride === p ? 'active' : ''}`}
+                    onClick={() => { setZoomOverride(p); setZoomOverrideState(p) }}
+                  >
+                    {Math.round(p * 100)}%
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="settings-group">
@@ -194,6 +221,21 @@ export function SettingsPage() {
             </span>
           </div>
         </div>
+
+        {isElectron && (
+          <div className="settings-group">
+            <div className="settings-group-title">Updates</div>
+            <div className="settings-row">
+              <div>
+                <div className="settings-label">Check for Updates</div>
+                <div className="settings-description">A banner appears at the top if a newer version is available</div>
+              </div>
+              <button className="btn" onClick={() => (window as any).electronAPI?.updates?.check()}>
+                Check Now
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="settings-section">
           <div className="settings-section-title">Save Profiles</div>

@@ -4,7 +4,7 @@ json_store.py's automatic app-state persistence."""
 import json
 import os
 from fastapi import HTTPException
-from core.storage import saves_dir
+from core.storage import save_dir
 
 
 def export_json_dialog(title: str, default_filename: str, data_str: str) -> dict:
@@ -16,7 +16,7 @@ def export_json_dialog(title: str, default_filename: str, data_str: str) -> dict
         root.attributes("-topmost", True)
         path = filedialog.asksaveasfilename(
             title=title,
-            initialdir=saves_dir(),
+            initialdir=save_dir(),
             initialfile=default_filename,
             defaultextension=".json",
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
@@ -41,7 +41,7 @@ def import_json_dialog(title: str) -> dict:
         root.attributes("-topmost", True)
         path = filedialog.askopenfilename(
             title=title,
-            initialdir=saves_dir(),
+            initialdir=save_dir(),
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
         )
         root.destroy()

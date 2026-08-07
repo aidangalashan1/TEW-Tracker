@@ -151,11 +151,91 @@
   gap: 12px;
 }
 
+/* Popout window titlebar — see PopoutTitleBar.tsx. Replaces the OS chrome a
+   frameless BrowserWindow gives up: a drag region plus its own
+   minimize/maximize/close, styled to match the rest of the app instead of
+   the native Windows title bar. */
+.popout-titlebar {
+  height: 34px;
+  min-height: 34px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: stretch;
+  -webkit-app-region: drag;
+}
+
+.popout-titlebar-drag {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  min-width: 0;
+}
+
+.popout-titlebar-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.popout-titlebar-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.popout-titlebar-controls {
+  display: flex;
+  align-items: stretch;
+  -webkit-app-region: no-drag;
+}
+
+.popout-titlebar-btn {
+  width: 42px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition);
+}
+
+.popout-titlebar-btn:hover {
+  background: var(--bg-hover);
+}
+
+.popout-titlebar-btn-close:hover {
+  background: var(--accent);
+}
+
+.popout-titlebar-minimize {
+  width: 10px;
+  height: 1px;
+  background: var(--text-secondary);
+  display: block;
+}
+
+.popout-titlebar-maximize {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--text-secondary);
+  display: block;
+}
+
 .topbar-breadcrumb {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 12px;
+  margin-left: auto;
 }
 
 .topbar-breadcrumb-sep {

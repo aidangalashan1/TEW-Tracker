@@ -13,6 +13,7 @@ import { projectNextPeriod, historyStats, computeAvgWage, computeRankPercentile,
 import { daysLeftTone } from '../../lib/contracts'
 import { maxBy } from '../../lib/arrays'
 import { useApp } from '../../context/AppContext'
+import { formatRatingPct } from '../../lib/grade'
 
 export interface FinanceModuleData {
   summary: FinanceSummary
@@ -340,7 +341,7 @@ function WagesTab({ data, tier }: { data: FinanceModuleData; tier: 'medium' | 'l
 }
 
 function StandingTab({ data, tier }: { data: FinanceModuleData; tier: 'medium' | 'large' }) {
-  const { allFeds, setFocusedFed } = useApp()
+  const { allFeds, setFocusedFed, ratingFormat } = useApp()
   const { rank, total, peers } = data.standing
   const findFed = (uid: number) => allFeds.find(f => f.uid === uid)
   const focusPeer = (peer: FinanceStandingPeer) => {
@@ -368,8 +369,8 @@ function StandingTab({ data, tier }: { data: FinanceModuleData; tier: 'medium' |
               <div className="w-24 text-xs text-muted text-mono flex-shrink-0 text-center">#{p.rank}</div>
               <PeerLogo peer={p} size={logoSize} />
               <div className={`w-110 flex-shrink-0 truncate text-sm cursor-pointer ${p.is_player ? 'text-primary text-semibold' : 'text-secondary'}`} onClick={() => focusPeer(p)}>{p.name}</div>
-              <div className="w-100 flex-shrink-0 text-xxs text-muted truncate" data-tooltip={fed ? `Prestige: ${fed.prestige.grade} · Momentum: ${fed.momentum.grade}` : undefined}>
-                {fed ? `${fed.size_label} · ${fed.prestige.grade}` : ''}
+              <div className="w-100 flex-shrink-0 text-xxs text-muted truncate" data-tooltip={fed ? `Prestige: ${formatRatingPct(fed.prestige.pct, ratingFormat)} · Momentum: ${formatRatingPct(fed.momentum.pct, ratingFormat)}` : undefined}>
+                {fed ? `${fed.size_label} · ${formatRatingPct(fed.prestige.pct, ratingFormat)}` : ''}
               </div>
               <Bar pct={(p.income / max) * 100} variant={p.is_player ? 'wage' : 'income'} tip={`${p.name}: ${fmtMoney(p.income)}`} />
               <div className="w-64 text-right flex-shrink-0 text-sm text-mono text-primary">{fmtMoney(p.income)}</div>

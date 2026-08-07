@@ -1,6 +1,7 @@
 import { useApp } from '../../context/AppContext'
 import useSWR from '../../hooks/useApi'
 import { api } from '../../api'
+import { formatRatingPct } from '../../lib/grade'
 
 function fmtDate(d: string): string {
   if (!d) return '?'
@@ -13,7 +14,7 @@ function fmtDate(d: string): string {
 }
 
 export function ShowProfile({ showUid, showType }: { showUid: number; showType: 'tv' | 'event' }) {
-  const { img } = useApp()
+  const { img, ratingFormat } = useApp()
   const fetchFn = showType === 'tv' ? api.schedule.tvDetail : api.schedule.eventDetail
   const { data: show, error } = useSWR(`${showType}-show-${showUid}`, () => fetchFn(showUid))
 
@@ -43,8 +44,8 @@ export function ShowProfile({ showUid, showType }: { showUid: number; showType: 
             {show.pastEpisodes.slice(0, 20).map((ep: any, i: number) => (
               <div key={ep.uid} style={{ fontSize: 12, padding: '3px 4px', borderRadius: 4, color: '#fff', background: i % 2 === 1 ? 'rgba(255,255,255,0.03)' : undefined }}>
                 {fmtDate(ep.date)}
-                {ep.rating > 0 && <span style={{ color: 'var(--text-muted)' }}> · {Math.round(ep.rating / 10)}</span>}
-                {ep.tv_rating > 0 && <span style={{ color: 'var(--text-muted)' }}> · TV: {Math.round(ep.tv_rating / 10)}</span>}
+                {ep.rating > 0 && <span style={{ color: 'var(--text-muted)' }}> · {formatRatingPct(Math.round(ep.rating / 10), ratingFormat)}</span>}
+                {ep.tv_rating > 0 && <span style={{ color: 'var(--text-muted)' }}> · TV: {formatRatingPct(Math.round(ep.tv_rating / 10), ratingFormat)}</span>}
                 {ep.attendance > 0 && <span style={{ color: 'var(--text-muted)' }}> · {ep.attendance} att.</span>}
                 {ep.sellout && <span style={{ color: '#22c55e', fontWeight: 600 }}> SELLOUT</span>}
               </div>

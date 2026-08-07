@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext'
 import useSWR from '../../hooks/useApi'
 import { api } from '../../api'
 import { ratingColor } from '../../lib/colors'
+import { formatRatingPct } from '../../lib/grade'
 import { fmtDateOrdinal } from '../../lib/dates'
 
 function fmtDate(d: string): string {
@@ -11,10 +12,10 @@ function fmtDate(d: string): string {
 }
 
 export function PastShowProfile({ pastCardUid }: { pastCardUid: number }) {
-  const { img } = useApp()
+  const { img, ratingFormat } = useApp()
   const { data: show, error } = useSWR('past-show-' + pastCardUid, () => api.show_history.detail(pastCardUid))
   const { data: fedBelts } = useSWR(show?.fed_uid ? 'fed-belts-' + show.fed_uid : null, () => api.fed.belts(show!.fed_uid))
-  const { data: beltHistory } = useSWR(show?.fed_uid ? 'belt-history-' + show.fed_uid : null, () => api.fed.beltHistory(show!.fed_uid))
+  const { data: beltHistory } = useSWR(show?.fed_uid ? 'belt-history-' + show.fed_uid : null, () => api.fed.beltHistory(show!.fed_uid, 9999))
   const beltMap = useMemo(() => {
     const m = new Map<number, { name: string; picture: string }>()
     if (fedBelts?.belts) {
@@ -62,7 +63,7 @@ export function PastShowProfile({ pastCardUid }: { pastCardUid: number }) {
         </div>
         {show.overall_rating > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: ratingColor(show.overall_rating), color: '#fff', borderRadius: 6, width: 150, height: 150, flexShrink: 0 }}>
-            <span style={{ fontSize: 36, fontWeight: 700, fontFamily: 'var(--font-family)' }}>{show.overall_rating}</span>
+            <span style={{ fontSize: 36, fontWeight: 700, fontFamily: 'var(--font-family)' }}>{formatRatingPct(show.overall_rating, ratingFormat)}</span>
           </div>
         )}
       </div>
@@ -93,7 +94,7 @@ export function PastShowProfile({ pastCardUid }: { pastCardUid: number }) {
                     </span>
                   )}
                   <span style={{ flex: 1 }}>{m.log_entry || 'No description'}</span>
-                  <span style={{ background: ratingColor(m.rating), color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}>{m.rating}</span>
+                  <span style={{ background: ratingColor(m.rating), color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px', flexShrink: 0 }}>{formatRatingPct(m.rating, ratingFormat)}</span>
                 </div>
                 {(m.title1 > 0 || m.title2 > 0) && (() => {
                   const beltId = m.title1 || m.title2
@@ -132,7 +133,7 @@ export function PastShowProfile({ pastCardUid }: { pastCardUid: number }) {
                                 onError={(e) => (e.target as HTMLElement).style.display = 'none'} />}
                               {!comp.picture && <div style={{ width: 75, height: 75, background: 'var(--bg-tertiary)', borderRadius: 6 }} />}
                               <span>{comp.name}</span>
-                              {comp.performance > 0 && <span style={{ background: ratingColor(comp.performance), color: '#fff', borderRadius: 3, padding: '0 4px', fontWeight: 700, fontSize: 10, lineHeight: '16px' }}>{comp.performance}</span>}
+                              {comp.performance > 0 && <span style={{ background: ratingColor(comp.performance), color: '#fff', borderRadius: 3, padding: '0 4px', fontWeight: 700, fontSize: 10, lineHeight: '16px' }}>{formatRatingPct(comp.performance, ratingFormat)}</span>}
                             </span>
                           ))}
                         </span>

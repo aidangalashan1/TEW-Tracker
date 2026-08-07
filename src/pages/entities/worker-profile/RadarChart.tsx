@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useApp } from '../../../context/AppContext'
+import { formatRatingPct } from '../../../lib/grade'
 
 const RADIUS_FACTOR = 0.4
 const LABEL_OFFSET = 1.3
@@ -16,6 +18,7 @@ interface RadarChartProps {
 }
 
 export function RadarChart({ values, labels, tooltipLabels, size = 150 }: RadarChartProps) {
+  const { ratingFormat } = useApp()
   const [tip, setTip] = useState<{ node: React.ReactNode; x: number; y: number } | null>(null)
   const n = values.length
   const cx = size / 2
@@ -51,7 +54,7 @@ export function RadarChart({ values, labels, tooltipLabels, size = 150 }: RadarC
           const c = dotColor(v)
           return (
             <circle key={i} cx={p.x} cy={p.y} r={3} fill={c} stroke={c} strokeWidth={1}
-              onMouseOver={(e) => setTip({ node: <div style={{ fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>{(tooltipLabels || labels)[i]}: <span style={{ background: c, color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px', display: 'inline-block' }}>{v}</span></div>, x: e.clientX, y: e.clientY })}
+              onMouseOver={(e) => setTip({ node: <div style={{ fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>{(tooltipLabels || labels)[i]}: <span style={{ background: c, color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px', display: 'inline-block' }}>{formatRatingPct(v, ratingFormat)}</span></div>, x: e.clientX, y: e.clientY })}
               onMouseMove={(e) => setTip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)}
               onMouseOut={() => setTip(null)} />
           )

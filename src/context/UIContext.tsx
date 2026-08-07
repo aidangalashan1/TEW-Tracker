@@ -2,8 +2,9 @@ import React, { createContext, useContext, useState, useMemo } from 'react'
 
 export type RatingFormat = 'pct' | 'grade'
 
-export type RosterTab = 'workers' | 'teams' | 'champions'
-export type CreativeTab = 'schedule' | 'history' | 'storylines' | 'arcs'
+export type RosterTab = 'workers' | 'developmental' | 'teams' | 'champions'
+export type CreativeTab = 'schedule' | 'history' | 'segments' | 'storylines' | 'arcs' | 'diary'
+export type StorylinesSubTab = 'list' | 'beats'
 
 interface UIState {
   ratingFormat: RatingFormat
@@ -16,16 +17,28 @@ interface UIState {
   setRosterTab: (t: RosterTab) => void
   creativeTab: CreativeTab
   setCreativeTab: (t: CreativeTab) => void
+  // Which sub-view the Storylines page shows — lifted up to UIContext (rather
+  // than kept local to StorylinesTab) so the page-tab bar itself can render
+  // this as a dropdown and control it directly.
+  storylinesSubTab: StorylinesSubTab
+  setStorylinesSubTab: (t: StorylinesSubTab) => void
 }
 
 const UIContext = createContext<UIState | null>(null)
 
-export function UIProvider({ children }: { children: React.ReactNode }) {
+export interface UIInitialState {
+  rosterTab?: RosterTab
+  creativeTab?: CreativeTab
+  storylinesSubTab?: StorylinesSubTab
+}
+
+export function UIProvider({ children, initial }: { children: React.ReactNode; initial?: UIInitialState }) {
   const [ratingFormat, setRatingFormat] = useState<RatingFormat>('pct')
   const [moduleDrawerOpen, setModuleDrawerOpen] = useState(false)
   const [workerRoster, setWorkerRoster] = useState<number[]>([])
-  const [rosterTab, setRosterTab] = useState<RosterTab>('workers')
-  const [creativeTab, setCreativeTab] = useState<CreativeTab>('schedule')
+  const [rosterTab, setRosterTab] = useState<RosterTab>(initial?.rosterTab || 'workers')
+  const [creativeTab, setCreativeTab] = useState<CreativeTab>(initial?.creativeTab || 'schedule')
+  const [storylinesSubTab, setStorylinesSubTab] = useState<StorylinesSubTab>(initial?.storylinesSubTab || 'list')
 
   const value: UIState = useMemo(() => ({
     ratingFormat,
@@ -38,7 +51,9 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
     setRosterTab,
     creativeTab,
     setCreativeTab,
-  }), [ratingFormat, moduleDrawerOpen, workerRoster, rosterTab, creativeTab])
+    storylinesSubTab,
+    setStorylinesSubTab,
+  }), [ratingFormat, moduleDrawerOpen, workerRoster, rosterTab, creativeTab, storylinesSubTab])
 
   return (
     <UIContext.Provider value={value}>

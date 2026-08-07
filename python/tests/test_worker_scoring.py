@@ -181,6 +181,56 @@ class TestComputeStarScoresNonWrestler:
         assert w.current_score == w.potential_score
         assert w.current_stars == w.potential_stars
 
+    def test_non_wrestler_usage_and_potential_labels_are_populated(self):
+        # Regression: usage_label()/potential_usage_label() used to only be
+        # set on the wrestler code path — the non-wrestler branch returned
+        # early before reaching that assignment, so "Recommended Usage" and
+        # "Potential" showed blank for every referee/announcer/manager/etc.
+        w = _worker(positions=["Manager"], skills=_skills(charisma=70, mic=80, acting=60), pop=_pct(60))
+        _compute_star_scores(w)
+        assert w.usage_label == "Good Manager"
+        assert w.potential_usage_label == "Good Manager"
+
+    def test_non_wrestler_role_label_varies_by_score_tier(self):
+        w = _worker(positions=["Referee"], skills=_skills(refereeing=95, respect=90), pop=_pct(90))
+        _compute_star_scores(w)
+        assert w.usage_label == "World Class Referee"
+
+
+class TestForeignPopDeweighting:
+    # A worker with elite skills but almost no home-market pop, whose peak
+    # popularity (pillar_max_region_pop) lies in some other region entirely
+    # — a genuine foreign megastar shouldn't be crushed to a 0.5-star
+    # rating just because they're unknown in the fed's home area.
+    ELITE_SKILLS = dict(MID_SKILLS)
+    for _k in ("brawl", "puroresu", "hardcore", "technical", "air",
+               "charisma", "mic", "acting", "star", "looks", "menace",
+               "psych", "basics", "selling", "consistency", "safety", "stamina"):
+        ELITE_SKILLS[_k] = 85
+
+    def test_foreign_megastar_scores_higher_than_the_same_worker_with_no_foreign_fame_signal(self):
+        low_pop_only = _worker(age=28, skills=_skills(**self.ELITE_SKILLS), pop=_pct(5), **MID_CONTEXT)
+        _compute_star_scores(low_pop_only)
+
+        foreign_star = _worker(age=28, skills=_skills(**self.ELITE_SKILLS), pop=_pct(5), **MID_CONTEXT,
+                                pillar_max_region_pop=95)
+        _compute_star_scores(foreign_star)
+
+        assert foreign_star.current_score > low_pop_only.current_score
+        assert foreign_star.current_stars > low_pop_only.current_stars
+        # The old all-pop-weighted formula crushed this exact profile close
+        # to the 0.5-star floor — with the foreign-fame signal factored in,
+        # elite skills should pull it well clear of that floor.
+        assert foreign_star.current_stars >= 2.5
+
+    def test_no_gap_between_home_and_foreign_pop_leaves_the_formula_unchanged(self):
+        # pillar_max_region_pop <= home pop -> foreign_pop_gap is 0 -> no
+        # deweighting at all, so this must match the pre-existing baseline
+        # test's numbers exactly (mid_skills_with_realistic_company_context).
+        w = _worker(age=25, skills=_skills(**MID_SKILLS), pop=_pct(50), **MID_CONTEXT, pillar_max_region_pop=50)
+        _compute_star_scores(w)
+        assert (w.current_score, w.potential_score, w.current_stars, w.potential_stars) == (59, 69, 3, 3.5)
+
 
 class TestComputeStarScoresWrestler:
     def test_zero_skills_still_produces_a_potential_score_floor(self):

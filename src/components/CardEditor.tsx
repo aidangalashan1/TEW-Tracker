@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext'
 import { COLOR_MALE, COLOR_FEMALE } from '../lib/colors'
 import { useArcsData, ARC_LIST_FIELDS, type ArcListField } from '../pages/entities/arc/arcData'
 import { Tooltip } from './Tooltip'
+import { mergeShortlistWorkers } from '../lib/shortlist'
 import plusIcon from '../assets/UI icons/plus.png'
 import faceIcon from '../assets/UI icons/face.png'
 import heelIcon from '../assets/UI icons/heel.png'
@@ -19,6 +20,15 @@ interface CardEditorProps {
    *  loads (only if it doesn't already have segments) — used by the Arcs
    *  page's "Convert to Segment" action. */
   initialWorkerUid?: number
+  /** Same idea as initialWorkerUid but for more than one worker at once —
+   *  used by the Beats Planner, where a storyline can have several linked
+   *  workers. Takes precedence over initialWorkerUid if both are given. */
+  initialWorkers?: number[]
+  /** Pre-links that same fresh segment to a storyline, same as picking it
+   *  from the segment's own Storyline picker — also from the Beats Planner,
+   *  so a beat added for a given (show, storyline) cell opens already
+   *  scoped to that storyline instead of landing unlinked. */
+  initialStorylineLink?: { name: string; plannedStorylineId: string | null }
   /** Fired once, right when that pre-filled segment is actually created
    *  (card.id + the new segment's id both guaranteed available) — the Arcs
    *  page uses this to record the arc -> segment link. */
@@ -161,7 +171,7 @@ function FlatWorkerList({ seg, dragWorker, onDrop, onRemoveWorker, workerById, w
   )
 }
 
-export function CardEditor({ show, fedUid, onClose, initialWorkerUid, onSegmentLinked }: CardEditorProps) {
+export function CardEditor({ show, fedUid, onClose, initialWorkerUid, initialWorkers, initialStorylineLink, onSegmentLinked }: CardEditorProps) {
   const { img } = useApp()
   const { arcs } = useArcsData()
   const [card, setCard] = useState<ShowCard | null>(null)
@@ -186,8 +196,12 @@ export function CardEditor({ show, fedUid, onClose, initialWorkerUid, onSegmentL
       api.plannedStorylines.list(),
       api.cards.getByShow(show.type, show.tvUid || show.cardUid || 0, show.date),
       api.fed.storylines(fedUid),
-    ]).then(([roster, sls, existing, gameSls]) => {
-      const sorted = (roster.workers || []).sort((a, b) => (b.pop?.pct || 0) - (a.pop?.pct || 0))
+      api.shortlist.list(),
+      api.roster.all(1, 99999),
+    ]).then(([roster, sls, existing, gameSls, shortlist, allWorkers]) => {
+      const shortlistUids = new Set(shortlist.entries.map(e => e.worker_uid))
+      const merged = mergeShortlistWorkers(roster.workers || [], allWorkers.workers || [], shortlistUids)
+      const sorted = merged.sort((a, b) => (b.pop?.pct || 0) - (a.pop?.pct || 0))
       setWorkers(sorted)
       setGameStorylines((gameSls.storylines || []).map((s: any) => ({ id: `game-${s.uid}`, name: s.name, workers: [], notes: '', created: '', updated: '' })))
       setPlannedStorylines(sls.storylines || [])
@@ -210,12 +224,16 @@ export function CardEditor({ show, fedUid, onClose, initialWorkerUid, onSegmentL
     // new card" branch above calls setLoading(false) synchronously, before
     // its api.cards.create(...) promise resolves) — wait for both so
     // card.id is guaranteed available when onSegmentLinked fires.
-    if (!loading && card && initialWorkerUid != null && segments.length === 0) {
+    const initialSegWorkers = initialWorkers && initialWorkers.length > 0 ? initialWorkers : (initialWorkerUid != null ? [initialWorkerUid] : null)
+    if (!loading && card && initialSegWorkers && segments.length === 0) {
       const segId = crypto.randomUUID().slice(0, 8)
       setSegments([{
         id: segId, type: 'angle', order: 0,
-        workers: [initialWorkerUid], sides: [],
-        description: '', notes: '', storyline: '', saved: false,
+        workers: initialSegWorkers, sides: [],
+        description: '', notes: '',
+        storyline: initialStorylineLink?.name ?? '',
+        linked_planned_storyline_id: initialStorylineLink?.plannedStorylineId ?? null,
+        saved: false,
       }])
       setDirty(true)
       onSegmentLinked?.(card.id, segId)
@@ -449,7 +467,8 @@ export function CardEditor({ show, fedUid, onClose, initialWorkerUid, onSegmentL
                           className="card-editor-worker-item" style={{ background: dragWorker === w.uid ? 'rgba(0,180,255,0.15)' : 'transparent', opacity: dragWorker === w.uid ? 0.5 : 1 }}>
                           {(() => { const u = workerPic(w); return u ? <img src={u} alt="" className="card-editor-worker-img" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} /> : <div className="card-editor-worker-img-placeholder" /> })()}
                           <span className="card-editor-worker-name">{w.name}</span>
-                          <span style={{ display: 'inline-block', width: 12, height: 12, backgroundColor: w.contract?.face ? '#22c55e' : '#ef4444', mask: `url(${w.contract?.face ? faceIcon : heelIcon}) center/contain no-repeat`, WebkitMask: `url(${w.contract?.face ? faceIcon : heelIcon}) center/contain no-repeat` }} />
+                          {(w as any).is_shortlisted && <span className="shortlist-badge">SL</span>}
+                          {w.contract && <span style={{ display: 'inline-block', width: 12, height: 12, backgroundColor: w.contract?.face ? '#22c55e' : '#ef4444', mask: `url(${w.contract?.face ? faceIcon : heelIcon}) center/contain no-repeat`, WebkitMask: `url(${w.contract?.face ? faceIcon : heelIcon}) center/contain no-repeat` }} />}
                         </div>
                       ))}
                     </div>

@@ -8,9 +8,10 @@ def test_get_storyline_links_finds_matching_arc_and_segment(tmp_path, monkeypatc
     arcs_file = tmp_path / "arcs.json"
     arcs_file.write_text(json.dumps({
         "5": {
-            "short_term_arcs": [
-                {"id": "item1", "text": "Feud with rival", "linked_planned_storyline_id": "sl1"},
-                {"id": "item2", "text": "Unrelated", "linked_planned_storyline_id": None},
+            "arcs": [
+                {"id": "item1", "text": "Feud with rival", "linked_planned_storyline_ids": ["sl1", "sl2"]},
+                {"id": "item2", "text": "Unrelated", "linked_planned_storyline_ids": []},
+                {"id": "item3", "text": "Old-shape single link", "linked_planned_storyline_id": "sl1"},
             ],
         },
     }))
@@ -29,7 +30,13 @@ def test_get_storyline_links_finds_matching_arc_and_segment(tmp_path, monkeypatc
 
     result = get_storyline_links("sl1")
 
-    assert result["arcs"] == [{"worker_uid": 5, "field": "short_term_arcs", "item_id": "item1", "text": "Feud with rival"}]
+    # A single arc can be linked to more than one storyline (item1 links to
+    # both sl1 and sl2) — and an un-migrated on-disk item still using the old
+    # single-value field (item3) is still found.
+    assert result["arcs"] == [
+        {"worker_uid": 5, "field": "arcs", "item_id": "item1", "text": "Feud with rival"},
+        {"worker_uid": 5, "field": "arcs", "item_id": "item3", "text": "Old-shape single link"},
+    ]
     assert result["segments"] == [{"card_id": "card1", "segment_id": "seg1"}]
 
 

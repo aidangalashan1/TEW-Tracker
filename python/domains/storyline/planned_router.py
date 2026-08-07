@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from typing import Optional
 from core.storage import storylines_dir, arcs_path, cards_dir
 from core.json_store import read_json, write_json, scan_json_dir, read_json_or_default
+from core.datastore import get_store
+from domains.company.relative import get_player_fed_uid
 
 router = APIRouter(prefix="/api/storylines/planned", tags=["storylines"])
 
@@ -28,6 +30,7 @@ class ShowRef(BaseModel):
     show_type: str      # "tv" or "event"
     show_date: str
     show_name: str = ""
+    show_logo: str = ""
 
 
 class CreateBody(BaseModel):
@@ -50,7 +53,7 @@ def list_storylines():
     return {"storylines": items}
 
 
-_ARC_LIST_FIELDS = ("short_term_arcs", "long_term_arcs", "short_term_goals", "long_term_goals")
+_ARC_LIST_FIELDS = ("arcs", "goals")
 
 
 @router.get("/{sid}/links")
@@ -68,7 +71,16 @@ def get_storyline_links(sid: str):
             for item in entry.get(field) or []:
                 if not isinstance(item, dict):
                     continue
-                if item.get("linked_planned_storyline_id") == sid:
+                # linked_planned_storyline_ids is the current (list) field;
+                # linked_planned_storyline_id is the old single-value one —
+                # this reads the raw file directly rather than going through
+                # routers.arcs's normalization, so an un-migrated entry can
+                # still only have the old field on disk.
+                linked_ids = item.get("linked_planned_storyline_ids")
+                if linked_ids is None:
+                    old = item.get("linked_planned_storyline_id")
+                    linked_ids = [old] if old else []
+                if sid in linked_ids:
                     arcs.append({
                         "worker_uid": int(worker_uid),
                         "field": field,
@@ -83,6 +95,49 @@ def get_storyline_links(sid: str):
                 segments.append({"card_id": card.get("id"), "segment_id": seg.get("id")})
 
     return {"arcs": arcs, "segments": segments}
+
+
+@router.get("/{sid}/past-segments")
+def get_storyline_past_segments(sid: str):
+    """Past matches/angles featuring any combination of this storyline's
+    linked workers — same past_cards/match_log/match_log_competitors tables
+    the real (save-file) Storylines page's Past Segments panel reads, just
+    filtered by worker membership instead of a StorylineInvolved row (a
+    user-authored planned storyline has no such row to key off of)."""
+    data = _read(sid)
+    worker_uids = set(data.get("workers") or [])
+    if not worker_uids:
+        return {"segments": []}
+
+    store = get_store()
+    if not store:
+        return {"segments": []}
+    fed_uid = get_player_fed_uid()
+
+    cards = [c for c in store.past_cards.values() if c.get("Fed") == fed_uid]
+    cards.sort(key=lambda c: c.get("PastCardWhen") or "", reverse=True)
+
+    match_logs_by_card: dict = {}
+    for ml in store.match_log:
+        match_logs_by_card.setdefault(ml["CardUID"], []).append(ml)
+    competitors_by_match = store.match_log_competitors_by_ml
+
+    segments = []
+    for c in cards:
+        raw_date = c.get("PastCardWhen")
+        date_str = str(raw_date)[:10] if raw_date else ""
+        for ml in match_logs_by_card.get(c["UID"], []):
+            comp_uids = [mc["Worker"] for mc in competitors_by_match.get(ml["UID"], [])]
+            if not any(uid in worker_uids for uid in comp_uids):
+                continue
+            segments.append({
+                "date": date_str,
+                "show": c.get("CardName", ""),
+                "text": ml.get("LogEntry", "") or "No description",
+                "rating": round((ml.get("Rating") or 0) / 10),
+            })
+
+    return {"segments": segments}
 
 
 @router.get("/{sid}")

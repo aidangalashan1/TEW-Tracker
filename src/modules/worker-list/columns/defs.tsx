@@ -14,7 +14,7 @@ import personalityIcon from '../../../assets/UI icons/personality.png'
 import roadAgentIcon from '../../../assets/UI icons/roadagent.png'
 import { REGION_NAMES, AREAS } from '../regions'
 import { ColumnDef } from './types'
-import { StatusBadge, MoneyDisplay, conditionHeart, condPctBar, AvgCell, Last5Cell, fmtDuration, fmtDurationHm } from './renderers'
+import { StatusBadge, MoneyDisplay, ConditionHeart, CondPctBar, AvgCell, Last5Cell, fmtDuration, fmtDurationHm } from './renderers'
 import { COLOR_FACE, COLOR_HEEL } from '../../../lib/colors'
 import { PERCEPTION_LABELS, SKILL_LABELS } from '../../../lib/labels'
 import starIcon from '../../../assets/UI icons/star.png'
@@ -314,11 +314,11 @@ export function buildColumns(): ColumnDef[] {
       return <span className="truncate" title={w.potential_usage_label}>{w.potential_usage_label}</span>
     } },
 
-    { id: 'condition', label: 'Condition', abbrev: 'Cond.', width: 50, group: 'info', filterGroup: 'medical', sortKey: 'condition', render: conditionHeart },
-    { id: 'cond1', label: 'Head', width: 46, group: 'info', filterGroup: 'medical', sortKey: 'condition1', render: w => condPctBar(w, 1) },
-    { id: 'cond2', label: 'Body', width: 46, group: 'info', filterGroup: 'medical', sortKey: 'condition2', render: w => condPctBar(w, 2) },
-    { id: 'cond3', label: 'Arms', width: 46, group: 'info', filterGroup: 'medical', sortKey: 'condition3', render: w => condPctBar(w, 3) },
-    { id: 'cond4', label: 'Legs', width: 46, group: 'info', filterGroup: 'medical', sortKey: 'condition4', render: w => condPctBar(w, 4) },
+    { id: 'condition', label: 'Condition', abbrev: 'Cond.', width: 50, group: 'info', filterGroup: 'medical', sortKey: 'condition', render: w => <ConditionHeart w={w} /> },
+    { id: 'cond1', label: 'Head', width: 46, group: 'info', filterGroup: 'medical', sortKey: 'condition1', render: w => <CondPctBar w={w} idx={1} /> },
+    { id: 'cond2', label: 'Body', width: 46, group: 'info', filterGroup: 'medical', sortKey: 'condition2', render: w => <CondPctBar w={w} idx={2} /> },
+    { id: 'cond3', label: 'Arms', width: 46, group: 'info', filterGroup: 'medical', sortKey: 'condition3', render: w => <CondPctBar w={w} idx={3} /> },
+    { id: 'cond4', label: 'Legs', width: 46, group: 'info', filterGroup: 'medical', sortKey: 'condition4', render: w => <CondPctBar w={w} idx={4} /> },
     { id: 'fatigue', label: 'Fatigue', abbrev: 'Fat', width: 50, group: 'info', filterGroup: 'medical', render: w => {
       const v = (w.physical as any)?.Fatigue ?? 0
       const pct = Math.round(v / 10)

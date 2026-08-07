@@ -105,6 +105,7 @@ class DataStore:
         "goals": (["goal_set"], "_load_goals"),
         "game_info": (["game_info", "player_info", "game_date_val"], "_load_game_info"),
         "match_types": (["match_types"], "_load_match_types"),
+        "pacts": (["pacts", "fed_parent"], "_load_pacts"),
     }
 
     def __init__(self, mdb_path: str, version: int = 1):
@@ -206,6 +207,22 @@ class DataStore:
             self.contracts.append(r)
             self.contracts_by_fed.setdefault(r["FedUID"], []).append(r)
             self.contracts_by_worker.setdefault(r["WorkerUID"], []).append(r)
+
+    def _load_pacts(self, cur):
+        # tblPact defines inter-company relationships (parent/subsidiary,
+        # sister feds, working agreements, wars, ...). fed_parent is the
+        # subset that matters for worker rating: a Parent1/Parent2 flag
+        # marks one side as the other's parent company (this is how a
+        # developmental territory relates back to the company that owns
+        # it) — used as a fallback when a contract row's own ParentFedUID
+        # isn't populated.
+        self.pacts = self._fetch_all(cur, "SELECT * FROM tblPact")
+        self.fed_parent: dict[int, int] = {}
+        for r in self.pacts:
+            if r.get("Parent1") and r.get("Fed1") and r.get("Fed2"):
+                self.fed_parent[r["Fed2"]] = r["Fed1"]
+            if r.get("Parent2") and r.get("Fed1") and r.get("Fed2"):
+                self.fed_parent[r["Fed1"]] = r["Fed2"]
 
     def _load_skills(self, cur):
         self.skills = {r["WorkerUID"]: r for r in self._fetch_all(cur, "SELECT * FROM tblWorkerSkill")}

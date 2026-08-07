@@ -11,10 +11,12 @@ import { parseEntityPage } from './pages/entityRoute'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { CreativePage } from './pages/entities/CreativePage'
 import { ShowProfile } from './pages/entities/ShowProfile'
+import { EventProfile } from './pages/entities/EventProfile'
 import { ShowEpisodeProfile } from './pages/entities/ShowEpisodeProfile'
 import { PastShowProfile } from './pages/entities/PastShowProfile'
 import { StorylineProfile } from './pages/entities/StorylineProfile'
 import { PlannedStorylineProfile } from './pages/entities/storyline/PlannedStorylineProfile'
+import { DiaryEntryProfile } from './pages/entities/diary/DiaryEntryProfile'
 
 export function PageRouter() {
   const { currentPage, db, error, pages } = useApp()
@@ -43,8 +45,9 @@ export function PageRouter() {
       case 'pastshow': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="PastShowProfile"><PastShowProfile pastCardUid={entity.id as number} /></ErrorBoundary>
       case 'storyline': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="StorylineProfile"><StorylineProfile storylineUid={entity.id as number} /></ErrorBoundary>
       case 'plannedstoryline': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="PlannedStorylineProfile"><PlannedStorylineProfile storylineId={entity.id as string} /></ErrorBoundary>
+      case 'diary': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="DiaryEntryProfile"><DiaryEntryProfile entryId={entity.id as string} /></ErrorBoundary>
       case 'tvepisode': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="ShowEpisodeProfile"><ShowEpisodeProfile entityId={entity.id as string} /></ErrorBoundary>
-      case 'event': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="ShowProfile"><ShowProfile showUid={entity.id as number} showType="event" /></ErrorBoundary>
+      case 'event': return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="EventProfile"><EventProfile cardUid={entity.id as number} /></ErrorBoundary>
       case 'module':
         if (entity.id === 'worker-list') return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="WorkerListPage"><WorkerListPage /></ErrorBoundary>
         return <ErrorBoundary titlePrefix="ROUTE" resetKey={currentPage} label="ModulePage"><ModulePage moduleId={entity.id as string} /></ErrorBoundary>

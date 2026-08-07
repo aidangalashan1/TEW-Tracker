@@ -4,9 +4,10 @@ import { useApp } from '../../../context/AppContext'
 import { api } from '../../../api'
 import useSWR from '../../../hooks/useApi'
 import { ratingColor } from '../../../lib/colors'
+import { BeatsPlannerTab } from './BeatsPlannerTab'
 
 export function StorylinesTab() {
-  const { focusedFed, playerFed, img, navigateToEntity } = useApp()
+  const { focusedFed, playerFed, img, navigateToEntity, storylinesSubTab: subTab } = useApp()
   const fed = focusedFed || playerFed
   const fedUid = fed?.uid
   const { data, isLoading } = useSWR(fedUid != null ? 'storylines-cross-' + fedUid : null, () => api.storylines.cross(fedUid!))
@@ -24,19 +25,15 @@ export function StorylinesTab() {
   const plannedStorylines = plannedData?.storylines ?? []
   const [showArchivedStorylines, setShowArchivedStorylines] = useState(false)
   const visiblePlannedStorylines = showArchivedStorylines ? plannedStorylines : plannedStorylines.filter(sl => !sl.archived)
-  const [showCreateStoryline, setShowCreateStoryline] = useState(false)
-  const [newStorylineName, setNewStorylineName] = useState('')
-  const [newStorylineNotes, setNewStorylineNotes] = useState('')
   const [creatingStoryline, setCreatingStoryline] = useState(false)
 
+  // Straight to a fresh entity page (name/bio are click-to-edit there) rather
+  // than a name-entry modal first — matches ArcsTab's "+ Add" pattern.
   const createStoryline = () => {
-    if (!newStorylineName.trim()) return
+    if (creatingStoryline) return
     setCreatingStoryline(true)
-    api.plannedStorylines.create(newStorylineName.trim(), newStorylineNotes.trim()).then(r => {
+    api.plannedStorylines.create('New Storyline').then(r => {
       mutatePlanned()
-      setShowCreateStoryline(false)
-      setNewStorylineName('')
-      setNewStorylineNotes('')
       navigateToEntity('plannedstoryline', r.storyline.id)
     }).finally(() => setCreatingStoryline(false))
   }
@@ -70,8 +67,6 @@ export function StorylinesTab() {
   const targetWorker = roster.find((w: any) => w.uid === selectedWorker)
   const hideImg = (e: any) => { e.target.style.visibility = 'hidden' }
 
-  if (isLoading || !data) return <div className="loading" style={{ padding: 24 }}>Loading storylines...</div>
-
   const renderCard = (sl: any) => (
     <div key={sl.uid} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '12px 16px', marginBottom: 8, cursor: 'pointer' }}
       onClick={() => navigateToEntity('storyline', sl.uid)}>
@@ -98,54 +93,80 @@ export function StorylinesTab() {
     </div>
   )
 
-  const active = (data.storylines || []).filter((sl: any) => sl.furthered || sl.heat >= 1)
-  const past = (data.storylines || []).filter((sl: any) => !sl.furthered && sl.heat < 1)
+  const renderPlannedCard = (sl: any) => {
+    const linkedWorkers = (sl.workers || []).map((uid: number) => roster.find((w: any) => w.uid === uid)).filter(Boolean)
+    return (
+      <div key={sl.id} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '12px 16px', marginBottom: 8, cursor: 'pointer', opacity: sl.archived ? 0.6 : 1 }}
+        onClick={() => navigateToEntity('plannedstoryline', sl.id)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{sl.name}</div>
+          {sl.archived && <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>ARCHIVED</span>}
+        </div>
+        {sl.notes && <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 6 }}>{sl.notes}</div>}
+        {linkedWorkers.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {linkedWorkers.map((w: any) => (
+              <span key={w.uid} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#fff', padding: '2px 6px', borderRadius: 4 }}>
+                {w.picture && <img src={img('People/' + w.picture)} alt="" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 4 }}
+                  onError={(e) => (e.target as HTMLElement).style.display = 'none'} />}
+                {w.name}
+                <span style={{ fontSize: 9, color: w.contract?.face ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{w.contract?.face ? 'Face' : 'Heel'}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const active = data ? (data.storylines || []).filter((sl: any) => sl.furthered || sl.heat >= 1) : []
+  const past = data ? (data.storylines || []).filter((sl: any) => !sl.furthered && sl.heat < 1) : []
 
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: 20 }}>
-      <div className="flex justify-end gap-2 mb-2">
-        <button className="manage-view-btn" onClick={() => setShowCreateStoryline(true)}>+ New Planned Storyline</button>
-        <button className="manage-view-btn" onClick={openIdeas}>Storyline Ideas</button>
-      </div>
+      {subTab === 'list' && (
+        <div className="flex justify-end gap-2 mb-2">
+          <button className="manage-view-btn" onClick={createStoryline} disabled={creatingStoryline}>{creatingStoryline ? 'Creating…' : '+ New Planned Storyline'}</button>
+          <button className="manage-view-btn" onClick={openIdeas}>Storyline Ideas</button>
+        </div>
+      )}
 
-      {plannedStorylines.length > 0 && (
+      {subTab === 'beats' ? <BeatsPlannerTab /> : isLoading || !data ? (
+        <div className="loading" style={{ padding: 24 }}>Loading storylines...</div>
+      ) : (
         <>
-          <div className="flex items-center justify-between mb-2" style={{ background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 6 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Planned Storylines</div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-              <span className="toggle-track" data-checked={showArchivedStorylines} onClick={() => setShowArchivedStorylines(v => !v)}>
-                <span className="toggle-thumb" />
-              </span>
-              Show archived
-            </label>
-          </div>
-          {visiblePlannedStorylines.map(sl => (
-            <div key={sl.id} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '12px 16px', marginBottom: 8, cursor: 'pointer', opacity: sl.archived ? 0.6 : 1 }}
-              onClick={() => navigateToEntity('plannedstoryline', sl.id)}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: sl.notes ? 6 : 0 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{sl.name}{sl.archived ? ' (Archived)' : ''}</div>
-                {sl.workers.length > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>{sl.workers.length} worker{sl.workers.length === 1 ? '' : 's'}</span>}
+          {active.length > 0 && (
+            <>
+              <div className="mb-2" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 6 }}>Active Storylines</div>
+              {active.map(renderCard)}
+            </>
+          )}
+
+          {plannedStorylines.length > 0 && (
+            <>
+              <div className="flex items-center justify-between mb-2" style={{ background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 6, marginTop: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Planned Storylines</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                  <span className={`toggle-track ${showArchivedStorylines ? 'active' : ''}`} onClick={() => setShowArchivedStorylines(v => !v)}>
+                    <span className="toggle-thumb" />
+                  </span>
+                  Show archived
+                </label>
               </div>
-              {sl.notes && <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{sl.notes}</div>}
-            </div>
-          ))}
-          {visiblePlannedStorylines.length === 0 && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>No planned storylines to show.</div>}
-        </>
-      )}
+              {visiblePlannedStorylines.map(renderPlannedCard)}
+              {visiblePlannedStorylines.length === 0 && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>No planned storylines to show.</div>}
+            </>
+          )}
 
-      {active.length > 0 && (
-        <>
-          <div className="mb-2" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 6 }}>Active Storylines</div>
-          {active.map(renderCard)}
+          {past.length > 0 && (
+            <>
+              <div className="mb-2" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 6, marginTop: 16 }}>Past Storylines</div>
+              {past.map(renderCard)}
+            </>
+          )}
+          {data.storylines && data.storylines.length === 0 && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No storylines found</div>}
         </>
       )}
-      {past.length > 0 && (
-        <>
-          <div className="mb-2" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: 'var(--bg-secondary)', padding: '6px 12px', borderRadius: 6, marginTop: 16 }}>Past Storylines</div>
-          {past.map(renderCard)}
-        </>
-      )}
-      {data.storylines && data.storylines.length === 0 && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No storylines found</div>}
 
       {ideasOpen && createPortal(
         <div className="modal-overlay" onClick={() => setIdeasOpen(false)}>
@@ -212,39 +233,6 @@ export function StorylinesTab() {
                   })}
                 </>
               )}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {showCreateStoryline && createPortal(
-        <div className="modal-overlay" onClick={() => setShowCreateStoryline(false)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <span className="modal-title">New Planned Storyline</span>
-              <button className="modal-close" onClick={() => setShowCreateStoryline(false)}>×</button>
-            </div>
-            <div className="modal-body" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div>
-                <div className="section-label mb-1">Name</div>
-                <input className="search-input" style={{ width: '100%' }} value={newStorylineName}
-                  onChange={e => setNewStorylineName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') createStoryline() }}
-                  placeholder="e.g. The Rise of..." autoFocus />
-              </div>
-              <div>
-                <div className="section-label mb-1">Notes</div>
-                <textarea className="search-input" style={{ width: '100%', minHeight: 64, resize: 'vertical', fontFamily: 'inherit', padding: '6px 8px' }}
-                  value={newStorylineNotes} onChange={e => setNewStorylineNotes(e.target.value)}
-                  placeholder="Optional planning notes…" />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button className="manage-view-btn" onClick={() => setShowCreateStoryline(false)}>Cancel</button>
-                <button className="btn primary" disabled={!newStorylineName.trim() || creatingStoryline} onClick={createStoryline}>
-                  {creatingStoryline ? 'Creating...' : 'Create'}
-                </button>
-              </div>
             </div>
           </div>
         </div>,

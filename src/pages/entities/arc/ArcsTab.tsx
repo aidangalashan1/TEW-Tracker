@@ -332,10 +332,8 @@ export function ArcsTab() {
           </div>
           <EditableCell value={profile} placeholder={w.bio || 'No bio available'} onSave={val => updateField(w.uid, 'character_profile', val)} />
         </td>
-        <td style={{ ...WRAP_CELL, maxWidth: 220 }}>{renderList(w, 'short_term_arcs', 'New arc…')}</td>
-        <td style={{ ...WRAP_CELL, maxWidth: 220 }}>{renderList(w, 'long_term_arcs', 'New arc…')}</td>
-        <td style={{ ...WRAP_CELL, maxWidth: 220 }}>{renderList(w, 'short_term_goals', 'New goal…')}</td>
-        <td style={{ ...WRAP_CELL, maxWidth: 220 }}>{renderList(w, 'long_term_goals', 'New goal…')}</td>
+        <td style={{ ...WRAP_CELL, maxWidth: 220 }}>{renderList(w, 'arcs', 'New arc…')}</td>
+        <td style={{ ...WRAP_CELL, maxWidth: 220 }}>{renderList(w, 'goals', 'New goal…')}</td>
       </tr>
     )
   }
@@ -362,10 +360,8 @@ export function ArcsTab() {
             <tr>
               <th>Worker Name</th>
               <th>Character Profile</th>
-              <th>Short-Term Arcs</th>
-              <th>Long-Term Arcs</th>
-              <th>Short-Term Goals</th>
-              <th>Long-Term Goals</th>
+              <th>Arcs</th>
+              <th>Goals</th>
             </tr>
           </thead>
           <tbody>

@@ -4,6 +4,7 @@ import { api } from '../../../api'
 import type { FormSegment } from '../../../api'
 import { useApp } from '../../../context/AppContext'
 import { ratingColor } from '../../../lib/colors'
+import { pctToGrade } from '../../../lib/grade'
 import { fmtShortDate } from '../../../lib/dates'
 import { PersonImg } from '../../../components/PersonImg'
 import { RatingBadge } from './RatingBadge'
@@ -13,8 +14,10 @@ type FilterType = 'all' | 'matches' | 'angles'
 type SortKey = 'date' | 'rating'
 
 function FormDot({ seg }: { seg: FormSegment }) {
+  const { ratingFormat } = useApp()
   const co = [...seg.allies, ...seg.opponents].map(p => p.name).join(seg.allies.length ? ' & ' : ', ')
-  const tip = `${fmtShortDate(seg.date)} · ${seg.label} · ${seg.rating}%${co ? ' · ' + co : ''}${seg.is_angle ? '' : seg.won ? ' · Win' : seg.lost ? ' · Loss' : ''}`
+  const ratingText = ratingFormat === 'pct' ? `${seg.rating}%` : pctToGrade(seg.rating)
+  const tip = `${fmtShortDate(seg.date)} · ${seg.label} · ${ratingText}${co ? ' · ' + co : ''}${seg.is_angle ? '' : seg.won ? ' · Win' : seg.lost ? ' · Loss' : ''}`
   return <div className="flex-shrink-0 rounded-xs" style={{ width: 20, height: 20, background: ratingColor(seg.rating) }} data-tooltip={tip} />
 }
 
@@ -28,7 +31,8 @@ function StatTile({ label, children }: { label: string; children: React.ReactNod
 }
 
 export function FormTab({ workerUid }: { workerUid: number }) {
-  const { navigateToEntity } = useApp()
+  const { navigateToEntity, ratingFormat } = useApp()
+  const fmtR = (v: number) => ratingFormat === 'pct' ? `${v}%` : pctToGrade(v)
   const { data, error, isLoading } = useSWR('worker-form-' + workerUid, () => api.roster.form(workerUid))
   const [filterType, setFilterType] = useState<FilterType>('all')
   const [fedFilter, setFedFilter] = useState<number | 'all'>('all')
@@ -98,9 +102,9 @@ export function FormTab({ workerUid }: { workerUid: number }) {
         </StatTile>
         <StatTile label="Best / Worst">
           <div className="items-center gap-2">
-            <span className="text-sm text-bold text-mono" style={{ color: ratingColor(summary?.best_rating ?? 0) }}>{summary?.best_rating ?? 0}%</span>
+            <span className="text-sm text-bold text-mono" style={{ color: ratingColor(summary?.best_rating ?? 0) }}>{fmtR(summary?.best_rating ?? 0)}</span>
             <span className="text-xs text-muted">/</span>
-            <span className="text-sm text-bold text-mono" style={{ color: ratingColor(summary?.worst_rating ?? 0) }}>{summary?.worst_rating ?? 0}%</span>
+            <span className="text-sm text-bold text-mono" style={{ color: ratingColor(summary?.worst_rating ?? 0) }}>{fmtR(summary?.worst_rating ?? 0)}</span>
           </div>
         </StatTile>
         {!!summary?.title_matches && (
@@ -170,7 +174,7 @@ export function FormTab({ workerUid }: { workerUid: number }) {
                   ))}
                   {s.allies.length === 0 && s.opponents.length === 0 && <span className="text-xs text-muted">—</span>}
                 </div>
-                <div className="data-table-cell text-xs text-bold text-mono" style={{ width: 70, color: ratingColor(s.rating) }}>{s.rating}%</div>
+                <div className="data-table-cell text-xs text-bold text-mono" style={{ width: 70, color: ratingColor(s.rating) }}>{fmtR(s.rating)}</div>
                 <div className="data-table-cell text-xs text-bold" style={{ width: 44 }}>
                   {s.is_angle ? <span className="text-muted">—</span> : s.won ? <span className="text-green">W</span> : s.lost ? <span className="text-red">L</span> : <span className="text-muted">—</span>}
                 </div>

@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react'
 import { api, ArcData, ArcItem, ArcStatus } from '../../../api'
 import useSWR from '../../../hooks/useApi'
 
-export const ARC_LIST_FIELDS = ['short_term_arcs', 'long_term_arcs', 'short_term_goals', 'long_term_goals'] as const
+export const ARC_LIST_FIELDS = ['arcs', 'goals'] as const
 export type ArcListField = typeof ARC_LIST_FIELDS[number]
 
 export const ARC_STATUS_LABELS: Record<ArcStatus, string> = {
@@ -61,7 +61,8 @@ export function newArcItem(text = ''): ArcItem {
     status: 'planned',
     linked_belt_uid: null,
     linked_worker_uids: [],
-    linked_planned_storyline_id: null,
+    linked_planned_storyline_ids: [],
+    linked_storyline_uids: [],
     linked_segments: [],
   }
 }

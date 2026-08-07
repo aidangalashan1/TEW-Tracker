@@ -30,7 +30,15 @@ def _evict_stale_cache(current_version: int) -> None:
 
 def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list[dict], int]:
     """Return every non-retired, non-dead worker in the DB with skills,
-    physical, overness/pop, and computed scores. No contract/fed scoping.
+    physical, overness/pop, and computed scores. Not scoped to any one
+    contract/fed — every worker in the game is included regardless of who
+    (if anyone) they're signed to. Pop/home-market ("International") pillars
+    are anchored to the player's own fed's home area (there's no other
+    sensible "home market" reference for a free agent). Star-score/label are
+    compared against the worker's own contracted fed's roster (falling back
+    to the player's fed only for true free agents) — the same basis Roster
+    and Agent Report use — so a worker's rating is identical wherever it's
+    shown, never dependent on who's viewing them.
     Returns (pre-serialized dicts, total_count) with server-side pagination."""
     global _response_cache
     store = get_store()
@@ -45,26 +53,53 @@ def get_all_workers(page: int = 1, limit: int = 200) -> tuple[list[dict], int]:
 
         all_uids = [uid for uid, w_row in store.workers.items() if not w_row.get("Retired") and not w_row.get("Dead")]
         player_fed_uid = get_player_fed_uid()
+        # Without these, _build_worker falls back to averaging a worker's pop
+        # across all 57 regions worldwide instead of the player's home area —
+        # `pop` alone is 50% of the star-score formula's worker_level term,
+        # so a worker who's a massive home-market draw but obscure everywhere
+        # else would score dramatically lower here than on the Roster tab
+        # (which always uses the fed's own home-area pop), even though both
+        # pages already agree on company_fed_uid for every other pillar.
+        home_area = get_fed_home_area(player_fed_uid)
+        area_region_ids = AREAS.get(home_area, [])
         raw = []
         for uid in all_uids:
-            w = _build_worker(uid, store, game_date_val, company_fed_uid=player_fed_uid)
+            # Star score/label must read the same everywhere a worker
+            # appears (Worker List, Roster, Agent Report) — so it's always
+            # compared against the fed that actually employs them (their
+            # best/primary written contract), never whichever fed happens to
+            # be browsing Worker List. Only a true free agent (no written
+            # contract at all) falls back to the player's fed as a baseline.
+            contracts = store.contracts_by_worker.get(uid, [])
+            best_contract = None
+            for cr in contracts:
+                if cr.get("ExclusiveContract") and cr.get("WrittenContract"):
+                    best_contract = cr
+                    break
+                elif cr.get("WrittenContract") and best_contract is None:
+                    best_contract = cr
+            # A developmental deal's FedUID points at the small feeder
+            # territory itself (near-empty roster, a fraction of the parent
+            # company's popularity) — ParentFedUID is the worker's real
+            # employer for rating purposes, so prefer it when present;
+            # store.fed_parent (from tblPact's Parent1/Parent2 flags) covers
+            # the case where the contract row's own ParentFedUID is blank.
+            own_fed_uid = None
+            if best_contract:
+                cr_fed = best_contract.get("FedUID")
+                own_fed_uid = best_contract.get("ParentFedUID") or store.fed_parent.get(cr_fed) or cr_fed or None
+            w = _build_worker(uid, store, game_date_val, area_region_ids=area_region_ids, home_area=home_area,
+                               company_fed_uid=player_fed_uid, score_fed_uid=own_fed_uid or player_fed_uid)
             if w is None:
                 continue
             # Contract status for filtering
-            contracts = store.contracts_by_worker.get(uid, [])
             w.contract_status = "none"
             w.contract_expiry_days = 0
             w.player_fed_uid = 0
-            for cr in contracts:
-                if cr.get("ExclusiveContract") and cr.get("WrittenContract"):
-                    w.contract_status = "exclusive_written"
-                    w.contract_expiry_days = cr.get("Daysleft", 0) or 0
-                    w.player_fed_uid = cr.get("FedUID", 0)
-                    break
-                elif cr.get("WrittenContract") and w.contract_status == "none":
-                    w.contract_status = "written"
-                    w.contract_expiry_days = cr.get("Daysleft", 0) or 0
-                    w.player_fed_uid = cr.get("FedUID", 0)
+            if best_contract:
+                w.contract_status = "exclusive_written" if (best_contract.get("ExclusiveContract") and best_contract.get("WrittenContract")) else "written"
+                w.contract_expiry_days = best_contract.get("Daysleft", 0) or 0
+                w.player_fed_uid = best_contract.get("FedUID", 0)
             raw.append(w)
         serialized = [_lightweight_dump(w) for w in raw]
         _response_cache[cache_key] = serialized
@@ -96,6 +131,19 @@ def get_roster(fed_uid: int = None) -> list[dict]:
     game_date_val = store.game_date_val
 
     contracts = store.contracts_by_fed.get(fed_uid, [])
+    # Developmental prospects are contracted to a small feeder territory
+    # (its own FedUID), not this fed directly — but they're still under this
+    # company's control, so pull them in too. A territory is recognized as
+    # this fed's child either via tblPact's Parent1/Parent2 flags
+    # (store.fed_parent) or, when a pact isn't set up, via the individual
+    # contract row's own ParentFedUID.
+    for other_fed_uid, other_contracts in store.contracts_by_fed.items():
+        if other_fed_uid == fed_uid:
+            continue
+        if store.fed_parent.get(other_fed_uid) == fed_uid:
+            contracts = contracts + other_contracts
+        else:
+            contracts = contracts + [cr for cr in other_contracts if cr.get("ParentFedUID") == fed_uid]
     if not contracts:
         return []
 
@@ -183,7 +231,15 @@ def get_roster(fed_uid: int = None) -> list[dict]:
     result = []
     for c in contracts:
         uid = c["WorkerUID"]
-        w = _build_worker(uid, store, game_date_val, area_region_ids=area_region_ids, home_area=home_area)
+        # These workers are all under contract to fed_uid by construction
+        # (that's how `contracts` above was built) — except a developmental
+        # deal's FedUID is the small feeder territory itself, not the real
+        # company, so ParentFedUID (or tblPact's fed_parent, when the
+        # contract row's own field is blank) is what their star score
+        # should actually be compared against, even when browsing this
+        # territory's own roster tab directly.
+        score_fed_uid = c.get("ParentFedUID") or store.fed_parent.get(fed_uid) or fed_uid
+        w = _build_worker(uid, store, game_date_val, area_region_ids=area_region_ids, home_area=home_area, score_fed_uid=score_fed_uid)
         if w is None:
             continue
 

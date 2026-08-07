@@ -16,9 +16,9 @@ interface NavigationState {
 
 const NavigationContext = createContext<NavigationState | null>(null)
 
-export function NavigationProvider({ children }: { children: React.ReactNode }) {
-  const [currentPage, _setCurrentPage] = useState('roster')
-  const [previousPage, setPreviousPage] = useState('roster')
+export function NavigationProvider({ children, initialPage }: { children: React.ReactNode; initialPage?: string }) {
+  const [currentPage, _setCurrentPage] = useState(initialPage || 'roster')
+  const [previousPage, setPreviousPage] = useState(initialPage || 'roster')
   const [pageHistory, setPageHistory] = useState<string[]>([])
   const [forwardStack, setForwardStack] = useState<string[]>([])
 

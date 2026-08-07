@@ -7,6 +7,7 @@ import conditionIcon from '../../../assets/UI icons/condition.png'
 import faceIcon from '../../../assets/UI icons/face.png'
 import heelIcon from '../../../assets/UI icons/heel.png'
 import { ratingColor } from '../../../lib/colors'
+import { pctToGrade } from '../../../lib/grade'
 import { fmtDate } from '../../../lib/dates'
 import { NATIONALITY_FLAGS, NATIONALITY_NAMES, NATIONALITY_CODES_3 } from '../nationality'
 import type { ColumnState } from './types'
@@ -88,14 +89,26 @@ function PortalTip({ content, children }: { content: string; children: React.Rea
   )
 }
 
-export function conditionHeart(w: Worker) {
+// Real components taking props (`<ConditionHeart w={w} />`), NOT plain
+// functions called directly as `def.render(w)` — column render defs invoke
+// `def.render(item.worker)` once per visible row inside a `.map()`, and how
+// many rows actually render varies (virtualized scrolling, filtering, sort).
+// A hook call inside a plain function invoked that way becomes part of the
+// *enclosing* table component's own hook list, whose call count must be
+// identical on every render — it isn't here, since it scales with rendered
+// row count, which is exactly what threw "Invalid hook call" (React #321)
+// in production. Rendering these as genuine JSX elements instead gives each
+// row's instance its own independently-managed Fiber/hook state, which is
+// what makes useApp() safe to call inside them.
+export function ConditionHeart({ w }: { w: Worker }) {
+  const { ratingFormat } = useApp()
   const p = w.physical as any
   const vals = [p?.condition1, p?.condition2, p?.condition3, p?.condition4].map(v => Number(v ?? 100))
   const avg = vals.reduce((a, b) => a + b, 0) / vals.length
   const pct = Math.round(avg)
   const color = ratingColor(pct)
   return <div className="flex-center w-full h-full">
-    <PortalTip content={`${pct}%`}>
+    <PortalTip content={ratingFormat === 'pct' ? `${pct}%` : pctToGrade(pct)}>
       <span className="cond-bar" style={{
         mask: `url(${conditionIcon}) center/contain no-repeat`,
         WebkitMask: `url(${conditionIcon}) center/contain no-repeat`,
@@ -105,14 +118,15 @@ export function conditionHeart(w: Worker) {
   </div>
 }
 
-export function condPctBar(w: Worker, idx: number) {
+export function CondPctBar({ w, idx }: { w: Worker; idx: number }) {
+  const { ratingFormat } = useApp()
   const p = w.physical as any
   const key = `condition${idx}`
   const raw = Number(p?.[key] ?? 100)
   const pct = Math.round(raw)
   const color = ratingColor(pct)
   return <div className="flex-center w-full h-full">
-    <PortalTip content={`${pct}%`}>
+    <PortalTip content={ratingFormat === 'pct' ? `${pct}%` : pctToGrade(pct)}>
       <span className="cond-bar" style={{
         mask: `url(${conditionIcon}) center/contain no-repeat`,
         WebkitMask: `url(${conditionIcon}) center/contain no-repeat`,
@@ -135,11 +149,13 @@ export function fmtDurationHm(sec: number): string {
 }
 
 export function MiniGraphTooltip({ items }: { items: { rating: number; label: string; card: string; log_entry: string }[] }) {
+  const { ratingFormat } = useApp()
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
   if (items.length === 0) return null
   const ordered = [...items].reverse()
   const w = 160; const h = 70; const maxRating = 1000
   const pct = (r: number) => Math.round(r / 10)
+  const fmtR = (r: number) => ratingFormat === 'pct' ? `${pct(r)}%` : pctToGrade(pct(r))
   const color = (r: number) => ratingColor(pct(r))
   const points = ordered.map((it, i) => {
     const x = i * (w / Math.max(items.length - 1, 1))
@@ -173,7 +189,7 @@ export function MiniGraphTooltip({ items }: { items: { rating: number; label: st
           <div className="graph-tooltip-flyout" style={{ left: Math.min(x, w - 150), top: -34 }}>
             <div className="text-semibold">{it.log_entry || it.label}</div>
             <div className="flex mt-1 gap-2">
-              <span className="text-mono text-bold" style={{ color: color(it.rating) }}>{pct(it.rating)}%</span>
+              <span className="text-mono text-bold" style={{ color: color(it.rating) }}>{fmtR(it.rating)}</span>
               {it.card && <span className="text-secondary">{it.card}</span>}
             </div>
           </div>
@@ -184,13 +200,14 @@ export function MiniGraphTooltip({ items }: { items: { rating: number; label: st
 }
 
 export function Last5Cell({ items, workerUid }: { items: { rating: number; label: string; card: string; log_entry: string }[]; workerUid: number }) {
-  const { navigateToEntity } = useApp()
+  const { navigateToEntity, ratingFormat } = useApp()
   const [showTooltip, setShowTooltip] = useState(false)
   const [hoverPt, setHoverPt] = useState<number | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout>>()
   const ref = useRef<HTMLSpanElement>(null)
   if (items.length === 0) return null
   const pct = (r: number) => Math.round(r / 10)
+  const fmtR = (p: number) => ratingFormat === 'pct' ? String(p) : pctToGrade(p)
   const avg = Math.round(items.reduce((s, it) => s + pct(it.rating), 0) / items.length)
   const ordered = [...items].reverse()
   const allRatings = ordered.map(s => s.rating)
@@ -231,7 +248,7 @@ export function Last5Cell({ items, workerUid }: { items: { rating: number; label
             onMouseLeave={() => { setHoverPt(null); scheduleHide() }} />
         ))}
       </svg>
-      <span style={{ fontSize: 11, fontFamily: 'var(--font-family)', color: 'var(--text-secondary)' }}>{avg}</span>
+      <span style={{ fontSize: 11, fontFamily: 'var(--font-family)', color: 'var(--text-secondary)' }}>{fmtR(avg)}</span>
       {showTooltip && ref.current && createPortal(
         <div className="tooltip-flyout" style={{
           left: ref.current.getBoundingClientRect().left,
@@ -243,7 +260,7 @@ export function Last5Cell({ items, workerUid }: { items: { rating: number; label
           {hoverPt != null && pts[hoverPt] ? (
             <div style={{ fontSize: 11, padding: '2px 6px' }}>
               <div style={{ fontWeight: 600, color: '#fff' }}>{pts[hoverPt].label}</div>
-              <div style={{ color: ratingColor(pct(pts[hoverPt].r)), fontWeight: 700 }}>{pct(pts[hoverPt].r)}</div>
+              <div style={{ color: ratingColor(pct(pts[hoverPt].r)), fontWeight: 700 }}>{fmtR(pct(pts[hoverPt].r))}</div>
             </div>
           ) : (
             <MiniGraphTooltip items={items} />
@@ -260,7 +277,7 @@ export function AvgCell({ workerUid, avg, best, worst, count, bestInfo, worstInf
     bestInfo?: { rating: number; log_entry: string; label: string; card: string };
     worstInfo?: { rating: number; log_entry: string; label: string; card: string };
     avgDuration?: number; totalDuration?: number }) {
-  const { navigateToEntity } = useApp()
+  const { navigateToEntity, ratingFormat } = useApp()
   const [showTooltip, setShowTooltip] = useState(false)
   const [hoverBest, setHoverBest] = useState(false)
   const [hoverWorst, setHoverWorst] = useState(false)
@@ -274,6 +291,7 @@ export function AvgCell({ workerUid, avg, best, worst, count, bestInfo, worstInf
     if (hideTimer.current) clearTimeout(hideTimer.current)
   }
   const pct = (r: number) => Math.round(r / 10)
+  const fmtR = (p: number) => ratingFormat === 'pct' ? `${p}%` : pctToGrade(p)
   const bestPct = bestInfo ? pct(bestInfo.rating) : null
   const worstPct = worstInfo ? pct(worstInfo.rating) : null
   return (
@@ -283,7 +301,7 @@ export function AvgCell({ workerUid, avg, best, worst, count, bestInfo, worstInf
       onMouseEnter={() => { keepVisible(); setShowTooltip(true) }}
       onMouseLeave={scheduleHide}
     >
-      {avg}
+      {fmtR(avg)}
       {showTooltip && ref.current && createPortal(
         <div className="tooltip-flyout" style={{
           left: ref.current.getBoundingClientRect().left,
@@ -295,12 +313,12 @@ export function AvgCell({ workerUid, avg, best, worst, count, bestInfo, worstInf
           <div className="flex flex-col min-w-0 gap-3px" style={{ minWidth: 140 }}>
             <div className="avg-tooltip-row" onMouseEnter={() => setHoverBest(true)} onMouseLeave={() => setHoverBest(false)}>
               <span className="text-secondary">Best</span>
-              <span className="text-mono" style={{ color: ratingColor(best), borderBottom: bestInfo?.log_entry ? '1px dashed #555' : 'none', cursor: bestInfo?.log_entry ? 'help' : 'default' }}>{pct(best)}%</span>
+              <span className="text-mono" style={{ color: ratingColor(best), borderBottom: bestInfo?.log_entry ? '1px dashed #555' : 'none', cursor: bestInfo?.log_entry ? 'help' : 'default' }}>{fmtR(pct(best))}</span>
               {hoverBest && bestInfo?.log_entry && (
                 <div className="detail-flyout">
                   <div className="text-semibold">{bestInfo.log_entry || bestInfo.label}</div>
                   <div className="flex mt-1 gap-2">
-                    <span className="text-mono text-bold" style={{ color: ratingColor(bestPct ?? 0) }}>{bestPct}%</span>
+                    <span className="text-mono text-bold" style={{ color: ratingColor(bestPct ?? 0) }}>{bestPct != null ? fmtR(bestPct) : ''}</span>
                     {bestInfo.card && <span className="text-secondary">{bestInfo.card}</span>}
                   </div>
                 </div>
@@ -308,12 +326,12 @@ export function AvgCell({ workerUid, avg, best, worst, count, bestInfo, worstInf
             </div>
             <div className="avg-tooltip-row" onMouseEnter={() => setHoverWorst(true)} onMouseLeave={() => setHoverWorst(false)}>
               <span className="text-secondary">Worst</span>
-              <span className="text-mono" style={{ color: ratingColor(worst), borderBottom: worstInfo?.log_entry ? '1px dashed #555' : 'none', cursor: worstInfo?.log_entry ? 'help' : 'default' }}>{pct(worst)}%</span>
+              <span className="text-mono" style={{ color: ratingColor(worst), borderBottom: worstInfo?.log_entry ? '1px dashed #555' : 'none', cursor: worstInfo?.log_entry ? 'help' : 'default' }}>{fmtR(pct(worst))}</span>
               {hoverWorst && worstInfo?.log_entry && (
                 <div className="detail-flyout">
                   <div className="text-semibold">{worstInfo.log_entry || worstInfo.label}</div>
                   <div className="flex mt-1 gap-2">
-                    <span className="text-mono text-bold" style={{ color: ratingColor(worstPct ?? 0) }}>{worstPct}%</span>
+                    <span className="text-mono text-bold" style={{ color: ratingColor(worstPct ?? 0) }}>{worstPct != null ? fmtR(worstPct) : ''}</span>
                     {worstInfo.card && <span className="text-secondary">{worstInfo.card}</span>}
                   </div>
                 </div>
@@ -321,7 +339,7 @@ export function AvgCell({ workerUid, avg, best, worst, count, bestInfo, worstInf
             </div>
             <div className="avg-tooltip-divider">
               <span className="text-secondary">Avg</span>
-              <span className="text-mono text-primary text-bold">{avg}%</span>
+              <span className="text-mono text-primary text-bold">{fmtR(avg)}</span>
             </div>
             <div className="avg-tooltip-row">
               <span className="text-secondary">Total</span>

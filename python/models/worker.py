@@ -110,6 +110,12 @@ class WorkerContract(BaseModel):
     leaving: bool = False
     on_loan: bool = False
     developmental: bool = False
+    # tblContract.ParentFedUID: for a developmental deal, FedUID points at
+    # the small feeder territory itself (near-empty roster, tiny pop) — the
+    # worker's actual employer for rating/comparison purposes is this parent
+    # company, not the feeder territory. 0 when the contract has no parent
+    # (the common case for a normal, non-developmental deal).
+    parent_fed_uid: int = 0
     travel: int = 0
     picture: str = ""
     perception: int = 0
@@ -137,6 +143,7 @@ class WorkerContract(BaseModel):
             leaving=bool(row.get("Leaving", False)),
             on_loan=bool(row.get("OnLoan", False)),
             developmental=bool(row.get("Developmental", False)),
+            parent_fed_uid=row.get("ParentFedUID", 0) or 0,
             travel=row.get("Travel", 0),
             picture=row.get("Picture", ""),
             perception=row.get("Perception", 0),
@@ -210,6 +217,7 @@ class Worker(BaseModel):
     style: str = "Regular"
     active: bool = True
     non_wrestler: bool = False
+    is_celebrity: bool = False
     freelance: bool = False
     age: int = 0
     nationality: int = 0
@@ -261,6 +269,31 @@ class Worker(BaseModel):
     pillar_pop: int = 0
     pillar_max_region_pop: int = 0
     pillar_local_pop: int = 0
+    # True when the top-level area behind pillar_max_region_pop is the same
+    # one the fed is based in — i.e. this worker's "best" region already is
+    # the home market, so there's no foreign-vs-home gap to speak of.
+    pillar_max_region_is_home: bool = False
+    # Championship signal for usage_label()'s flavor tiers below — currently
+    # holding any belt anywhere (not fed-scoped, same as store.champ_set),
+    # plus career reign count/best defence streak from tblBeltHistory.
+    is_champion: bool = False
+    title_reign_count: int = 0
+    max_title_defences: int = 0
+    # Total reigns across every belt level (unlike title_reign_count, which
+    # is Primary-only) and the longest any single Primary reign lasted —
+    # the two extra "Legendary" qualification paths in usage_label(): a
+    # long career of title reigns even without 3 world titles, or one truly
+    # long world title reign.
+    total_title_reign_count: int = 0
+    longest_primary_reign_days: int = 0
+    # True when this worker is set as tblFed.Ace (the designated figurehead)
+    # for any fed — a second, independent way into usage_label()'s "Face of
+    # the Company" tier alongside the dominant-champion signal above.
+    is_fed_ace: bool = False
+    # True when this worker has an active contract with the player's own
+    # fed — used to gate "Hidden Gem" in usage_label(): a worker already
+    # signed to your roster isn't a scouting find you haven't made yet.
+    is_signed_to_player_fed: bool = False
     perf_score: int = 0
     belt_history: list[dict] = []
     moves: list[dict] = []
@@ -276,6 +309,7 @@ class Worker(BaseModel):
             style=STYLE_MAP.get(row.get("Style", 0), "Regular"),
             active=bool(row.get("Active", True)),
             non_wrestler=bool(row.get("NonWrestler", False)),
+            is_celebrity=bool(row.get("Celebridad", 0)),
             freelance=bool(row.get("Freelance", False)),
             age=row.get("Age_Matures", 0),
             nationality=row.get("Nationality", 0),

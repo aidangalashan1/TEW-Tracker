@@ -22,11 +22,22 @@ class ArcItem(BaseModel):
     status: ArcStatus = 'planned'
     linked_belt_uid: Optional[int] = None
     linked_worker_uids: list[int] = Field(default_factory=list)
-    linked_planned_storyline_id: Optional[str] = None
+    # A single arc can span more than one storyline (e.g. "The Bloodline
+    # Story" arc covering both a Roman Reigns feud and a separate Usos
+    # feud storyline) — plural, unlike linked_belt_uid which is genuinely
+    # one-to-one.
+    linked_planned_storyline_ids: list[str] = Field(default_factory=list)
+    linked_storyline_uids: list[int] = Field(default_factory=list)
     linked_segments: list[LinkedSegment] = Field(default_factory=list)
 
 
-_LIST_FIELDS = ("short_term_arcs", "long_term_arcs", "short_term_goals", "long_term_goals")
+_LIST_FIELDS = ("arcs", "goals")
+# Arcs/goals used to be split into short-term/long-term lists; collapsed into
+# a single "arcs"/"goals" list each since the split was never used
+# meaningfully. Old entries still on disk get merged into the new shape on
+# read (below), same as the string->ArcItem migration.
+_OLD_ARC_FIELDS = ("short_term_arcs", "long_term_arcs")
+_OLD_GOAL_FIELDS = ("short_term_goals", "long_term_goals")
 
 
 def _normalize_item(item):
@@ -35,10 +46,27 @@ def _normalize_item(item):
     the file itself isn't rewritten until the entry is next edited."""
     if isinstance(item, str):
         return ArcItem(id=uuid.uuid4().hex[:8], text=item).model_dump()
+    # Storyline links used to be single-valued — migrate onto the new list
+    # fields the same lazy, read-only way as the string->ArcItem migration.
+    if "linked_planned_storyline_id" in item:
+        old = item.pop("linked_planned_storyline_id")
+        if "linked_planned_storyline_ids" not in item:
+            item["linked_planned_storyline_ids"] = [old] if old else []
+    if "linked_storyline_uid" in item:
+        old = item.pop("linked_storyline_uid")
+        if "linked_storyline_uids" not in item:
+            item["linked_storyline_uids"] = [old] if old else []
     return item
 
 
 def _normalize_entry(entry: dict) -> dict:
+    if any(f in entry for f in _OLD_ARC_FIELDS + _OLD_GOAL_FIELDS):
+        merged_arcs = [i for f in _OLD_ARC_FIELDS for i in (entry.pop(f, None) or [])]
+        merged_goals = [i for f in _OLD_GOAL_FIELDS for i in (entry.pop(f, None) or [])]
+        if merged_arcs:
+            entry["arcs"] = merged_arcs + (entry.get("arcs") or [])
+        if merged_goals:
+            entry["goals"] = merged_goals + (entry.get("goals") or [])
     for field in _LIST_FIELDS:
         if isinstance(entry.get(field), list):
             entry[field] = [_normalize_item(i) for i in entry[field]]
@@ -56,10 +84,8 @@ def _write_all(data: dict):
 
 class ArcUpdate(BaseModel):
     character_profile: Optional[str] = None
-    short_term_arcs: Optional[list[ArcItem]] = None
-    long_term_arcs: Optional[list[ArcItem]] = None
-    short_term_goals: Optional[list[ArcItem]] = None
-    long_term_goals: Optional[list[ArcItem]] = None
+    arcs: Optional[list[ArcItem]] = None
+    goals: Optional[list[ArcItem]] = None
 
 
 @router.get("")
@@ -80,14 +106,10 @@ def update_arc(worker_uid: int, body: ArcUpdate):
     entry = arcs.get(key, {})
     if body.character_profile is not None:
         entry["character_profile"] = body.character_profile
-    if body.short_term_arcs is not None:
-        entry["short_term_arcs"] = [i.model_dump() for i in body.short_term_arcs]
-    if body.long_term_arcs is not None:
-        entry["long_term_arcs"] = [i.model_dump() for i in body.long_term_arcs]
-    if body.short_term_goals is not None:
-        entry["short_term_goals"] = [i.model_dump() for i in body.short_term_goals]
-    if body.long_term_goals is not None:
-        entry["long_term_goals"] = [i.model_dump() for i in body.long_term_goals]
+    if body.arcs is not None:
+        entry["arcs"] = [i.model_dump() for i in body.arcs]
+    if body.goals is not None:
+        entry["goals"] = [i.model_dump() for i in body.goals]
     arcs[key] = entry
     _write_all(arcs)
     return {"ok": True, "arc": entry}

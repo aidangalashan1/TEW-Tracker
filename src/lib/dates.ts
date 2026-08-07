@@ -37,7 +37,12 @@ export function parseFlexibleDate(s: string): Date | null {
   const dmy = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
   if (dmy) return new Date(parseInt(dmy[3]), parseInt(dmy[2]) - 1, parseInt(dmy[1]))
   const dmy2 = s.match(/^(\d{2})\/(\d{2})\/(\d{2})$/)
-  if (dmy2) return new Date(2000 + parseInt(dmy2[3]), parseInt(dmy2[2]) - 1, parseInt(dmy2[1]))
+  if (dmy2) {
+    const year = parseInt(dmy2[3])
+    // Years 00-49 are 2000-2049, years 50-99 are 1950-1999
+    const fullYear = year < 50 ? 2000 + year : 1900 + year
+    return new Date(fullYear, parseInt(dmy2[2]) - 1, parseInt(dmy2[1]))
+  }
   const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (iso) return new Date(parseInt(iso[1]), parseInt(iso[2]) - 1, parseInt(iso[3]))
   return null

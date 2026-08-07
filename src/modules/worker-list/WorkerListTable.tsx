@@ -13,6 +13,7 @@ import closeIcon from '../../assets/UI icons/close.png'
 import filterIcon from '../../assets/UI icons/filter.png'
 import confirmIcon from '../../assets/UI icons/confirm.png'
 import { api } from '../../api'
+import { useShortlist } from '../../hooks/useShortlist'
 import { sortWorkers, type SortKey } from './workerListSort'
 import { useColumnState } from './useColumnState'
 import { ColumnPickerPane } from './ColumnPickerPane'
@@ -43,6 +44,7 @@ function getGroupHeaderColor(groupKey: string): string {
 
 export function WorkerListColumnTable({ workers, config, onConfigChange }: { workers: Worker[]; config: Record<string, any>; onConfigChange: (c: Record<string, any>) => void }) {
   const { navigateToEntity, gameInfo, focusedFed, playerFed, currentPage } = useApp()
+  const { isShortlisted, toggle: toggleShortlist } = useShortlist()
   const tableRef = useRef<HTMLDivElement>(null)
   // Position is the only basic dropdown filter; gender/status/type/contract are
   // handled by the filterRules system (see buildFilterDimensions).
@@ -51,7 +53,16 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
   // useState, so group-by/active-subgroup/advanced-role selections survive a
   // reload instead of resetting to empty every time the module remounts.
   const LS = (key: string) => { try { return JSON.parse(localStorage.getItem('tew-wl-' + key) || 'null') } catch { return null } }
-  const groupBy = useMemo(() => new Set<string>(config.groupBy || LS('groupBy') || []), [config.groupBy])
+  // Developmental prospects are pulled in from a parent company's feeder
+  // territory (see backend get_roster) — split into their own section by
+  // default so they don't silently blend into the main roster list, unless
+  // the user has already saved their own grouping preference.
+  const hasDevelopmental = useMemo(() => workers.some(w => w.contract?.developmental), [workers])
+  const groupBy = useMemo(() => {
+    const saved = config.groupBy || LS('groupBy')
+    if (saved) return new Set<string>(saved)
+    return new Set<string>(hasDevelopmental ? ['developmental'] : [])
+  }, [config.groupBy, hasDevelopmental])
   const setGroupBy = (s: Set<string>) => { localStorage.setItem('tew-wl-groupBy', JSON.stringify(Array.from(s))); onConfigChange({ groupBy: Array.from(s) }) }
   const activeSubgroups = useMemo(() => new Set<string>(config.activeSubgroups || LS('activeSubgroups') || []), [config.activeSubgroups])
   const setActiveSubgroups = (s: Set<string>) => { localStorage.setItem('tew-wl-activeSubgroups', JSON.stringify(Array.from(s))); onConfigChange({ activeSubgroups: Array.from(s) }) }
@@ -121,7 +132,7 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
     [workers, positionFilter, filterRules, FILTER_DIMENSIONS]
   )
 
-  const dimOptions = useMemo(() => buildDimOptions(allBrands), [allBrands])
+  const dimOptions = useMemo(() => buildDimOptions(allBrands, hasDevelopmental), [allBrands, hasDevelopmental])
   const dimOrder: string[] = config.dimOrder || dimOptions.map(d => d.id)
   const orderedDims = useMemo(() => orderDims(dimOrder, dimOptions), [dimOrder, dimOptions])
 
@@ -456,6 +467,9 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
             <div className="px-2 py-1 text-semibold text-muted text-xs text-uppercase">Worker #{rowCtx.uid}</div>
             <div className="context-menu-item" onClick={() => { navigateToEntity('worker', rowCtx.uid); setRowCtx(null) }}>View Worker</div>
             <div className="context-menu-item" onClick={() => { navigator.clipboard?.writeText(String(rowCtx.uid)); setRowCtx(null) }}>Copy UID</div>
+            <div className="context-menu-item" onClick={() => { toggleShortlist(rowCtx.uid); setRowCtx(null) }}>
+              {isShortlisted(rowCtx.uid) ? 'Remove from Shortlist' : 'Add to Shortlist'}
+            </div>
           </div>
         </>,
         document.body

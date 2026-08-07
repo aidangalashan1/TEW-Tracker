@@ -30,7 +30,7 @@ function HistoryCard({ group }: { group: BeltHistoryGroup }) {
               </span>
             </div>
             <span className="text-xs" style={{ whiteSpace: 'nowrap', color: '#fff' }}>
-              {e.captured && e.lost ? `${daysBetween(e.captured, e.lost)}d ` : ''}
+              {e.captured && e.lost ? `${daysBetween(e.captured, e.lost)} days ` : ''}
               {e.captured ? fmtDate(e.captured) : '?'}
               {' - '}
               {e.lost ? fmtDate(e.lost) : 'Present'}

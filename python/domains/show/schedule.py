@@ -58,13 +58,17 @@ def get_schedule(fed_uid: Optional[int], weeks: int = 13) -> dict:
     current_date = store.game_info.get("CurrentGameDate") if store.game_info else datetime.now()
     today = current_date.date() if hasattr(current_date, 'date') else datetime.now().date()
 
-    controlled = get_controlled_fed_uids()
-    if not controlled:
-        return {"upcoming": [], "currentDate": today.isoformat()}
-
-    fed_ids = controlled
-    if fed_uid not in fed_ids:
-        fed_uid = fed_ids[0]
+    # A caller can ask for any real fed's schedule (e.g. a rival company
+    # "focused" via the topbar switcher), not just one the player controls —
+    # that restriction used to silently discard the requested fed_uid and
+    # substitute the player's own, so focusing a non-user fed still showed
+    # the player's upcoming shows. Only fall back to a controlled fed when no
+    # valid fed_uid was given at all.
+    if fed_uid is None or fed_uid not in store.feds:
+        controlled = get_controlled_fed_uids()
+        if not controlled:
+            return {"upcoming": [], "currentDate": today.isoformat()}
+        fed_uid = controlled[0]
 
     tv_rows = [tv for tv in store.tv_shows.values() if tv.get("Fed") == fed_uid and not tv.get("Dormant")]
     event_rows = [ev for ev in store.cards.values() if ev.get("Fed") == fed_uid and not ev.get("Dormant")]
@@ -193,7 +197,7 @@ def get_event_detail(card_uid: int) -> dict | None:
             past_eps.append({
                 "uid": pc["UID"],
                 "date": str(pc.get("PastCardWhen")) if pc.get("PastCardWhen") else "",
-                "rating": pc.get("Overall_Rating", 0),
+                "rating": round((pc.get("Overall_Rating") or 0) / 10),
                 "attendance": pc.get("Attendance", 0),
                 "sellout": bool(pc.get("SellOut")),
             })
