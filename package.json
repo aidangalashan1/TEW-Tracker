@@ -50,8 +50,7 @@
     "publish": {
       "provider": "github",
       "owner": "aidangalashan1",
-      "repo": "TEW-Tracker",
-      "private": true
+      "repo": "TEW-Tracker"
     }
   },
   "dependencies": {

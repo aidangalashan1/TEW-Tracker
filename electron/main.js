@@ -119,17 +119,11 @@ function appendLog(line) {
 }
 
 // ── Auto-update ──
-// Ships against a private GitHub repo (see package.json "build.publish"),
-// so electron-updater needs a token with read access to that repo's
-// Releases to check/download — set GH_TOKEN (or ELECTRON_UPDATER_TOKEN,
-// which electron-updater also honors) in the environment the packaged app
-// runs in. Without it, checkForUpdates() just fails silently below and the
-// app behaves as if no update is available; it never blocks startup.
+// Ships against a public GitHub repo (see package.json "build.publish"), so
+// electron-updater can read Releases with no auth — only `npm run release`
+// (on the dev machine, to publish) needs a GH_TOKEN, never the packaged app.
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = false
-if (process.env.ELECTRON_UPDATER_TOKEN) {
-  process.env.GH_TOKEN = process.env.ELECTRON_UPDATER_TOKEN
-}
 
 function broadcast(channel, payload) {
   for (const win of allLiveWindows()) {
