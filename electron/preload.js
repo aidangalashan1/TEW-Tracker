@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     download: () => ipcRenderer.send('download-update'),
     install: () => ipcRenderer.send('install-update'),
     onStatus: (cb) => ipcRenderer.on('update-status', (_e, payload) => cb(payload)),
+    setAutoCheckEnabled: (enabled) => ipcRenderer.send('set-auto-check-enabled', enabled),
   },
   uiScale: {
     // Sync so it's available before first paint (same reasoning as

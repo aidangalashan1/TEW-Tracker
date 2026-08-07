@@ -125,6 +125,18 @@ function appendLog(line) {
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = false
 
+// User's Settings-page opt-in/out for the startup check (see
+// src/lib/autoUpdate.ts) — renderer pushes this at every main-window
+// startup, same as the ui-scale override, since it's per-machine
+// localStorage state main has no access to. Defaults true so a first-ever
+// launch (before the renderer has had a chance to push false) still checks;
+// the renderer's own default is also true so this only ever converges to
+// what the user actually chose. Only gates the *automatic* startup check —
+// the Settings page's "Check Now" button always calls checkForUpdates()
+// directly regardless, since that's an explicit user action.
+let autoCheckEnabled = true
+ipcMain.on('set-auto-check-enabled', (_e, enabled) => { autoCheckEnabled = !!enabled })
+
 function broadcast(channel, payload) {
   for (const win of allLiveWindows()) {
     if (!win.webContents.isDestroyed()) win.webContents.send(channel, payload)
@@ -417,8 +429,11 @@ async function createWindow() {
     })
     mainWindow.loadURL('app://bundle/index.html')
     // Check on every launch, a few seconds after startup so it never
-    // competes with the backend-connect/first-paint work above for CPU/network.
+    // competes with the backend-connect/first-paint work above for CPU/network,
+    // and so the renderer's initAutoUpdatePreference() push (fired at mount)
+    // has time to land before this reads autoCheckEnabled.
     setTimeout(() => {
+      if (!autoCheckEnabled) return
       autoUpdater.checkForUpdates().catch((err) => appendLog(`UPDATER startup check failed: ${err?.message || err}`))
     }, 5000)
   }

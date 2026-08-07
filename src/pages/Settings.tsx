@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext'
 import { api } from '../api'
 import { ProfileManager } from '../components/ProfileManager'
 import { getZoomOverride, setZoomOverride, getAutoScale, ZOOM_PRESETS } from '../lib/uiScale'
+import { getAutoUpdateEnabled, setAutoUpdateEnabled } from '../lib/autoUpdate'
 
 export function SettingsPage() {
   const { ratingFormat, setRatingFormat, refresh, gameInfo, db, connectToDb, images, setImagePath, resetDefaultView } = useApp()
@@ -12,6 +13,7 @@ export function SettingsPage() {
   const [browsing, setBrowsing] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [zoomOverride, setZoomOverrideState] = useState(getZoomOverride)
+  const [autoUpdate, setAutoUpdateState] = useState(getAutoUpdateEnabled)
   const autoScale = getAutoScale()
   const isElectron = !!(window as any).electronAPI?.isElectron
 
@@ -227,8 +229,28 @@ export function SettingsPage() {
             <div className="settings-group-title">Updates</div>
             <div className="settings-row">
               <div>
+                <div className="settings-label">Automatically Check for Updates</div>
+                <div className="settings-description">Check on every launch and show a banner if a newer version is available. Never downloads or installs without your say-so either way.</div>
+              </div>
+              <div className="toolbar">
+                <button
+                  className={`btn ${autoUpdate ? 'active' : ''}`}
+                  onClick={() => { setAutoUpdateEnabled(true); setAutoUpdateState(true) }}
+                >
+                  On
+                </button>
+                <button
+                  className={`btn ${!autoUpdate ? 'active' : ''}`}
+                  onClick={() => { setAutoUpdateEnabled(false); setAutoUpdateState(false) }}
+                >
+                  Off
+                </button>
+              </div>
+            </div>
+            <div className="settings-row">
+              <div>
                 <div className="settings-label">Check for Updates</div>
-                <div className="settings-description">A banner appears at the top if a newer version is available</div>
+                <div className="settings-description">Check right now, regardless of the setting above</div>
               </div>
               <button className="btn" onClick={() => (window as any).electronAPI?.updates?.check()}>
                 Check Now

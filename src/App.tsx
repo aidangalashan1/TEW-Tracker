@@ -5,6 +5,7 @@ import { ToastProvider } from './components/Toast'
 import { UpdateBanner } from './components/UpdateBanner'
 import { isPopoutWindow, popoutInitialPage, popoutInitialUI, popoutInitialFocusedFedUid } from './lib/popout'
 import { initUiScale } from './lib/uiScale'
+import { initAutoUpdatePreference } from './lib/autoUpdate'
 
 function shutdownBackend() {
   for (let i = 0; i < 3; i++) {
@@ -23,6 +24,13 @@ export default function App() {
   // so each needs this call — applies the user's stored Settings-page zoom
   // override on top of main's own display-based auto-scale for this window.
   useEffect(() => { initUiScale() }, [])
+
+  // Only the main window's startup check is gated by this (see
+  // electron/main.js) — no need for popouts to push it too.
+  useEffect(() => {
+    if (isPopoutWindow) return
+    initAutoUpdatePreference()
+  }, [])
 
   useEffect(() => {
     // Only the main window's close should tear down the shared backend — a
