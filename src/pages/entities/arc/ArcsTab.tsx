@@ -3,7 +3,8 @@ import { useApp } from '../../../context/AppContext'
 import { api, ArcItem } from '../../../api'
 import type { Worker } from '../../../api-types'
 import useSWR from '../../../hooks/useApi'
-import { useModuleConfig } from '../../../hooks/useModuleConfig'
+import { useLocalConfig } from '../../../hooks/useLocalConfig'
+import { usePersistedState } from '../../../hooks/usePersistedState'
 import {
   buildDimOptions, orderDims, computeGroups,
   type SubgroupDef, type SubgroupFilter,
@@ -166,10 +167,10 @@ export function ArcsTab() {
 
   const { data: rosterData, isLoading: rosterLoading } = useSWR(fedUid != null ? 'roster-' + fedUid : null, () => api.roster.list(fedUid!))
   const { arcs, getArc, setArc, isLoading: arcsLoading } = useArcsData()
-  const { config, handleConfigChange: handleConfig } = useModuleConfig('arcs')
+  const { config, handleConfigChange: handleConfig } = useLocalConfig('tew-arcs-config')
 
   const [search, setSearch] = useState('')
-  const [noArcsOnly, setNoArcsOnly] = useState(false)
+  const [noArcsOnly, setNoArcsOnly] = usePersistedState('tew-arcs-noArcsOnly', false)
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [selectedDim, setSelectedDim] = useState<string | null>(null)
   const [selectedSg, setSelectedSg] = useState<string | null>(null)

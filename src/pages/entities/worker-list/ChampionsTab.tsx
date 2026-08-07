@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { api } from '../../../api'
 import { useApp } from '../../../context/AppContext'
 import useSWR from '../../../hooks/useApi'
+import { usePersistedState } from '../../../hooks/usePersistedState'
 import type { Worker, Belt, BeltHistoryGroup } from '../../../api-types'
 import { fmtFlexibleDateOrdinal, daysBetweenFlexible } from '../../../lib/dates'
 import { MemberCard } from './MemberCard'
@@ -50,7 +51,7 @@ export function ChampionsTab({ fedUid, workers }: { fedUid: number; workers: Wor
   const { data: historyData, isLoading: historyLoading } = useSWR('belt-history-' + fedUid, () => api.fed.beltHistory(fedUid))
   const belts: Belt[] | null = beltsData?.belts ?? null
   const history: BeltHistoryGroup[] | null = historyData?.history ?? null
-  const [activeOnly, setActiveOnly] = useState(true)
+  const [activeOnly, setActiveOnly] = usePersistedState('tew-champions-activeOnly', true)
 
   const workerMap = useMemo(() => new Map(workers.map(w => [w.uid, w])), [workers])
 

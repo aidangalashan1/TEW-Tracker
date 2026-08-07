@@ -14,6 +14,7 @@ import filterIcon from '../../assets/UI icons/filter.png'
 import confirmIcon from '../../assets/UI icons/confirm.png'
 import { api } from '../../api'
 import { useShortlist } from '../../hooks/useShortlist'
+import { usePersistedState } from '../../hooks/usePersistedState'
 import { sortWorkers, type SortKey } from './workerListSort'
 import { useColumnState } from './useColumnState'
 import { ColumnPickerPane } from './ColumnPickerPane'
@@ -48,7 +49,7 @@ export function WorkerListColumnTable({ workers, config, onConfigChange }: { wor
   const tableRef = useRef<HTMLDivElement>(null)
   // Position is the only basic dropdown filter; gender/status/type/contract are
   // handled by the filterRules system (see buildFilterDimensions).
-  const [positionFilter, setPositionFilter] = useState('all')
+  const [positionFilter, setPositionFilter] = usePersistedState('tew-wl-positionFilter', 'all')
   // Persisted via config (like subgroups/filterRules below) rather than local
   // useState, so group-by/active-subgroup/advanced-role selections survive a
   // reload instead of resetting to empty every time the module remounts.

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useApp } from '../../../context/AppContext'
 import { api } from '../../../api'
 import useSWR from '../../../hooks/useApi'
+import { usePersistedState } from '../../../hooks/usePersistedState'
 import { ratingColor } from '../../../lib/colors'
 import { BeatsPlannerTab } from './BeatsPlannerTab'
 
@@ -23,7 +24,7 @@ export function StorylinesTab() {
   // creating one here is visible from there too without a refetch.
   const { data: plannedData, mutate: mutatePlanned } = useSWR('planned-storylines', () => api.plannedStorylines.list())
   const plannedStorylines = plannedData?.storylines ?? []
-  const [showArchivedStorylines, setShowArchivedStorylines] = useState(false)
+  const [showArchivedStorylines, setShowArchivedStorylines] = usePersistedState('tew-storylines-showArchived', false)
   const visiblePlannedStorylines = showArchivedStorylines ? plannedStorylines : plannedStorylines.filter(sl => !sl.archived)
   const [creatingStoryline, setCreatingStoryline] = useState(false)
 
