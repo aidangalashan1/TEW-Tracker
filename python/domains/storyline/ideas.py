@@ -156,6 +156,29 @@ def _top(candidates: list[dict], key: str) -> list[dict]:
     return out
 
 
+def get_involved_heat(fed_uid: int, store=None) -> dict[int, int]:
+    """Worker UID -> heat (0–100) of the hottest active storyline they're
+    currently tied up in. Presence in tblStoryline already means active — a
+    storyline that has concluded is moved to tblStorylinePast — so every
+    non-deleted row counts, with no furthered/heat gate. Shared by the
+    feud/alliance suggester above and the power-rankings storyline signal."""
+    store = store or get_store()
+    if not store:
+        return {}
+    active_heat: dict[int, int] = {}
+    for sl in store.fed_storylines.get(fed_uid, []):
+        if sl.get("ToDelete"):
+            continue
+        active_heat[sl["UID"]] = round((sl.get("Heat") or 0) / 10)
+    involved_heat: dict[int, int] = {}
+    for inv in store.storyline_involved:
+        sl_uid = inv["StorylineUID"]
+        if sl_uid in active_heat:
+            wu = inv["WorkerUID"]
+            involved_heat[wu] = max(involved_heat.get(wu, 0), active_heat[sl_uid])
+    return involved_heat
+
+
 def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
     store = get_store()
     if not store:
@@ -171,22 +194,7 @@ def get_storyline_ideas(fed_uid: int, worker_uid: int | None = None) -> dict:
 
     contracts_by_worker = {c["WorkerUID"]: c for c in store.contracts if c["WorkerUID"] in contract_uids}
 
-    # Storylines a worker is currently tied up in (+ heat on the UI's 0–100
-    # scale; raw is 0–1000). Presence in tblStoryline already means active —
-    # a storyline that has concluded is moved to tblStorylinePast — so every
-    # non-deleted row counts, with no furthered/heat gate.
-    active_heat: dict[int, int] = {}
-    for sl in store.fed_storylines.get(fed_uid, []):
-        if sl.get("ToDelete"):
-            continue
-        active_heat[sl["UID"]] = round((sl.get("Heat") or 0) / 10)
-    involved_heat: dict[int, int] = {}
-    for inv in store.storyline_involved:
-        sl_uid = inv["StorylineUID"]
-        if sl_uid in active_heat:
-            wu = inv["WorkerUID"]
-            involved_heat[wu] = max(involved_heat.get(wu, 0), active_heat[sl_uid])
-
+    involved_heat = get_involved_heat(fed_uid, store)
     game_date = store.game_date_val
 
     # Reuse the canonical popularity / ability-vs-potential scores (single source

@@ -4,9 +4,17 @@ from core.response_utils import fast_json
 from .roster import get_roster, get_all_workers
 from .detail import get_worker_detail
 from .form import get_worker_form, get_roster_form
+from .power_rankings import get_power_rankings
 from domains.company.relative import get_player_fed_uid
 
 router = APIRouter(prefix="/api/roster", tags=["roster"])
+
+
+@router.get("/rankings")
+def power_rankings(fed_uid: int = Query(default=None)):
+    if fed_uid is None:
+        fed_uid = get_player_fed_uid()
+    return fast_json(get_power_rankings(fed_uid))
 
 
 @router.get("/all")

@@ -1,4 +1,4 @@
-// Auto-generated from python/models.py — do not edit directly
+// Auto-generated from python/models.py ï¿½ do not edit directly
 // Run: py scripts/generate_types.py > src/api-types.ts
 
 export interface RatingDisplay {
@@ -305,5 +305,21 @@ export interface Storyline {
   start_date?: string | null;
   furthered: boolean;
   analysis: boolean;
+}
+
+export interface PowerRanking {
+  worker_uid: number;
+  name: string;
+  picture: string;
+  score: number;
+  current_score: number;
+  momentum: number;
+  prominence: number;
+  storyline_heat: number;
+  is_champion: boolean;
+  matches_considered: number;
+  rank: number;
+  prev_rank: number | null;
+  delta: number | null;
 }
 

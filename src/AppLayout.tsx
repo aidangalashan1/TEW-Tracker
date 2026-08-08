@@ -106,6 +106,7 @@ export function AppLayout({ popout = false }: { popout?: boolean } = {}) {
             <span className={`page-tab${creativeTab === 'schedule' ? ' active' : ''}`} onClick={() => setCreativeTab('schedule')}>Schedule</span>
             <span className={`page-tab${creativeTab === 'history' ? ' active' : ''}`} onClick={() => setCreativeTab('history')}>Show History</span>
             <span className={`page-tab${creativeTab === 'segments' ? ' active' : ''}`} onClick={() => setCreativeTab('segments')}>Segments</span>
+            <span className={`page-tab${creativeTab === 'rankings' ? ' active' : ''}`} onClick={() => setCreativeTab('rankings')}>Power Rankings</span>
             {creativeTab === 'storylines' ? (
               <div
                 className="page-tab active" style={{ position: 'relative', gap: 5 }}

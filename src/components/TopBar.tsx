@@ -48,6 +48,7 @@ const ROSTER_TAB_LABELS: Record<string, string> = {
 }
 const CREATIVE_TAB_LABELS: Record<string, string> = {
   schedule: 'Schedule', history: 'Show History', segments: 'Segments', storylines: 'Storylines', arcs: 'Arcs',
+  rankings: 'Power Rankings',
 }
 
 function groupFeds(feds: Federation[], playerFed: Federation | null): [string, Federation[]][] {
