@@ -327,6 +327,56 @@ export interface DiaryLinkedShow {
   showType: string; showUid: number; showName: string; showDate: string;
 }
 
+/** How a competitor is represented when a segment is rendered into diary
+ *  text — a plain name, their worker photo, or both. */
+export type DiaryLabelMode = 'text' | 'image' | 'both'
+
+/** Global formatting defaults for how the diary renders inserted segments.
+ *  Individual segments may override showImages/labelMode via their own
+ *  `styleOverride`; everything else applies uniformly. */
+export interface DiaryStyleConfig {
+  headingBold: boolean
+  headingItalic: boolean
+  headingUnderline: boolean
+  headingColor: string   // '' = no color tag
+  headingSize: number    // 0 = no size tag
+  bodyItalic: boolean
+  bodyColor: string
+  autoAddWorkerImages: boolean
+  showImages: boolean
+  labelMode: DiaryLabelMode
+}
+
+export const DEFAULT_DIARY_STYLE: DiaryStyleConfig = {
+  headingBold: true,
+  headingItalic: false,
+  headingUnderline: false,
+  headingColor: '',
+  headingSize: 0,
+  bodyItalic: false,
+  bodyColor: '',
+  autoAddWorkerImages: false,
+  showImages: false,
+  labelMode: 'text',
+}
+
+/** A structured, re-editable record of a segment inserted into the diary
+ *  body. The rendered text lives inline in `body` between
+ *  `[segment:ID]...[/segment:ID]` markers; this object is the source data
+ *  that block was generated from, so "advanced mode" can regenerate it
+ *  after an edit instead of hand-parsing the markup back out. */
+export interface DiarySegment {
+  id: string
+  heading: string
+  notes: string
+  vsLine: string
+  rating: number
+  competitors: PastShowCompetitor[]
+  /** Per-segment overrides of the global style; null = inherit. */
+  showImages: boolean | null
+  labelMode: DiaryLabelMode | null
+}
+
 export interface DiarySummary {
   id: string; fedUid: number; title: string; date: string;
   format: 'bbcode' | 'markdown';
@@ -335,6 +385,8 @@ export interface DiarySummary {
 
 export interface DiaryEntry extends DiarySummary {
   body: string; created: string;
+  styleConfig?: DiaryStyleConfig;
+  segments?: DiarySegment[];
 }
 
 export type CollateralCategory = 'fed_logo' | 'show_logos' | 'roster' | 'custom'
@@ -591,7 +643,7 @@ export const api = {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data),
       }),
-    update: (id: string, data: {title?: string; date?: string; format?: string; body?: string; linkedShows?: DiaryLinkedShow[]}) =>
+    update: (id: string, data: {title?: string; date?: string; format?: string; body?: string; linkedShows?: DiaryLinkedShow[]; styleConfig?: DiaryStyleConfig; segments?: DiarySegment[]}) =>
       request<{ok: boolean; entry: DiaryEntry}>(`/diary/${encodeURIComponent(id)}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
