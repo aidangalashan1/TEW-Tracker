@@ -29,6 +29,20 @@ class LinkedShow(BaseModel):
     showDate: str
 
 
+DEFAULT_STYLE_CONFIG = {
+    "headingBold": True,
+    "headingItalic": False,
+    "headingUnderline": False,
+    "headingColor": "",
+    "headingSize": 0,
+    "bodyItalic": False,
+    "bodyColor": "",
+    "autoAddWorkerImages": False,
+    "showImages": False,
+    "labelMode": "text",
+}
+
+
 class DiaryCreate(BaseModel):
     fedUid: int
     title: str = ""
@@ -42,6 +56,8 @@ class DiaryUpdate(BaseModel):
     format: Optional[str] = None
     body: Optional[str] = None
     linkedShows: Optional[list[LinkedShow]] = None
+    styleConfig: Optional[dict] = None
+    segments: Optional[list[dict]] = None
 
 
 @router.get("")
@@ -80,6 +96,8 @@ def create_entry(body: DiaryCreate):
         "format": body.format,
         "body": "",
         "linkedShows": [],
+        "styleConfig": dict(DEFAULT_STYLE_CONFIG),
+        "segments": [],
         "created": now,
         "updated": now,
     }
@@ -100,6 +118,10 @@ def update_entry(entry_id: str, body: DiaryUpdate):
         data["body"] = body.body
     if body.linkedShows is not None:
         data["linkedShows"] = [s.model_dump() for s in body.linkedShows]
+    if body.styleConfig is not None:
+        data["styleConfig"] = {**DEFAULT_STYLE_CONFIG, **body.styleConfig}
+    if body.segments is not None:
+        data["segments"] = body.segments
     data["updated"] = datetime.now(timezone.utc).isoformat()
     _write_entry(entry_id, data)
     return {"ok": True, "entry": data}

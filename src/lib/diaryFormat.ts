@@ -1,33 +1,134 @@
-import type { PastShowMatch } from '../api'
+import type { PastShowMatch, DiarySegment, DiaryStyleConfig } from '../api'
+import { DEFAULT_DIARY_STYLE } from '../api'
 
 export type DiaryFormat = 'bbcode' | 'markdown'
 
-/** Formats a show segment/match as a ready-to-paste snippet in the diary's
- *  chosen format, for inserting at the cursor. */
-export function buildSegmentSnippet(match: PastShowMatch, format: DiaryFormat): string {
+/** Converts a raw past-show match into the structured, re-editable segment
+ *  record that both the inline text render and the advanced-mode editor
+ *  work from. */
+export function matchToSegment(match: PastShowMatch): DiarySegment {
   const sides = new Map<number, string[]>()
   for (const comp of match.competitors || []) {
     const arr = sides.get(comp.side) || []
     arr.push(comp.name)
     sides.set(comp.side, arr)
   }
-  const sideGroups = [...sides.entries()].sort((a, b) => a[0] - b[0])
-  const vsLine = sideGroups.map(([, names]) => names.join(' & ')).join(' vs. ')
-  const heading = match.log_entry || 'Segment'
-  const ratingLine = match.rating > 0 ? `Rating: ${match.rating}%` : ''
-
-  if (format === 'bbcode') {
-    return [
-      `[b]${heading}[/b]`,
-      vsLine,
-      ratingLine,
-    ].filter(Boolean).join('\n') + '\n'
-  }
-  return [
-    `**${heading}**`,
+  const vsLine = [...sides.entries()].sort((a, b) => a[0] - b[0]).map(([, names]) => names.join(' & ')).join(' vs. ')
+  return {
+    id: 'seg-' + Math.random().toString(36).slice(2, 10),
+    heading: match.log_entry || 'Segment',
+    notes: '',
     vsLine,
-    ratingLine,
-  ].filter(Boolean).join('\n') + '\n'
+    rating: match.rating || 0,
+    competitors: match.competitors || [],
+    showImages: null,
+    labelMode: null,
+  }
+}
+
+function wrapHeading(text: string, format: DiaryFormat, style: DiaryStyleConfig): string {
+  let out = text
+  if (format === 'bbcode') {
+    if (style.headingItalic) out = `[i]${out}[/i]`
+    if (style.headingUnderline) out = `[u]${out}[/u]`
+    if (style.headingBold) out = `[b]${out}[/b]`
+    if (style.headingColor) out = `[color=${style.headingColor}]${out}[/color]`
+    if (style.headingSize > 0) out = `[size=${style.headingSize}]${out}[/size]`
+  } else {
+    if (style.headingItalic) out = `*${out}*`
+    if (style.headingBold) out = `**${out}**`
+  }
+  return out
+}
+
+function wrapBody(text: string, format: DiaryFormat, style: DiaryStyleConfig): string {
+  let out = text
+  if (format === 'bbcode') {
+    if (style.bodyItalic) out = `[i]${out}[/i]`
+    if (style.bodyColor) out = `[color=${style.bodyColor}]${out}[/color]`
+  } else {
+    if (style.bodyItalic) out = `*${out}*`
+  }
+  return out
+}
+
+function imageTag(src: string, format: DiaryFormat): string {
+  return format === 'bbcode' ? `[img]${src}[/img]` : `![](${src})`
+}
+
+/** Renders a structured segment into ready-to-paste diary text, honoring
+ *  the entry's global style config (or a per-segment override of
+ *  showImages/labelMode). `resolveWorkerImage` turns a competitor's raw
+ *  picture filename into a fully-qualified URL (the caller supplies
+ *  `img('People/' + picture)` from AppContext, since this module has no
+ *  access to that). */
+export function renderSegment(
+  segment: DiarySegment,
+  format: DiaryFormat,
+  style: DiaryStyleConfig = DEFAULT_DIARY_STYLE,
+  resolveWorkerImage?: (picture: string) => string,
+): string {
+  const labelMode = segment.labelMode ?? style.labelMode
+  const showImages = (segment.showImages ?? style.showImages) || style.autoAddWorkerImages
+
+  const lines: string[] = []
+  lines.push(wrapHeading(segment.heading || 'Segment', format, style))
+
+  if (showImages && resolveWorkerImage && (labelMode === 'image' || labelMode === 'both')) {
+    for (const comp of segment.competitors) {
+      if (comp.picture) lines.push(imageTag(resolveWorkerImage(comp.picture), format))
+    }
+  }
+
+  if (labelMode !== 'image' && segment.vsLine) {
+    lines.push(segment.vsLine)
+  }
+
+  if (segment.rating > 0) lines.push(`Rating: ${segment.rating}%`)
+  if (segment.notes.trim()) lines.push(wrapBody(segment.notes.trim(), format, style))
+
+  return lines.filter(Boolean).join('\n') + '\n'
+}
+
+/** Formats a show segment/match as a ready-to-paste snippet — thin
+ *  backward-compatible wrapper around matchToSegment + renderSegment. */
+export function buildSegmentSnippet(
+  match: PastShowMatch,
+  format: DiaryFormat,
+  style: DiaryStyleConfig = DEFAULT_DIARY_STYLE,
+  resolveWorkerImage?: (picture: string) => string,
+): string {
+  return renderSegment(matchToSegment(match), format, style, resolveWorkerImage)
+}
+
+const segmentMarkerRe = (id: string) => new RegExp(`\\[segment:${id}\\][\\s\\S]*?\\[/segment:${id}\\]`)
+
+/** Wraps rendered segment text in invisible-on-export markers so an
+ *  already-inserted segment's block can be found and replaced later
+ *  (advanced-mode editing) without re-parsing the surrounding freeform
+ *  prose the user typed around it. */
+export function wrapSegmentMarkers(id: string, text: string): string {
+  return `[segment:${id}]\n${text}[/segment:${id}]`
+}
+
+/** Replaces an existing segment's marked block with freshly rendered text
+ *  (id/markers preserved), or appends nothing if the block can't be found
+ *  (e.g. the user manually deleted it from the body). */
+export function replaceSegmentBlock(body: string, id: string, newText: string): string {
+  const re = segmentMarkerRe(id)
+  if (!re.test(body)) return body
+  return body.replace(re, wrapSegmentMarkers(id, newText))
+}
+
+/** Removes a segment's marked block (and the markers) entirely. */
+export function removeSegmentBlock(body: string, id: string): string {
+  return body.replace(segmentMarkerRe(id), '').replace(/\n{3,}/g, '\n\n')
+}
+
+/** Strips `[segment:ID]`/`[/segment:ID]` markers for export/preview/copy —
+ *  they're bookkeeping for the advanced-mode editor, not diary content. */
+export function stripSegmentMarkers(text: string): string {
+  return text.replace(/\[\/?segment:[^\]]+\]\n?/g, '')
 }
 
 /** Best-effort Markdown -> GDS-style BBCode conversion for export/copy.

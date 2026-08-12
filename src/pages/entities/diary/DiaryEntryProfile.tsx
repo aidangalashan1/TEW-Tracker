@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../../../context/AppContext'
-import { api, type PastShow } from '../../../api'
+import { api, DEFAULT_DIARY_STYLE, type PastShow, type DiarySegment, type DiaryStyleConfig } from '../../../api'
 import useSWR from '../../../hooks/useApi'
 import { fmtDateOrdinal } from '../../../lib/dates'
 import { ratingColor } from '../../../lib/colors'
 import { formatRatingPct } from '../../../lib/grade'
-import { buildSegmentSnippet, markdownToBBCode, bbcodeToHtml } from '../../../lib/diaryFormat'
+import { matchToSegment, renderSegment, wrapSegmentMarkers, replaceSegmentBlock, removeSegmentBlock, stripSegmentMarkers, markdownToBBCode, bbcodeToHtml } from '../../../lib/diaryFormat'
 import { applyToolbarCommand, applyColor, applySize, applyImage, type ToolbarCommand } from '../../../lib/textEditCommands'
 import { useTextUndoRedo } from '../../../lib/useTextUndoRedo'
 import { DiaryToolbar } from './DiaryToolbar'
 import { CollateralPanel } from './CollateralPanel'
+import { DiaryStylePanel } from './DiaryStylePanel'
+import { DiarySegmentModal } from './DiarySegmentModal'
 
 function useDebouncedSave(entryId: string | undefined, save: (patch: Record<string, unknown>) => void, delay = 600) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -20,9 +22,10 @@ function useDebouncedSave(entryId: string | undefined, save: (patch: Record<stri
 }
 
 export function DiaryEntryProfile({ entryId }: { entryId: string }) {
-  const { focusedFed, playerFed, ratingFormat } = useApp()
+  const { focusedFed, playerFed, ratingFormat, img } = useApp()
   const fed = focusedFed || playerFed
   const fedUid = fed?.uid
+  const resolveWorkerImage = (picture: string) => img('People/' + picture)
 
   const { data: entry, error, setData: setEntry } = useSWR('diary-entry-' + entryId, () => api.diary.get(entryId))
   const { data: showsData } = useSWR(fedUid != null ? 'past-shows-' + fedUid : null, () => api.show_history.list(fedUid!, 100))
@@ -42,10 +45,15 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
   const body = bodyHistory.text
   const [showPicker, setShowPicker] = useState(false)
   const [showCollateral, setShowCollateral] = useState(false)
+  const [showStylePanel, setShowStylePanel] = useState(false)
+  const [advancedMode, setAdvancedMode] = useState(false)
   const [pickerSearch, setPickerSearch] = useState('')
   const [pickedShowUid, setPickedShowUid] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const [style, setStyle] = useState<DiaryStyleConfig>(DEFAULT_DIARY_STYLE)
+  const [segments, setSegments] = useState<DiarySegment[]>([])
+  const [editingSegment, setEditingSegment] = useState<DiarySegment | null>(null)
 
   useEffect(() => {
     if (entry) {
@@ -53,6 +61,8 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
       setDate(entry.date)
       setFormat(entry.format)
       bodyHistory.reset(entry.body)
+      setStyle({ ...DEFAULT_DIARY_STYLE, ...(entry.styleConfig || {}) })
+      setSegments(entry.segments || [])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry?.id])
@@ -131,9 +141,38 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
     requestAnimationFrame(() => { if (el) { el.focus(); el.selectionStart = snap.selStart; el.selectionEnd = snap.selEnd } })
   }
 
+  const persistStyle = (patch: Partial<DiaryStyleConfig>) => {
+    const next = { ...style, ...patch }
+    setStyle(next)
+    api.diary.update(entryId, { styleConfig: next }).then(r => setEntry(r.entry)).catch(() => {})
+  }
+
+  const persistSegments = (next: DiarySegment[]) => {
+    setSegments(next)
+    api.diary.update(entryId, { segments: next }).catch(() => {})
+  }
+
   const insertSegment = (show: PastShow, match: PastShow['matches'][number]) => {
-    insertAtCursor(buildSegmentSnippet(match, format))
+    const seg = matchToSegment(match)
+    const rendered = renderSegment(seg, format, style, resolveWorkerImage)
+    insertAtCursor(wrapSegmentMarkers(seg.id, rendered))
+    persistSegments([...segments, seg])
     linkShow(show)
+  }
+
+  const saveSegmentEdit = (updated: DiarySegment) => {
+    const rendered = renderSegment(updated, format, style, resolveWorkerImage)
+    const nextBody = replaceSegmentBlock(body, updated.id, rendered)
+    applySnapshot({ text: nextBody, selStart: nextBody.length, selEnd: nextBody.length }, true)
+    persistSegments(segments.map(s => s.id === updated.id ? updated : s))
+    setEditingSegment(null)
+  }
+
+  const removeSegmentEdit = (id: string) => {
+    const nextBody = removeSegmentBlock(body, id)
+    applySnapshot({ text: nextBody, selStart: nextBody.length, selEnd: nextBody.length }, true)
+    persistSegments(segments.filter(s => s.id !== id))
+    setEditingSegment(null)
   }
 
   const linkShow = (show: PastShow) => {
@@ -149,7 +188,8 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
     api.diary.update(entryId, { linkedShows: next }).then(r => setEntry(r.entry)).catch(() => {})
   }
 
-  const exportText = format === 'markdown' ? markdownToBBCode(body) : body
+  const cleanBody = stripSegmentMarkers(body)
+  const exportText = format === 'markdown' ? markdownToBBCode(cleanBody) : cleanBody
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(exportText).then(() => {
@@ -189,6 +229,17 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className="manage-view-btn" onClick={() => setShowPicker(p => !p)}>
           {showPicker ? 'Hide Segment Picker' : 'Insert Segment…'}
+        </button>
+        <button className="manage-view-btn" onClick={() => setShowStylePanel(p => !p)}>
+          {showStylePanel ? 'Hide Formatting Style' : 'Formatting Style…'}
+        </button>
+        <button
+          className="manage-view-btn"
+          style={advancedMode ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+          onClick={() => setAdvancedMode(p => !p)}
+          title="Edit inserted segments individually via a popout editor"
+        >
+          {advancedMode ? 'Advanced Mode: On' : 'Advanced Mode: Off'}
         </button>
         <button className="manage-view-btn" onClick={copyToClipboard}>
           {copied ? 'Copied!' : format === 'markdown' ? 'Copy as BBCode' : 'Copy to Forum'}
@@ -263,6 +314,8 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
         </div>
       )}
 
+      {showStylePanel && <DiaryStylePanel style={style} onChange={persistStyle} />}
+
       <DiaryToolbar
         format={format} onCommand={runToolbarCommand} onColor={runColor} onSize={runSize} onImage={runImage}
         onUndo={runUndo} onRedo={runRedo} canUndo={bodyHistory.canUndo} canRedo={bodyHistory.canRedo}
@@ -270,6 +323,26 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
       />
 
       {showCollateral && <CollateralPanel fedUid={fedUid} />}
+
+      {advancedMode && (
+        <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+            Segments in this entry
+          </div>
+          {segments.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No segments inserted yet — use "Insert Segment…" above, then edit them here.</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {segments.map(seg => (
+              <div key={seg.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, background: 'var(--bg-tertiary)', borderRadius: 6, padding: '6px 10px' }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{seg.heading}</div>
+                  {seg.vsLine && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{seg.vsLine}</div>}
+                </div>
+                <button className="manage-view-btn" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => setEditingSegment(seg)}>Edit…</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <textarea
         ref={bodyRef}
@@ -294,7 +367,7 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
           Preview — how this will look on the forum
         </div>
-        {body ? (
+        {cleanBody ? (
           <div
             style={{
               background: 'var(--bg-tertiary)', color: '#fff', borderRadius: 8, padding: '10px 14px',
@@ -306,6 +379,17 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
           <div style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', borderRadius: 8, padding: 12, fontSize: 12 }}>—</div>
         )}
       </div>
+
+      {editingSegment && (
+        <DiarySegmentModal
+          segment={editingSegment}
+          format={format}
+          style={style}
+          onSave={saveSegmentEdit}
+          onRemove={() => removeSegmentEdit(editingSegment.id)}
+          onCancel={() => setEditingSegment(null)}
+        />
+      )}
     </div>
   )
 }
