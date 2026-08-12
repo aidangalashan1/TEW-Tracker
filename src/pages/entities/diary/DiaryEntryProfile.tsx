@@ -13,6 +13,7 @@ import { DiaryToolbar } from './DiaryToolbar'
 import { CollateralPanel } from './CollateralPanel'
 import { DiaryStylePanel } from './DiaryStylePanel'
 import { DiarySegmentModal } from './DiarySegmentModal'
+import { DiaryVisualEditor } from './DiaryVisualEditor'
 
 function useDebouncedSave(entryId: string | undefined, save: (patch: Record<string, unknown>) => void, delay = 600) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -50,6 +51,12 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
   // stays the fixed, dominant element on the page no matter what's open.
   const [openModal, setOpenModal] = useState<'picker' | 'style' | 'collateral' | null>(null)
   const [advancedMode, setAdvancedMode] = useState(false)
+  // Visual mode replaces the old static "preview" — it's a live WYSIWYG
+  // surface you build the post in directly, with BBCode generated in the
+  // background from every edit. It only makes sense for the bbcode format
+  // (the visual editor always emits BBCode), so markdown entries stay in
+  // Source mode.
+  const [editorMode, setEditorMode] = useState<'source' | 'visual'>('visual')
   const [pickerSearch, setPickerSearch] = useState('')
   const [pickedShowUid, setPickedShowUid] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
@@ -66,6 +73,7 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
       bodyHistory.reset(entry.body)
       setStyle({ ...DEFAULT_DIARY_STYLE, ...(entry.styleConfig || {}) })
       setSegments(entry.segments || [])
+      setEditorMode(entry.format === 'markdown' ? 'source' : 'visual')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry?.id])
@@ -103,6 +111,15 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
       el.selectionStart = snap.selStart
       el.selectionEnd = snap.selEnd
     })
+  }
+
+  // Same idea as applySnapshot, but for edits coming from the visual
+  // editor's contentEditable div rather than the (unmounted, in Visual
+  // mode) textarea — nothing to focus/select there, so it just updates the
+  // text and persists.
+  const updateBodyFromVisual = (next: string) => {
+    bodyHistory.set({ text: next, selStart: next.length, selEnd: next.length }, false)
+    debouncedPersist({ body: next })
   }
 
   const insertAtCursor = (text: string) => {
@@ -229,7 +246,11 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
         />
         <select
           value={format}
-          onChange={e => { const f = e.target.value as 'bbcode' | 'markdown'; setFormat(f); debouncedPersist({ format: f }) }}
+          onChange={e => {
+            const f = e.target.value as 'bbcode' | 'markdown'
+            setFormat(f); debouncedPersist({ format: f })
+            if (f === 'markdown') setEditorMode('source') // the visual editor only ever emits BBCode
+          }}
           style={{ background: 'var(--bg-secondary)', color: '#fff', border: '1px solid var(--border-color)', borderRadius: 6, padding: '8px 10px' }}
         >
           <option value="bbcode">BBCode</option>
@@ -249,6 +270,20 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
         >
           {advancedMode ? 'Advanced Mode: On' : 'Advanced Mode: Off'}
         </button>
+        {format === 'bbcode' && (
+          <div className="flex" style={{ border: '1px solid var(--border-color)', borderRadius: 6, overflow: 'hidden' }}>
+            {(['visual', 'source'] as const).map(m => (
+              <button
+                key={m}
+                className="manage-view-btn"
+                style={{ border: 'none', borderRadius: 0, background: editorMode === m ? 'var(--accent)' : 'transparent', color: editorMode === m ? '#fff' : undefined }}
+                onClick={() => setEditorMode(m)}
+              >
+                {m === 'visual' ? 'Visual Editor' : 'Source'}
+              </button>
+            ))}
+          </div>
+        )}
         <button className="manage-view-btn" onClick={copyToClipboard} style={{ marginLeft: 'auto' }}>
           {copied ? 'Copied!' : format === 'markdown' ? 'Copy as BBCode' : 'Copy to Forum'}
         </button>
@@ -265,52 +300,60 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
         </div>
       )}
 
-      <DiaryToolbar
-        format={format} onCommand={runToolbarCommand} onColor={runColor} onSize={runSize} onImage={runImage}
-        onUndo={runUndo} onRedo={runRedo} canUndo={bodyHistory.canUndo} canRedo={bodyHistory.canRedo}
-        onOpenCollateral={() => setOpenModal('collateral')}
-      />
+      {editorMode === 'source' && (
+        <DiaryToolbar
+          format={format} onCommand={runToolbarCommand} onColor={runColor} onSize={runSize} onImage={runImage}
+          onUndo={runUndo} onRedo={runRedo} canUndo={bodyHistory.canUndo} canRedo={bodyHistory.canRedo}
+          onOpenCollateral={() => setOpenModal('collateral')}
+        />
+      )}
 
-      {/* The editor+preview column is always the dominant element on the
-          page; Advanced Mode adds a sidebar next to it instead of pushing
-          it down, so neither ever has to fight the other for height. */}
+      {/* The editor column is always the dominant element on the page;
+          Advanced Mode adds a sidebar next to it instead of pushing it
+          down, so neither ever has to fight the other for height. */}
       <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0 }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
-          <textarea
-            ref={bodyRef}
-            value={body}
-            onChange={e => applySnapshot({ text: e.target.value, selStart: e.target.selectionStart, selEnd: e.target.selectionEnd }, false)}
-            onKeyDown={e => {
-              const mod = e.ctrlKey || e.metaKey
-              if (!mod) return
-              const key = e.key.toLowerCase()
-              if (key === 'z' && !e.shiftKey) { e.preventDefault(); runUndo() }
-              else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); runRedo() }
-            }}
-            placeholder={format === 'bbcode' ? 'Write your diary in BBCode…' : 'Write your diary in Markdown…'}
-            style={{
-              flex: 1, minHeight: 120, resize: 'none', background: 'var(--bg-secondary)', color: '#fff',
-              border: '1px solid var(--border-color)', borderRadius: 8, padding: 14,
-              fontFamily: 'var(--font-mono, monospace)', fontSize: 13, lineHeight: 1.5,
-            }}
-          />
-
-          <div style={{ flex: '0 0 auto' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-              Preview — how this will look on the forum
-            </div>
-            {body ? (
-              <div
-                style={{
-                  background: 'var(--bg-tertiary)', color: '#fff', borderRadius: 8, padding: '10px 14px',
-                  fontSize: 13, lineHeight: 1.6, maxHeight: 180, overflowY: 'auto',
+          {editorMode === 'visual' ? (
+            <DiaryVisualEditor body={body} onChange={updateBodyFromVisual} />
+          ) : (
+            <>
+              <textarea
+                ref={bodyRef}
+                value={body}
+                onChange={e => applySnapshot({ text: e.target.value, selStart: e.target.selectionStart, selEnd: e.target.selectionEnd }, false)}
+                onKeyDown={e => {
+                  const mod = e.ctrlKey || e.metaKey
+                  if (!mod) return
+                  const key = e.key.toLowerCase()
+                  if (key === 'z' && !e.shiftKey) { e.preventDefault(); runUndo() }
+                  else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); runRedo() }
                 }}
-                dangerouslySetInnerHTML={{ __html: bbcodeToHtml(exportText) }}
+                placeholder={format === 'bbcode' ? 'Write your diary in BBCode…' : 'Write your diary in Markdown…'}
+                style={{
+                  flex: 1, minHeight: 120, resize: 'none', background: 'var(--bg-secondary)', color: '#fff',
+                  border: '1px solid var(--border-color)', borderRadius: 8, padding: 14,
+                  fontFamily: 'var(--font-mono, monospace)', fontSize: 13, lineHeight: 1.5,
+                }}
               />
-            ) : (
-              <div style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', borderRadius: 8, padding: 12, fontSize: 12 }}>—</div>
-            )}
-          </div>
+
+              <div style={{ flex: '0 0 auto' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+                  Preview — how this will look on the forum
+                </div>
+                {body ? (
+                  <div
+                    style={{
+                      background: 'var(--bg-tertiary)', color: '#fff', borderRadius: 8, padding: '10px 14px',
+                      fontSize: 13, lineHeight: 1.6, maxHeight: 180, overflowY: 'auto',
+                    }}
+                    dangerouslySetInnerHTML={{ __html: bbcodeToHtml(exportText) }}
+                  />
+                ) : (
+                  <div style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', borderRadius: 8, padding: 12, fontSize: 12 }}>—</div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {advancedMode && (

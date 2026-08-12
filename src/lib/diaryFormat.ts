@@ -197,6 +197,90 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+const ALIGN_TAG: Record<string, string> = { left: 'left', center: 'center', right: 'right' }
+const FONT_SIZE_SCALE: Record<string, number> = { '1': 10, '2': 13, '3': 16, '4': 18, '5': 24, '6': 32, '7': 48 }
+
+function rgbToHex(color: string): string {
+  if (!color) return ''
+  if (color.startsWith('#')) return color
+  const m = color.match(/\d+/g)
+  if (!m || m.length < 3) return ''
+  return '#' + m.slice(0, 3).map(n => Math.max(0, Math.min(255, Number(n))).toString(16).padStart(2, '0')).join('')
+}
+
+/** Wraps `inner` in BBCode tags for whatever inline styling `el` (a <span>,
+ *  <div>, or <p> from contentEditable output) carries via its `style`
+ *  attribute — color, size, weight/style/decoration, and text-align. */
+function wrapInlineStyle(el: HTMLElement, inner: string): string {
+  let out = inner
+  const s = el.style
+  const color = rgbToHex(s.color)
+  if (color) out = `[color=${color}]${out}[/color]`
+  const size = s.fontSize ? parseInt(s.fontSize, 10) : 0
+  if (size > 0) out = `[size=${size}]${out}[/size]`
+  if (s.fontWeight === 'bold' || s.fontWeight === '700' || Number(s.fontWeight) >= 600) out = `[b]${out}[/b]`
+  if (s.fontStyle === 'italic') out = `[i]${out}[/i]`
+  if (s.textDecorationLine?.includes('underline') || s.textDecoration?.includes('underline')) out = `[u]${out}[/u]`
+  if (s.textDecorationLine?.includes('line-through') || s.textDecoration?.includes('line-through')) out = `[s]${out}[/s]`
+  const align = ALIGN_TAG[s.textAlign]
+  if (align) out = `[${align}]${out}[/${align}]`
+  return out
+}
+
+function walkToBBCode(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent || ''
+  if (node.nodeType !== Node.ELEMENT_NODE) return ''
+  const el = node as HTMLElement
+  const tag = el.tagName.toLowerCase()
+  const children = Array.from(el.childNodes).map(walkToBBCode).join('')
+
+  switch (tag) {
+    case 'b': case 'strong': return `[b]${children}[/b]`
+    case 'i': case 'em': return `[i]${children}[/i]`
+    case 'u': return `[u]${children}[/u]`
+    case 's': case 'strike': case 'del': return `[s]${children}[/s]`
+    case 'a': return `[url=${el.getAttribute('href') || ''}]${children}[/url]`
+    case 'img': {
+      const w = Number(el.getAttribute('width')) || (el.style.width ? parseInt(el.style.width, 10) : 0)
+      const src = el.getAttribute('src') || ''
+      return w > 0 ? `[img width=${w}]${src}[/img]` : `[img]${src}[/img]`
+    }
+    case 'ul': return `[list]\n${children}[/list]\n`
+    case 'ol': return `[list=1]\n${children}[/list]\n`
+    case 'li': return `[*]${children}\n`
+    case 'blockquote': return `[quote]${children}[/quote]\n`
+    case 'pre': case 'code': return `[code]${el.textContent || ''}[/code]\n`
+    case 'br': return '\n'
+    case 'div': case 'p':
+      return wrapInlineStyle(el, children) + '\n'
+    case 'span':
+      return wrapInlineStyle(el, children)
+    case 'font': {
+      // execCommand('foreColor'/'fontSize') falls back to legacy <font
+      // color=.. size=..> in some browsers instead of a styled <span>.
+      let out = children
+      const sizeAttr = el.getAttribute('size')
+      const px = sizeAttr ? FONT_SIZE_SCALE[sizeAttr] : 0
+      if (px) out = `[size=${px}]${out}[/size]`
+      const colorAttr = el.getAttribute('color')
+      if (colorAttr) out = `[color=${colorAttr}]${out}[/color]`
+      return out
+    }
+    default:
+      return children
+  }
+}
+
+/** Converts a contentEditable element's live DOM into BBCode — the inverse
+ *  of `bbcodeToHtml` for the subset of markup the visual editor's toolbar
+ *  (execCommand-driven) actually produces. Walking the DOM directly (rather
+ *  than reparsing an HTML string) means it always reflects exactly what the
+ *  browser rendered, including inline styles the browser chose on its own. */
+export function htmlToBBCode(root: HTMLElement): string {
+  const out = Array.from(root.childNodes).map(walkToBBCode).join('')
+  return out.replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '')
+}
+
 /** Only allow http(s)/mailto URLs through into href/src attributes — this text
  *  is user-authored and gets rendered via dangerouslySetInnerHTML, so a
  *  javascript: URL smuggled into a [url]/[img] tag shouldn't get to execute. */
