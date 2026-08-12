@@ -327,44 +327,90 @@ export interface DiaryLinkedShow {
   showType: string; showUid: number; showName: string; showDate: string;
 }
 
-/** How a competitor is represented when a segment is rendered into diary
- *  text — a plain name, their worker photo, or both. */
+/** How a competitor is represented in the vs.-line text — a plain name, or
+ *  suppressed entirely because the worker images (governed separately by
+ *  `showImages`) are doing the labeling instead. This does NOT control
+ *  whether images show — that's `showImages`, independently. */
 export type DiaryLabelMode = 'text' | 'image' | 'both'
 
+/** Placeholder tokens substituted into `template` when a segment renders.
+ *  Kept purely as documentation/autocomplete hints — the renderer accepts
+ *  any of these appearing anywhere, any number of times, in the template. */
+export const DIARY_TEMPLATE_TOKENS = ['{banner}', '{heading}', '{images}', '{vsLine}', '{rating}', '{notes}'] as const
+
+export const DEFAULT_DIARY_TEMPLATE = '{banner}\n{heading}\n{images}\n{vsLine}\n{rating}\n{notes}'
+
 /** Global formatting defaults for how the diary renders inserted segments.
- *  Individual segments may override showImages/labelMode via their own
- *  `styleOverride`; everything else applies uniformly. */
+ *  The structured fields (prefixes/suffixes, colors, separators) control
+ *  what each piece of text looks like; `template` controls how those
+ *  pieces are arranged — free-form, with arbitrary literal text/markup of
+ *  the user's own around and between the placeholders, so nothing here
+ *  locks a segment into one particular layout. Individual segments may
+ *  override showImages/labelMode via their own fields; everything else
+ *  applies uniformly. */
 export interface DiaryStyleConfig {
+  headingPrefix: string
+  headingSuffix: string
   headingBold: boolean
   headingItalic: boolean
   headingUnderline: boolean
-  headingColor: string   // '' = no color tag
+  headingColor: string   // '' = no color tag; otherwise any hex/color the user picks
   headingSize: number    // 0 = no size tag
+
+  bodyPrefix: string
+  bodySuffix: string
   bodyItalic: boolean
   bodyColor: string
+
+  vsSeparator: string    // between sides, e.g. " vs. "
+  sideSeparator: string  // between competitors on the same side, e.g. " & "
+
+  ratingPrefix: string
+  ratingSuffix: string
+
   autoAddWorkerImages: boolean
   showImages: boolean
   labelMode: DiaryLabelMode
+
+  /** Free-form arrangement template using the {banner}/{heading}/{images}/
+   *  {vsLine}/{rating}/{notes} placeholders — any order, any repeats, any
+   *  literal text/markup mixed in. A line that's just an empty placeholder
+   *  (e.g. an unused {banner}) is dropped rather than left as a gap. */
+  template: string
 }
 
 export const DEFAULT_DIARY_STYLE: DiaryStyleConfig = {
+  headingPrefix: '',
+  headingSuffix: '',
   headingBold: true,
   headingItalic: false,
   headingUnderline: false,
   headingColor: '',
   headingSize: 0,
+
+  bodyPrefix: '',
+  bodySuffix: '',
   bodyItalic: false,
   bodyColor: '',
+
+  vsSeparator: ' vs. ',
+  sideSeparator: ' & ',
+
+  ratingPrefix: 'Rating: ',
+  ratingSuffix: '%',
+
   autoAddWorkerImages: false,
   showImages: false,
   labelMode: 'text',
+
+  template: DEFAULT_DIARY_TEMPLATE,
 }
 
 /** A structured, re-editable record of a segment inserted into the diary
- *  body. The rendered text lives inline in `body` between
- *  `[segment:ID]...[/segment:ID]` markers; this object is the source data
- *  that block was generated from, so "advanced mode" can regenerate it
- *  after an edit instead of hand-parsing the markup back out. */
+ *  body. The body always contains only the plain rendered text — no
+ *  wrapper markup — so it's always safe to paste straight to a forum.
+ *  Advanced Mode locates a segment for re-editing by its exact last-known
+ *  `renderedText` rather than any inserted marker/tag. */
 export interface DiarySegment {
   id: string
   heading: string
@@ -372,9 +418,15 @@ export interface DiarySegment {
   vsLine: string
   rating: number
   competitors: PastShowCompetitor[]
+  /** Relative image path (e.g. "Events/logo.png") for the show banner, if
+   *  one was captured when this segment was inserted. */
+  bannerImage: string | null
   /** Per-segment overrides of the global style; null = inherit. */
   showImages: boolean | null
   labelMode: DiaryLabelMode | null
+  /** The exact text last rendered into the body for this segment — the
+   *  anchor used to find and replace/remove it on a later edit. */
+  renderedText: string
 }
 
 export interface DiarySummary {

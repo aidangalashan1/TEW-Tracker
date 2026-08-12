@@ -30,16 +30,25 @@ class LinkedShow(BaseModel):
 
 
 DEFAULT_STYLE_CONFIG = {
+    "headingPrefix": "",
+    "headingSuffix": "",
     "headingBold": True,
     "headingItalic": False,
     "headingUnderline": False,
     "headingColor": "",
     "headingSize": 0,
+    "bodyPrefix": "",
+    "bodySuffix": "",
     "bodyItalic": False,
     "bodyColor": "",
+    "vsSeparator": " vs. ",
+    "sideSeparator": " & ",
+    "ratingPrefix": "Rating: ",
+    "ratingSuffix": "%",
     "autoAddWorkerImages": False,
     "showImages": False,
     "labelMode": "text",
+    "template": "{banner}\n{heading}\n{images}\n{vsLine}\n{rating}\n{notes}",
 }
 
 

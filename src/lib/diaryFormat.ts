@@ -1,19 +1,20 @@
-import type { PastShowMatch, DiarySegment, DiaryStyleConfig } from '../api'
+import type { PastShow, PastShowMatch, DiarySegment, DiaryStyleConfig } from '../api'
 import { DEFAULT_DIARY_STYLE } from '../api'
 
 export type DiaryFormat = 'bbcode' | 'markdown'
 
 /** Converts a raw past-show match into the structured, re-editable segment
  *  record that both the inline text render and the advanced-mode editor
- *  work from. */
-export function matchToSegment(match: PastShowMatch): DiarySegment {
+ *  work from. `show`, if given, captures its logo as the segment's banner
+ *  image (placed wherever the style template's {banner} token sits). */
+export function matchToSegment(match: PastShowMatch, show?: PastShow, sideSeparator = ' & ', vsSeparator = ' vs. '): DiarySegment {
   const sides = new Map<number, string[]>()
   for (const comp of match.competitors || []) {
     const arr = sides.get(comp.side) || []
     arr.push(comp.name)
     sides.set(comp.side, arr)
   }
-  const vsLine = [...sides.entries()].sort((a, b) => a[0] - b[0]).map(([, names]) => names.join(' & ')).join(' vs. ')
+  const vsLine = [...sides.entries()].sort((a, b) => a[0] - b[0]).map(([, names]) => names.join(sideSeparator)).join(vsSeparator)
   return {
     id: 'seg-' + Math.random().toString(36).slice(2, 10),
     heading: match.log_entry || 'Segment',
@@ -21,13 +22,15 @@ export function matchToSegment(match: PastShowMatch): DiarySegment {
     vsLine,
     rating: match.rating || 0,
     competitors: match.competitors || [],
+    bannerImage: show?.logo ? (show.is_tv ? 'TV/' : 'Events/') + show.logo : null,
     showImages: null,
     labelMode: null,
+    renderedText: '',
   }
 }
 
 function wrapHeading(text: string, format: DiaryFormat, style: DiaryStyleConfig): string {
-  let out = text
+  let out = `${style.headingPrefix}${text}${style.headingSuffix}`
   if (format === 'bbcode') {
     if (style.headingItalic) out = `[i]${out}[/i]`
     if (style.headingUnderline) out = `[u]${out}[/u]`
@@ -42,7 +45,7 @@ function wrapHeading(text: string, format: DiaryFormat, style: DiaryStyleConfig)
 }
 
 function wrapBody(text: string, format: DiaryFormat, style: DiaryStyleConfig): string {
-  let out = text
+  let out = `${style.bodyPrefix}${text}${style.bodySuffix}`
   if (format === 'bbcode') {
     if (style.bodyItalic) out = `[i]${out}[/i]`
     if (style.bodyColor) out = `[color=${style.bodyColor}]${out}[/color]`
@@ -56,38 +59,54 @@ function imageTag(src: string, format: DiaryFormat): string {
   return format === 'bbcode' ? `[img]${src}[/img]` : `![](${src})`
 }
 
-/** Renders a structured segment into ready-to-paste diary text, honoring
- *  the entry's global style config (or a per-segment override of
- *  showImages/labelMode). `resolveWorkerImage` turns a competitor's raw
- *  picture filename into a fully-qualified URL (the caller supplies
- *  `img('People/' + picture)` from AppContext, since this module has no
- *  access to that). */
+/** Substitutes {token} placeholders in a free-form template with rendered
+ *  pieces. A line that consists solely of one placeholder is dropped
+ *  entirely when that piece is empty (so an unused {banner}/{images}/etc.
+ *  doesn't leave a blank gap) — any other line, including ones mixing a
+ *  placeholder with the user's own literal text, is kept as-is. */
+function applyTemplate(template: string, pieces: Record<string, string>): string {
+  const outLines: string[] = []
+  for (const line of template.split('\n')) {
+    const soleToken = line.trim().match(/^\{(\w+)\}$/)?.[1]
+    let resolved = line
+    for (const [key, val] of Object.entries(pieces)) resolved = resolved.split(`{${key}}`).join(val)
+    if (soleToken != null && pieces[soleToken] !== undefined && resolved.trim() === '') continue
+    outLines.push(resolved)
+  }
+  return outLines.join('\n') + '\n'
+}
+
+/** Renders a structured segment into ready-to-paste diary text. The
+ *  structured style fields (prefixes/suffixes, colors, separators) decide
+ *  what each piece looks like; `style.template` decides how those pieces
+ *  are arranged, with total freedom to reorder, repeat, omit, or mix in
+ *  arbitrary literal text/markup. `showImages` and `labelMode` are
+ *  independent: showImages alone decides whether worker photos render at
+ *  all, labelMode only decides whether the vs.-line *text* also shows.
+ *  `resolveImage` turns an already-relative path (e.g. "People/x.jpg" or
+ *  "Events/y.png") into a fully-qualified URL — the caller supplies
+ *  AppContext's `img()`, since this module has no access to it. */
 export function renderSegment(
   segment: DiarySegment,
   format: DiaryFormat,
   style: DiaryStyleConfig = DEFAULT_DIARY_STYLE,
-  resolveWorkerImage?: (picture: string) => string,
+  resolveImage?: (relPath: string) => string,
 ): string {
   const labelMode = segment.labelMode ?? style.labelMode
   const showImages = (segment.showImages ?? style.showImages) || style.autoAddWorkerImages
 
-  const lines: string[] = []
-  lines.push(wrapHeading(segment.heading || 'Segment', format, style))
-
-  if (showImages && resolveWorkerImage && (labelMode === 'image' || labelMode === 'both')) {
-    for (const comp of segment.competitors) {
-      if (comp.picture) lines.push(imageTag(resolveWorkerImage(comp.picture), format))
-    }
+  const pieces: Record<string, string> = {
+    banner: (segment.bannerImage && resolveImage) ? imageTag(resolveImage(segment.bannerImage), format) : '',
+    heading: wrapHeading(segment.heading || 'Segment', format, style),
+    images: (showImages && resolveImage)
+      ? segment.competitors.filter(c => c.picture).map(c => imageTag(resolveImage('People/' + c.picture), format)).join('\n')
+      : '',
+    vsLine: (labelMode === 'text' || labelMode === 'both') ? segment.vsLine : '',
+    rating: segment.rating > 0 ? `${style.ratingPrefix}${segment.rating}${style.ratingSuffix}` : '',
+    notes: segment.notes.trim() ? wrapBody(segment.notes.trim(), format, style) : '',
   }
 
-  if (labelMode !== 'image' && segment.vsLine) {
-    lines.push(segment.vsLine)
-  }
-
-  if (segment.rating > 0) lines.push(`Rating: ${segment.rating}%`)
-  if (segment.notes.trim()) lines.push(wrapBody(segment.notes.trim(), format, style))
-
-  return lines.filter(Boolean).join('\n') + '\n'
+  return applyTemplate(style.template || DEFAULT_DIARY_STYLE.template, pieces)
 }
 
 /** Formats a show segment/match as a ready-to-paste snippet — thin
@@ -96,39 +115,30 @@ export function buildSegmentSnippet(
   match: PastShowMatch,
   format: DiaryFormat,
   style: DiaryStyleConfig = DEFAULT_DIARY_STYLE,
-  resolveWorkerImage?: (picture: string) => string,
+  resolveImage?: (relPath: string) => string,
 ): string {
-  return renderSegment(matchToSegment(match), format, style, resolveWorkerImage)
+  return renderSegment(matchToSegment(match, undefined, style.sideSeparator, style.vsSeparator), format, style, resolveImage)
 }
 
-const segmentMarkerRe = (id: string) => new RegExp(`\\[segment:${id}\\][\\s\\S]*?\\[/segment:${id}\\]`)
-
-/** Wraps rendered segment text in invisible-on-export markers so an
- *  already-inserted segment's block can be found and replaced later
- *  (advanced-mode editing) without re-parsing the surrounding freeform
- *  prose the user typed around it. */
-export function wrapSegmentMarkers(id: string, text: string): string {
-  return `[segment:${id}]\n${text}[/segment:${id}]`
+/** Advanced Mode tracks an inserted segment by the exact text it rendered
+ *  to, rather than wrapping it in any kind of marker/tag — the diary body
+ *  must only ever contain real, postable BBCode/Markdown, never inserted
+ *  bookkeeping syntax that would show up broken on a forum. Editing a
+ *  segment finds that exact substring and swaps it for the freshly
+ *  rendered text; if it can't be found (the user hand-edited or deleted
+ *  it), the body is left untouched rather than guessing. */
+export function replaceRenderedSegment(body: string, oldText: string, newText: string): string {
+  const idx = oldText ? body.indexOf(oldText) : -1
+  if (idx === -1) return body
+  return body.slice(0, idx) + newText + body.slice(idx + oldText.length)
 }
 
-/** Replaces an existing segment's marked block with freshly rendered text
- *  (id/markers preserved), or appends nothing if the block can't be found
- *  (e.g. the user manually deleted it from the body). */
-export function replaceSegmentBlock(body: string, id: string, newText: string): string {
-  const re = segmentMarkerRe(id)
-  if (!re.test(body)) return body
-  return body.replace(re, wrapSegmentMarkers(id, newText))
-}
-
-/** Removes a segment's marked block (and the markers) entirely. */
-export function removeSegmentBlock(body: string, id: string): string {
-  return body.replace(segmentMarkerRe(id), '').replace(/\n{3,}/g, '\n\n')
-}
-
-/** Strips `[segment:ID]`/`[/segment:ID]` markers for export/preview/copy —
- *  they're bookkeeping for the advanced-mode editor, not diary content. */
-export function stripSegmentMarkers(text: string): string {
-  return text.replace(/\[\/?segment:[^\]]+\]\n?/g, '')
+/** Removes a previously-inserted segment's exact rendered text from the
+ *  body, or leaves it untouched if it can no longer be found. */
+export function removeRenderedSegment(body: string, text: string): string {
+  const idx = text ? body.indexOf(text) : -1
+  if (idx === -1) return body
+  return (body.slice(0, idx) + body.slice(idx + text.length)).replace(/\n{3,}/g, '\n\n')
 }
 
 /** Best-effort Markdown -> GDS-style BBCode conversion for export/copy.
