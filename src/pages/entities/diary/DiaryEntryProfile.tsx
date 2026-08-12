@@ -25,7 +25,7 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
   const { focusedFed, playerFed, ratingFormat, img } = useApp()
   const fed = focusedFed || playerFed
   const fedUid = fed?.uid
-  const resolveWorkerImage = (picture: string) => img('People/' + picture)
+  const resolveImage = (relPath: string) => img(relPath)
 
   const { data: entry, error, setData: setEntry } = useSWR('diary-entry-' + entryId, () => api.diary.get(entryId))
   const { data: showsData } = useSWR(fedUid != null ? 'past-shows-' + fedUid : null, () => api.show_history.list(fedUid!, 100))
@@ -152,16 +152,24 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
     api.diary.update(entryId, { segments: next }).catch(() => {})
   }
 
+  // Markers are only added when Advanced Mode is on and the segment is
+  // meant to be individually re-editable later — otherwise the segment
+  // renders as plain text with no wrapper markup at all, so a user who
+  // never opens Advanced Mode never sees anything but their own diary text.
   const insertSegment = (show: PastShow, match: PastShow['matches'][number]) => {
-    const seg = matchToSegment(match)
-    const rendered = renderSegment(seg, format, style, resolveWorkerImage)
-    insertAtCursor(wrapSegmentMarkers(seg.id, rendered))
-    persistSegments([...segments, seg])
+    const seg = matchToSegment(match, show, style.sideSeparator, style.vsSeparator)
+    const rendered = renderSegment(seg, format, style, resolveImage)
+    if (advancedMode) {
+      insertAtCursor(wrapSegmentMarkers(seg.id, rendered))
+      persistSegments([...segments, seg])
+    } else {
+      insertAtCursor(rendered)
+    }
     linkShow(show)
   }
 
   const saveSegmentEdit = (updated: DiarySegment) => {
-    const rendered = renderSegment(updated, format, style, resolveWorkerImage)
+    const rendered = renderSegment(updated, format, style, resolveImage)
     const nextBody = replaceSegmentBlock(body, updated.id, rendered)
     applySnapshot({ text: nextBody, selStart: nextBody.length, selEnd: nextBody.length }, true)
     persistSegments(segments.map(s => s.id === updated.id ? updated : s))
