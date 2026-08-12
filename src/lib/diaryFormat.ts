@@ -1,4 +1,4 @@
-import type { PastShow, PastShowMatch, DiarySegment, DiaryStyleConfig } from '../api'
+import type { PastShow, PastShowMatch, DiarySegment, DiaryStyleConfig, DiaryImageAlign } from '../api'
 import { DEFAULT_DIARY_STYLE } from '../api'
 
 export type DiaryFormat = 'bbcode' | 'markdown'
@@ -55,8 +55,20 @@ function wrapBody(text: string, format: DiaryFormat, style: DiaryStyleConfig): s
   return out
 }
 
-function imageTag(src: string, format: DiaryFormat): string {
-  return format === 'bbcode' ? `[img]${src}[/img]` : `![](${src})`
+function imageTag(src: string, format: DiaryFormat, widthPx: number): string {
+  if (format === 'bbcode') return widthPx > 0 ? `[img width=${widthPx}]${src}[/img]` : `[img]${src}[/img]`
+  return widthPx > 0 ? `<img src="${src}" width="${widthPx}" />` : `![](${src})`
+}
+
+/** Wraps a block of one or more image tags in an alignment tag. BBCode's
+ *  [left]/[center]/[right] tags (already understood by the forum-preview
+ *  renderer) are reused directly; Markdown gets an equivalent `<div
+ *  align>` since inline HTML is generally accepted there too. No-op for
+ *  'none' or empty text. */
+function wrapAlign(text: string, format: DiaryFormat, align: DiaryImageAlign): string {
+  if (!text || align === 'none') return text
+  if (format === 'bbcode') return `[${align}]${text}[/${align}]`
+  return `<div align="${align}">\n\n${text}\n\n</div>`
 }
 
 /** Substitutes {token} placeholders in a free-form template with rendered
@@ -95,12 +107,22 @@ export function renderSegment(
   const labelMode = segment.labelMode ?? style.labelMode
   const showImages = (segment.showImages ?? style.showImages) || style.autoAddWorkerImages
 
+  const banner = (segment.bannerImage && resolveImage)
+    ? wrapAlign(imageTag(resolveImage(segment.bannerImage), format, style.imageWidth), format, style.imageAlign)
+    : ''
+  const images = (showImages && resolveImage)
+    ? wrapAlign(
+        segment.competitors.filter(c => c.picture)
+          .map(c => imageTag(resolveImage('People/' + c.picture), format, style.imageWidth))
+          .join(style.imageLayout === 'inline' ? ' ' : '\n'),
+        format, style.imageAlign,
+      )
+    : ''
+
   const pieces: Record<string, string> = {
-    banner: (segment.bannerImage && resolveImage) ? imageTag(resolveImage(segment.bannerImage), format) : '',
+    banner,
     heading: wrapHeading(segment.heading || 'Segment', format, style),
-    images: (showImages && resolveImage)
-      ? segment.competitors.filter(c => c.picture).map(c => imageTag(resolveImage('People/' + c.picture), format)).join('\n')
-      : '',
+    images,
     vsLine: (labelMode === 'text' || labelMode === 'both') ? segment.vsLine : '',
     rating: segment.rating > 0 ? `${style.ratingPrefix}${segment.rating}${style.ratingSuffix}` : '',
     notes: segment.notes.trim() ? wrapBody(segment.notes.trim(), format, style) : '',
@@ -212,7 +234,8 @@ export function bbcodeToHtml(bbcode: string): string {
 
   html = html.replace(/\[url=([^\]]+)\]([\s\S]*?)\[\/url\]/gi, (_m, href, text) => `<a href="${sanitizeHref(href)}" target="_blank" rel="noopener noreferrer">${text}</a>`)
   html = html.replace(/\[url\]([\s\S]*?)\[\/url\]/gi, (_m, href) => `<a href="${sanitizeHref(href)}" target="_blank" rel="noopener noreferrer">${href}</a>`)
-  html = html.replace(/\[img\]([\s\S]*?)\[\/img\]/gi, (_m, src) => `<img src="${sanitizeHref(src)}" style="max-width:100%;border-radius:4px;" />`)
+  html = html.replace(/\[img(?:\s+width=(\d+))?\]([\s\S]*?)\[\/img\]/gi, (_m, w, src) =>
+    `<img src="${sanitizeHref(src)}" style="${w ? `width:${w}px;` : 'max-width:100%;'}border-radius:4px;" />`)
 
   html = html.replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<b>$1</b>')
   html = html.replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<i>$1</i>')

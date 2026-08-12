@@ -1,4 +1,4 @@
-import { DIARY_TEMPLATE_TOKENS, DEFAULT_DIARY_TEMPLATE, type DiaryStyleConfig, type DiaryLabelMode } from '../../../api'
+import { DIARY_TEMPLATE_TOKENS, DEFAULT_DIARY_TEMPLATE, type DiaryStyleConfig, type DiaryLabelMode, type DiaryImageLayout, type DiaryImageAlign } from '../../../api'
 
 /** Collapsible panel that edits the entry's DiaryStyleConfig — the
  *  structured fields (prefixes/suffixes, colors, separators) control what
@@ -88,6 +88,35 @@ export function DiaryStylePanel({ style, onChange }: { style: DiaryStyleConfig; 
               {mode === 'text' ? 'Text only' : mode === 'both' ? 'Text + images' : 'Hide text'}
             </span>
           ))}
+        </div>
+      </div>
+
+      <div>
+        <div style={sectionLabel}>Image Size &amp; Layout — applies to worker photos and the banner</div>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+          <label style={labelStyle}>Width (px)
+            <input
+              type="number" min={0} placeholder="Original"
+              value={style.imageWidth || ''} onChange={e => onChange({ imageWidth: Number(e.target.value) || 0 })}
+              style={{ ...selectStyle, width: 80 }}
+            />
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Multiple images:</span>
+            {(['stacked', 'inline'] as DiaryImageLayout[]).map(l => (
+              <span key={l} style={chipStyle(style.imageLayout === l)} onClick={() => onChange({ imageLayout: l })}>
+                {l === 'stacked' ? 'New line each' : 'Side by side'}
+              </span>
+            ))}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Align:</span>
+            {(['none', 'left', 'center', 'right'] as DiaryImageAlign[]).map(a => (
+              <span key={a} style={chipStyle(style.imageAlign === a)} onClick={() => onChange({ imageAlign: a })}>
+                {a === 'none' ? 'Default' : a.charAt(0).toUpperCase() + a.slice(1)}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
