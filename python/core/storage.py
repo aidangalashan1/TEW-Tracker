@@ -171,6 +171,12 @@ def cards_dir() -> str:
     return d
 
 
+def rankings_dir() -> str:
+    d = os.path.join(save_dir(), "rankings")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
 def shortlist_path() -> str:
     return os.path.join(save_dir(), "shortlist.json")
 

@@ -460,6 +460,10 @@ export const api = {
     detail: (uid: number) => request<import('./api-types').Worker>(`/roster/${uid}`),
     form: (uid: number) => request<WorkerForm>(`/roster/${uid}/form`),
     rosterForm: (fed_uid?: number) => request<RosterForm>(`/roster/form${fed_uid ? `?fed_uid=${fed_uid}` : ''}`),
+    rankings: (fed_uid?: number) =>
+      request<{rankings: import('./api-types').PowerRanking[]; weights: Record<string, number>}>(
+        `/roster/rankings${fed_uid ? `?fed_uid=${fed_uid}` : ''}`
+      ),
   },
 
   freeAgents: {

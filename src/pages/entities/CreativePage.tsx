@@ -2,6 +2,7 @@ import { useApp } from '../../context/AppContext'
 import { ScheduleTab } from './show/ScheduleTab'
 import { ShowHistoryTab } from './show/ShowHistoryTab'
 import { SegmentsTab } from './show/SegmentsTab'
+import { PowerRankingsTab } from './show/PowerRankingsTab'
 import { StorylinesTab } from './storyline/StorylinesTab'
 import { ArcsTab } from './arc/ArcsTab'
 import { DiaryTab } from './diary/DiaryTab'
@@ -14,6 +15,7 @@ export function CreativePage() {
       {creativeTab === 'schedule' && <ScheduleTab />}
       {creativeTab === 'history' && <ShowHistoryTab />}
       {creativeTab === 'segments' && <SegmentsTab />}
+      {creativeTab === 'rankings' && <PowerRankingsTab />}
       {creativeTab === 'storylines' && <StorylinesTab />}
       {creativeTab === 'arcs' && <ArcsTab />}
       {creativeTab === 'diary' && <DiaryTab />}
