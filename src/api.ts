@@ -333,6 +333,14 @@ export interface DiaryLinkedShow {
  *  whether images show — that's `showImages`, independently. */
 export type DiaryLabelMode = 'text' | 'image' | 'both'
 
+/** Whether multiple images (worker photos) sit stacked one per line or
+ *  side by side on the same line. */
+export type DiaryImageLayout = 'stacked' | 'inline'
+
+/** Horizontal alignment applied to an image (or row of images) — 'none'
+ *  leaves it inline with whatever surrounds it in the template. */
+export type DiaryImageAlign = 'none' | 'left' | 'center' | 'right'
+
 /** Placeholder tokens substituted into `template` when a segment renders.
  *  Kept purely as documentation/autocomplete hints — the renderer accepts
  *  any of these appearing anywhere, any number of times, in the template. */
@@ -372,6 +380,12 @@ export interface DiaryStyleConfig {
   showImages: boolean
   labelMode: DiaryLabelMode
 
+  /** Image width in pixels applied to both worker photos and the banner
+   *  image; 0 = original size, no explicit width tag. */
+  imageWidth: number
+  imageLayout: DiaryImageLayout
+  imageAlign: DiaryImageAlign
+
   /** Free-form arrangement template using the {banner}/{heading}/{images}/
    *  {vsLine}/{rating}/{notes} placeholders — any order, any repeats, any
    *  literal text/markup mixed in. A line that's just an empty placeholder
@@ -402,6 +416,10 @@ export const DEFAULT_DIARY_STYLE: DiaryStyleConfig = {
   autoAddWorkerImages: false,
   showImages: false,
   labelMode: 'text',
+
+  imageWidth: 0,
+  imageLayout: 'stacked',
+  imageAlign: 'none',
 
   template: DEFAULT_DIARY_TEMPLATE,
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useApp } from '../../../context/AppContext'
 import { api, DEFAULT_DIARY_STYLE, type PastShow, type DiarySegment, type DiaryStyleConfig } from '../../../api'
 import useSWR from '../../../hooks/useApi'
@@ -43,9 +44,11 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
   const [format, setFormat] = useState<'bbcode' | 'markdown'>('bbcode')
   const bodyHistory = useTextUndoRedo('')
   const body = bodyHistory.text
-  const [showPicker, setShowPicker] = useState(false)
-  const [showCollateral, setShowCollateral] = useState(false)
-  const [showStylePanel, setShowStylePanel] = useState(false)
+  // Only one overlay open at a time — picker/style/collateral used to be
+  // inline panels that all stacked above the textarea simultaneously,
+  // crowding out the editor and preview. They're modals now so the editor
+  // stays the fixed, dominant element on the page no matter what's open.
+  const [openModal, setOpenModal] = useState<'picker' | 'style' | 'collateral' | null>(null)
   const [advancedMode, setAdvancedMode] = useState(false)
   const [pickerSearch, setPickerSearch] = useState('')
   const [pickedShowUid, setPickedShowUid] = useState<number | null>(null)
@@ -235,158 +238,172 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button className="manage-view-btn" onClick={() => setShowPicker(p => !p)}>
-          {showPicker ? 'Hide Segment Picker' : 'Insert Segment…'}
-        </button>
-        <button className="manage-view-btn" onClick={() => setShowStylePanel(p => !p)}>
-          {showStylePanel ? 'Hide Formatting Style' : 'Formatting Style…'}
-        </button>
+        <button className="manage-view-btn" onClick={() => setOpenModal('picker')}>Insert Segment…</button>
+        <button className="manage-view-btn" onClick={() => setOpenModal('style')}>Formatting Style…</button>
+        <button className="manage-view-btn" onClick={() => setOpenModal('collateral')}>Collateral…</button>
         <button
           className="manage-view-btn"
           style={advancedMode ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
           onClick={() => setAdvancedMode(p => !p)}
-          title="Edit inserted segments individually via a popout editor"
+          title="Show the segments panel to edit inserted segments individually"
         >
           {advancedMode ? 'Advanced Mode: On' : 'Advanced Mode: Off'}
         </button>
-        <button className="manage-view-btn" onClick={copyToClipboard}>
+        <button className="manage-view-btn" onClick={copyToClipboard} style={{ marginLeft: 'auto' }}>
           {copied ? 'Copied!' : format === 'markdown' ? 'Copy as BBCode' : 'Copy to Forum'}
         </button>
-        {entry.linkedShows.length > 0 && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {entry.linkedShows.map(s => (
-              <span key={s.showUid} style={{ fontSize: 11, background: 'var(--bg-secondary)', color: 'var(--text-secondary)', borderRadius: 12, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                {s.showName} ({fmtDateOrdinal(s.showDate)})
-                <span style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => unlinkShow(s.showUid)}>×</span>
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
-      {showPicker && (
-        <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 12, display: 'flex', gap: 12, maxHeight: 340 }}>
-          <div style={{ flex: '0 0 220px', overflowY: 'auto' }}>
-            <input
-              value={pickerSearch}
-              onChange={e => setPickerSearch(e.target.value)}
-              placeholder="Search shows…"
-              className="search-input"
-              style={{ width: '100%', marginBottom: 8 }}
-            />
-            {filteredShows.map(s => (
-              <div
-                key={s.uid}
-                onClick={() => setPickedShowUid(s.uid)}
-                title="Browse this show's segments"
-                style={{
-                  padding: '6px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 12, color: '#fff',
-                  background: pickedShowUid === s.uid ? 'var(--bg-tertiary)' : 'transparent',
-                }}
-              >
-                {s.name}
-                <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{fmtDateOrdinal(s.date)} · {s.matches.length} segment{s.matches.length === 1 ? '' : 's'}</div>
-              </div>
-            ))}
-            {filteredShows.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: 8 }}>No shows found</div>}
-          </div>
-          <div style={{ flex: 1, minWidth: 260, overflowY: 'auto', borderLeft: '1px solid var(--border-color)', paddingLeft: 12 }}>
-            {!pickedShow && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Select a show on the left to browse its segments</div>}
-            {pickedShow && pickedShow.matches.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No segments recorded for this show</div>}
-            {[...(pickedShow?.matches || [])].map(m => {
-              const sides = new Map<number, string[]>()
-              for (const c of m.competitors || []) {
-                const arr = sides.get(c.side) || []
-                arr.push(c.name)
-                sides.set(c.side, arr)
-              }
-              const vsLine = [...sides.entries()].sort((a, b) => a[0] - b[0]).map(([, names]) => names.join(' & ')).join(' vs. ')
-              return (
-                <div key={m.uid} style={{ padding: '8px 4px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{m.log_entry || 'Segment'}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      {m.rating > 0 && (
-                        <span style={{ background: ratingColor(m.rating), color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px' }}>
-                          {formatRatingPct(m.rating, ratingFormat)}
-                        </span>
-                      )}
-                      <button className="manage-view-btn" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => pickedShow && insertSegment(pickedShow, m)}>Insert</button>
-                    </div>
-                  </div>
-                  {vsLine && <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{vsLine}</div>}
-                </div>
-              )
-            })}
-          </div>
+      {entry.linkedShows.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {entry.linkedShows.map(s => (
+            <span key={s.showUid} style={{ fontSize: 11, background: 'var(--bg-secondary)', color: 'var(--text-secondary)', borderRadius: 12, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {s.showName} ({fmtDateOrdinal(s.showDate)})
+              <span style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => unlinkShow(s.showUid)}>×</span>
+            </span>
+          ))}
         </div>
       )}
-
-      {showStylePanel && <DiaryStylePanel style={style} onChange={persistStyle} />}
 
       <DiaryToolbar
         format={format} onCommand={runToolbarCommand} onColor={runColor} onSize={runSize} onImage={runImage}
         onUndo={runUndo} onRedo={runRedo} canUndo={bodyHistory.canUndo} canRedo={bodyHistory.canRedo}
-        onOpenCollateral={() => setShowCollateral(p => !p)}
+        onOpenCollateral={() => setOpenModal('collateral')}
       />
 
-      {showCollateral && <CollateralPanel fedUid={fedUid} />}
+      {/* The editor+preview column is always the dominant element on the
+          page; Advanced Mode adds a sidebar next to it instead of pushing
+          it down, so neither ever has to fight the other for height. */}
+      <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+          <textarea
+            ref={bodyRef}
+            value={body}
+            onChange={e => applySnapshot({ text: e.target.value, selStart: e.target.selectionStart, selEnd: e.target.selectionEnd }, false)}
+            onKeyDown={e => {
+              const mod = e.ctrlKey || e.metaKey
+              if (!mod) return
+              const key = e.key.toLowerCase()
+              if (key === 'z' && !e.shiftKey) { e.preventDefault(); runUndo() }
+              else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); runRedo() }
+            }}
+            placeholder={format === 'bbcode' ? 'Write your diary in BBCode…' : 'Write your diary in Markdown…'}
+            style={{
+              flex: 1, minHeight: 120, resize: 'none', background: 'var(--bg-secondary)', color: '#fff',
+              border: '1px solid var(--border-color)', borderRadius: 8, padding: 14,
+              fontFamily: 'var(--font-mono, monospace)', fontSize: 13, lineHeight: 1.5,
+            }}
+          />
 
-      {advancedMode && (
-        <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            Segments in this entry
+          <div style={{ flex: '0 0 auto' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+              Preview — how this will look on the forum
+            </div>
+            {body ? (
+              <div
+                style={{
+                  background: 'var(--bg-tertiary)', color: '#fff', borderRadius: 8, padding: '10px 14px',
+                  fontSize: 13, lineHeight: 1.6, maxHeight: 180, overflowY: 'auto',
+                }}
+                dangerouslySetInnerHTML={{ __html: bbcodeToHtml(exportText) }}
+              />
+            ) : (
+              <div style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', borderRadius: 8, padding: 12, fontSize: 12 }}>—</div>
+            )}
           </div>
-          {segments.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No segments inserted yet — use "Insert Segment…" above, then edit them here.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {segments.map(seg => (
-              <div key={seg.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, background: 'var(--bg-tertiary)', borderRadius: 6, padding: '6px 10px' }}>
-                <div>
+        </div>
+
+        {advancedMode && (
+          <div style={{ flex: '0 0 260px', display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)', borderRadius: 8, padding: 12, overflowY: 'auto' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+              Segments in this entry
+            </div>
+            {segments.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No segments inserted yet — use "Insert Segment…" above, then edit them here.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {segments.map(seg => (
+                <div key={seg.id} style={{ background: 'var(--bg-tertiary)', borderRadius: 6, padding: '6px 10px' }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{seg.heading}</div>
                   {seg.vsLine && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{seg.vsLine}</div>}
+                  <button className="manage-view-btn" style={{ fontSize: 11, padding: '2px 8px', marginTop: 4 }} onClick={() => setEditingSegment(seg)}>Edit…</button>
                 </div>
-                <button className="manage-view-btn" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => setEditingSegment(seg)}>Edit…</button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-
-      <textarea
-        ref={bodyRef}
-        value={body}
-        onChange={e => applySnapshot({ text: e.target.value, selStart: e.target.selectionStart, selEnd: e.target.selectionEnd }, false)}
-        onKeyDown={e => {
-          const mod = e.ctrlKey || e.metaKey
-          if (!mod) return
-          const key = e.key.toLowerCase()
-          if (key === 'z' && !e.shiftKey) { e.preventDefault(); runUndo() }
-          else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); runRedo() }
-        }}
-        placeholder={format === 'bbcode' ? 'Write your diary in BBCode…' : 'Write your diary in Markdown…'}
-        style={{
-          flex: 1, resize: 'none', background: 'var(--bg-secondary)', color: '#fff',
-          border: '1px solid var(--border-color)', borderRadius: 8, padding: 14,
-          fontFamily: 'var(--font-mono, monospace)', fontSize: 13, lineHeight: 1.5,
-        }}
-      />
-
-      <div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-          Preview — how this will look on the forum
-        </div>
-        {body ? (
-          <div
-            style={{
-              background: 'var(--bg-tertiary)', color: '#fff', borderRadius: 8, padding: '10px 14px',
-              fontSize: 13, lineHeight: 1.6, maxHeight: 200, overflowY: 'auto',
-            }}
-            dangerouslySetInnerHTML={{ __html: bbcodeToHtml(exportText) }}
-          />
-        ) : (
-          <div style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)', borderRadius: 8, padding: 12, fontSize: 12 }}>—</div>
         )}
       </div>
+
+      {openModal === 'picker' && (
+        <ModalShell title="Insert Segment" onClose={() => setOpenModal(null)} maxWidth={720}>
+          <div style={{ display: 'flex', gap: 12, height: 420 }}>
+            <div style={{ flex: '0 0 220px', overflowY: 'auto' }}>
+              <input
+                value={pickerSearch}
+                onChange={e => setPickerSearch(e.target.value)}
+                placeholder="Search shows…"
+                className="search-input"
+                style={{ width: '100%', marginBottom: 8 }}
+                autoFocus
+              />
+              {filteredShows.map(s => (
+                <div
+                  key={s.uid}
+                  onClick={() => setPickedShowUid(s.uid)}
+                  title="Browse this show's segments"
+                  style={{
+                    padding: '6px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 12, color: '#fff',
+                    background: pickedShowUid === s.uid ? 'var(--bg-tertiary)' : 'transparent',
+                  }}
+                >
+                  {s.name}
+                  <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{fmtDateOrdinal(s.date)} · {s.matches.length} segment{s.matches.length === 1 ? '' : 's'}</div>
+                </div>
+              ))}
+              {filteredShows.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: 8 }}>No shows found</div>}
+            </div>
+            <div style={{ flex: 1, minWidth: 260, overflowY: 'auto', borderLeft: '1px solid var(--border-color)', paddingLeft: 12 }}>
+              {!pickedShow && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Select a show on the left to browse its segments</div>}
+              {pickedShow && pickedShow.matches.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No segments recorded for this show</div>}
+              {[...(pickedShow?.matches || [])].map(m => {
+                const sides = new Map<number, string[]>()
+                for (const c of m.competitors || []) {
+                  const arr = sides.get(c.side) || []
+                  arr.push(c.name)
+                  sides.set(c.side, arr)
+                }
+                const vsLine = [...sides.entries()].sort((a, b) => a[0] - b[0]).map(([, names]) => names.join(' & ')).join(' vs. ')
+                return (
+                  <div key={m.uid} style={{ padding: '8px 4px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{m.log_entry || 'Segment'}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        {m.rating > 0 && (
+                          <span style={{ background: ratingColor(m.rating), color: '#fff', borderRadius: 3, padding: '0 5px', fontWeight: 700, fontSize: 10, lineHeight: '16px' }}>
+                            {formatRatingPct(m.rating, ratingFormat)}
+                          </span>
+                        )}
+                        <button className="manage-view-btn" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => { if (pickedShow) { insertSegment(pickedShow, m); setOpenModal(null) } }}>Insert</button>
+                      </div>
+                    </div>
+                    {vsLine && <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{vsLine}</div>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </ModalShell>
+      )}
+
+      {openModal === 'style' && (
+        <ModalShell title="Formatting Style" onClose={() => setOpenModal(null)} maxWidth={640}>
+          <DiaryStylePanel style={style} onChange={persistStyle} />
+        </ModalShell>
+      )}
+
+      {openModal === 'collateral' && (
+        <ModalShell title="Collateral" onClose={() => setOpenModal(null)} maxWidth={640}>
+          <CollateralPanel fedUid={fedUid} />
+        </ModalShell>
+      )}
 
       {editingSegment && (
         <DiarySegmentModal
@@ -399,5 +416,25 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
         />
       )}
     </div>
+  )
+}
+
+/** Shared portal chrome for the picker/style/collateral overlays — same
+ *  modal-overlay/modal classes and backdrop-click-to-close pattern used
+ *  throughout the app (see ArcItemModal). */
+function ModalShell({ title, maxWidth, onClose, children }: { title: string; maxWidth: number; onClose: () => void; children: React.ReactNode }) {
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">{title}</span>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body" style={{ padding: 14, maxHeight: '75vh', overflowY: 'auto' }}>
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

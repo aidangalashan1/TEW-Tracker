@@ -48,6 +48,9 @@ DEFAULT_STYLE_CONFIG = {
     "autoAddWorkerImages": False,
     "showImages": False,
     "labelMode": "text",
+    "imageWidth": 0,
+    "imageLayout": "stacked",
+    "imageAlign": "none",
     "template": "{banner}\n{heading}\n{images}\n{vsLine}\n{rating}\n{notes}",
 }
 
