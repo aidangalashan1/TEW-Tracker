@@ -407,10 +407,10 @@ export const DEFAULT_DIARY_STYLE: DiaryStyleConfig = {
 }
 
 /** A structured, re-editable record of a segment inserted into the diary
- *  body. In Advanced Mode, the rendered text lives inline in `body` between
- *  `[segment:ID]...[/segment:ID]` markers so the block can be found and
- *  regenerated after an edit; in normal mode, segments are inserted as
- *  plain text with no markup wrapper and aren't individually re-editable. */
+ *  body. The body always contains only the plain rendered text — no
+ *  wrapper markup — so it's always safe to paste straight to a forum.
+ *  Advanced Mode locates a segment for re-editing by its exact last-known
+ *  `renderedText` rather than any inserted marker/tag. */
 export interface DiarySegment {
   id: string
   heading: string
@@ -424,6 +424,9 @@ export interface DiarySegment {
   /** Per-segment overrides of the global style; null = inherit. */
   showImages: boolean | null
   labelMode: DiaryLabelMode | null
+  /** The exact text last rendered into the body for this segment — the
+   *  anchor used to find and replace/remove it on a later edit. */
+  renderedText: string
 }
 
 export interface DiarySummary {

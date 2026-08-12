@@ -25,6 +25,7 @@ export function matchToSegment(match: PastShowMatch, show?: PastShow, sideSepara
     bannerImage: show?.logo ? (show.is_tv ? 'TV/' : 'Events/') + show.logo : null,
     showImages: null,
     labelMode: null,
+    renderedText: '',
   }
 }
 
@@ -119,34 +120,25 @@ export function buildSegmentSnippet(
   return renderSegment(matchToSegment(match, undefined, style.sideSeparator, style.vsSeparator), format, style, resolveImage)
 }
 
-const segmentMarkerRe = (id: string) => new RegExp(`\\[segment:${id}\\][\\s\\S]*?\\[/segment:${id}\\]`)
-
-/** Wraps rendered segment text in invisible-on-export markers so an
- *  already-inserted segment's block can be found and replaced later
- *  (advanced-mode editing) without re-parsing the surrounding freeform
- *  prose the user typed around it. */
-export function wrapSegmentMarkers(id: string, text: string): string {
-  return `[segment:${id}]\n${text}[/segment:${id}]`
+/** Advanced Mode tracks an inserted segment by the exact text it rendered
+ *  to, rather than wrapping it in any kind of marker/tag — the diary body
+ *  must only ever contain real, postable BBCode/Markdown, never inserted
+ *  bookkeeping syntax that would show up broken on a forum. Editing a
+ *  segment finds that exact substring and swaps it for the freshly
+ *  rendered text; if it can't be found (the user hand-edited or deleted
+ *  it), the body is left untouched rather than guessing. */
+export function replaceRenderedSegment(body: string, oldText: string, newText: string): string {
+  const idx = oldText ? body.indexOf(oldText) : -1
+  if (idx === -1) return body
+  return body.slice(0, idx) + newText + body.slice(idx + oldText.length)
 }
 
-/** Replaces an existing segment's marked block with freshly rendered text
- *  (id/markers preserved), or appends nothing if the block can't be found
- *  (e.g. the user manually deleted it from the body). */
-export function replaceSegmentBlock(body: string, id: string, newText: string): string {
-  const re = segmentMarkerRe(id)
-  if (!re.test(body)) return body
-  return body.replace(re, wrapSegmentMarkers(id, newText))
-}
-
-/** Removes a segment's marked block (and the markers) entirely. */
-export function removeSegmentBlock(body: string, id: string): string {
-  return body.replace(segmentMarkerRe(id), '').replace(/\n{3,}/g, '\n\n')
-}
-
-/** Strips `[segment:ID]`/`[/segment:ID]` markers for export/preview/copy —
- *  they're bookkeeping for the advanced-mode editor, not diary content. */
-export function stripSegmentMarkers(text: string): string {
-  return text.replace(/\[\/?segment:[^\]]+\]\n?/g, '')
+/** Removes a previously-inserted segment's exact rendered text from the
+ *  body, or leaves it untouched if it can no longer be found. */
+export function removeRenderedSegment(body: string, text: string): string {
+  const idx = text ? body.indexOf(text) : -1
+  if (idx === -1) return body
+  return (body.slice(0, idx) + body.slice(idx + text.length)).replace(/\n{3,}/g, '\n\n')
 }
 
 /** Best-effort Markdown -> GDS-style BBCode conversion for export/copy.

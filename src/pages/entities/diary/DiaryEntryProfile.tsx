@@ -5,7 +5,7 @@ import useSWR from '../../../hooks/useApi'
 import { fmtDateOrdinal } from '../../../lib/dates'
 import { ratingColor } from '../../../lib/colors'
 import { formatRatingPct } from '../../../lib/grade'
-import { matchToSegment, renderSegment, wrapSegmentMarkers, replaceSegmentBlock, removeSegmentBlock, stripSegmentMarkers, markdownToBBCode, bbcodeToHtml } from '../../../lib/diaryFormat'
+import { matchToSegment, renderSegment, replaceRenderedSegment, removeRenderedSegment, markdownToBBCode, bbcodeToHtml } from '../../../lib/diaryFormat'
 import { applyToolbarCommand, applyColor, applySize, applyImage, type ToolbarCommand } from '../../../lib/textEditCommands'
 import { useTextUndoRedo } from '../../../lib/useTextUndoRedo'
 import { DiaryToolbar } from './DiaryToolbar'
@@ -152,32 +152,33 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
     api.diary.update(entryId, { segments: next }).catch(() => {})
   }
 
-  // Markers are only added when Advanced Mode is on and the segment is
-  // meant to be individually re-editable later — otherwise the segment
-  // renders as plain text with no wrapper markup at all, so a user who
-  // never opens Advanced Mode never sees anything but their own diary text.
+  // The body always gets only the plain rendered segment text — no marker
+  // or bookkeeping tags are ever inserted, so it's always safe to copy
+  // straight to a forum. When Advanced Mode is on, the segment is also
+  // tracked by that exact rendered text so it can be found and swapped for
+  // a re-rendered version later; if the text can no longer be found (the
+  // user hand-edited or deleted it), edits/removals leave the body alone.
   const insertSegment = (show: PastShow, match: PastShow['matches'][number]) => {
     const seg = matchToSegment(match, show, style.sideSeparator, style.vsSeparator)
     const rendered = renderSegment(seg, format, style, resolveImage)
+    insertAtCursor(rendered)
     if (advancedMode) {
-      insertAtCursor(wrapSegmentMarkers(seg.id, rendered))
-      persistSegments([...segments, seg])
-    } else {
-      insertAtCursor(rendered)
+      persistSegments([...segments, { ...seg, renderedText: rendered }])
     }
     linkShow(show)
   }
 
   const saveSegmentEdit = (updated: DiarySegment) => {
     const rendered = renderSegment(updated, format, style, resolveImage)
-    const nextBody = replaceSegmentBlock(body, updated.id, rendered)
+    const nextBody = replaceRenderedSegment(body, updated.renderedText, rendered)
     applySnapshot({ text: nextBody, selStart: nextBody.length, selEnd: nextBody.length }, true)
-    persistSegments(segments.map(s => s.id === updated.id ? updated : s))
+    persistSegments(segments.map(s => s.id === updated.id ? { ...updated, renderedText: rendered } : s))
     setEditingSegment(null)
   }
 
   const removeSegmentEdit = (id: string) => {
-    const nextBody = removeSegmentBlock(body, id)
+    const seg = segments.find(s => s.id === id)
+    const nextBody = seg ? removeRenderedSegment(body, seg.renderedText) : body
     applySnapshot({ text: nextBody, selStart: nextBody.length, selEnd: nextBody.length }, true)
     persistSegments(segments.filter(s => s.id !== id))
     setEditingSegment(null)
@@ -196,8 +197,7 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
     api.diary.update(entryId, { linkedShows: next }).then(r => setEntry(r.entry)).catch(() => {})
   }
 
-  const cleanBody = stripSegmentMarkers(body)
-  const exportText = format === 'markdown' ? markdownToBBCode(cleanBody) : cleanBody
+  const exportText = format === 'markdown' ? markdownToBBCode(body) : body
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(exportText).then(() => {
@@ -375,7 +375,7 @@ export function DiaryEntryProfile({ entryId }: { entryId: string }) {
         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
           Preview — how this will look on the forum
         </div>
-        {cleanBody ? (
+        {body ? (
           <div
             style={{
               background: 'var(--bg-tertiary)', color: '#fff', borderRadius: 8, padding: '10px 14px',
